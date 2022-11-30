@@ -35,46 +35,26 @@ func newBrokerCommand() {
 	db := openDB()
 	defer db.Close()
 
+	bro.accountId = getAccountID(db, accountName)
+
 	tx, err := db.Begin()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	sqlStmt := "SELECT id FROM account WHERE name = $1 ;"
-	if err := tx.QueryRow(sqlStmt, accountName).Scan(&bro.accountId); err != nil {
-		log.Fatal("Couldn't get account ID:", err)
-	}
-
-	log.Debug("Account found: ", bro.accountId)
-
-	sqlStmt = `INSERT INTO broker (name, accountId) VALUES ($1, $2);`
+	sqlStmt := `INSERT INTO brokerHead (name, accountId) VALUES ($1, $2);`
 	_, err = tx.Exec(sqlStmt, bro.name, bro.accountId)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	sqlStmt = "SELECT id FROM broker WHERE name = $1 ;"
+	sqlStmt = "SELECT id FROM brokerHead WHERE name = $1 ;"
 	if err := tx.QueryRow(sqlStmt, bro.name).Scan(&bro.id); err != nil {
 		log.Fatal("Couldn't get broker ID:", err)
 	}
 
-	sqlStmt = `
-		INSERT INTO brokerSetting
-			( brokerId, status, minWait, maxWait, highLimit, lowLimit, delta, offset )
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
-	`
-	_, err = tx.Exec(sqlStmt,
-		bro.id, bro.status, bro.minWait, bro.maxWait, bro.highLimit, bro.lowLimit, bro.delta, bro.offset)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	sqlStmt = `INSERT INTO brokerBalance (brokerId, base, quote) VALUES ($1, $2, $3);`
-	_, err = tx.Exec(sqlStmt, bro.id, bro.base, bro.quote)
-	if err != nil {
-		log.Fatal(err)
-	}
-
+	newBrokerSetting(tx, &bro)
+	newBrokerBalance(tx, &bro)
 	log.Debug("Broker inserted: ", bro.name, bro.id)
 
 	err = tx.Commit()

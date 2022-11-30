@@ -36,11 +36,11 @@ func initCommand() {
 		CREATE TABLE account (
 			id INTEGER PRIMARY KEY,
 			name TEXT UNIQUE,
-			apiPublic TEXT,
-			apiPrivate TEXT
+			apiPublicKey TEXT,
+			apiPrivateKey TEXT
 		);
 
-		CREATE TABLE broker (
+		CREATE TABLE brokerHead (
 			id INTEGER PRIMARY KEY,
 			name TEXT UNIQUE,
 			accountId INTEGER,
@@ -56,7 +56,7 @@ func initCommand() {
 			lowLimit REAL,
 			delta REAL,
 			offset REAL,
-			modt DATETIME DEFAULT CURRENT_TIMESTAMP,
+			modt DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')),
 			FOREIGN KEY (brokerId) REFERENCES broker (id)
 		);
 
@@ -64,19 +64,19 @@ func initCommand() {
 			brokerId INTEGER,
 			base REAL,
 			quote REAL,
-			modt DATETIME DEFAULT CURRENT_TIMESTAMP,
+			modt DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')),
 			FOREIGN KEY (brokerId) REFERENCES broker (id)
 		);
 		
-		CREATE VIEW currentBroker AS 
+		CREATE VIEW broker AS 
 			SELECT
-				b.id, b.name, b.accountId, bs.status,
+				bh.id, bh.name, bh.accountId, bs.status,
 				bs.minWait, bs.maxWait, bs.highLimit, bs.lowLimit, bs.delta, bs.offset,
-				bb.base, bb.quote FROM broker b
-			JOIN brokerSetting bs ON b.id=bs.brokerId
-			JOIN brokerBalance bb ON b.id=bb.brokerId
-			WHERE bs.modt = (SELECT max(modt) FROM brokerSetting bs2 WHERE bs2.brokerId = b.id)
-				AND bb.modt = (SELECT max(modt) FROM brokerBalance bb2 WHERE bb2.brokerId = b.id)
+				bb.base, bb.quote FROM brokerHead bh
+			JOIN brokerSetting bs ON bh.id=bs.brokerId
+			JOIN brokerBalance bb ON bh.id=bb.brokerId
+			WHERE bs.modt = (SELECT max(modt) FROM brokerSetting bs2 WHERE bs2.brokerId = bh.id)
+				AND bb.modt = (SELECT max(modt) FROM brokerBalance bb2 WHERE bb2.brokerId = bh.id)
 		; `
 
 	_, err = db.Exec(sqlStmt)

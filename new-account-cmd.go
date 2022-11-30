@@ -18,16 +18,16 @@ func newAccountCommand() {
 
 	naFlags := flag.NewFlagSet("new-account", flag.ExitOnError)
 	naFlags.StringVar(&acc.name, "n", "defaultAccount", "Name of the new account.")
-	naFlags.StringVar(&acc.publicKey, "k", "", "Public part of the API key.")
-	naFlags.StringVar(&acc.privateKey, "p", "", "Private part of the API key.")
+	naFlags.StringVar(&acc.apiPublicKey, "k", "", "Public part of the API key.")
+	naFlags.StringVar(&acc.apiPrivateKey, "p", "", "Private part of the API key.")
 
 	naFlags.Parse(flag.Args()[1:])
 
 	db := openDB()
 	defer db.Close()
 
-	sqlStmt := `INSERT INTO account (name, apiPublic, apiPrivate) VALUES ($1, $2, $3);`
-	_, err := db.Exec(sqlStmt, acc.name, acc.publicKey, acc.privateKey)
+	sqlStmt := `INSERT INTO account (name, apiPublicKey, apiPrivateKey) VALUES ($1, $2, $3);`
+	_, err := db.Exec(sqlStmt, acc.name, acc.apiPublicKey, acc.apiPrivateKey)
 	if err != nil {
 		log.Fatal(err)
 	}
