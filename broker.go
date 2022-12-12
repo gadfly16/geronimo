@@ -2,6 +2,8 @@ package main
 
 import (
 	"database/sql"
+	"math/rand"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -9,6 +11,7 @@ import (
 type broker struct {
 	id        int64
 	name      string
+	pair      string
 	accountId int64
 	status    string
 	minWait   float64
@@ -20,17 +23,6 @@ type broker struct {
 	base      float64
 	quote     float64
 }
-
-// func getBroker(name string) *broker {
-// 	db := openDB()
-// 	defer db.Close()
-
-// 	sqlStmt = `
-// 		SELECT * FROM broker b
-// 		JOIN brokerSetting bs ON b.id=bs.broker
-// 		JOIN brokerBalance bb ON b.id=bb.broker ;
-// 	`
-// }
 
 func newBrokerSetting(tx *sql.Tx, bro *broker) {
 	sqlStmt := `
@@ -52,6 +44,27 @@ func newBrokerBalance(tx *sql.Tx, bro *broker) {
 	}
 }
 
-func runBroker(bro broker) {
+func runBroker(bro broker, orders, receipt chan order) {
 	log.Debug("Running broker: ", bro.name)
+
+	db := openDB()
+	defer db.Close()
+
+	lastOrd := lastOrder(db, bro)
+	if lastOrd == nil {
+		log.Debug("No previous order found, doing immediate trade.")
+	} else {
+		elapsed := time.Since(lastOrd.tstamp)
+		wait := time.Duration(fit01(rand.Float64(), bro.minWait, bro.maxWait))*time.Second - elapsed
+		log.Debug("Waiting for next check: %s", wait.String())
+		time.Sleep(wait)
+	}
+
+	ord := order{brokerId: bro.id}
+	log.Debugf("Broker `%s` is asking for ticker.", bro.name)
+	orders <- ord
+	log.Debugf("Broker `%s` is waiting for ticker.", bro.name)
+	res := <-receipt
+	log.Debugf("Broker `%s` received ticker. Ask: %v Bid: %v",
+		bro.name, res.ticker.Ask.Price, res.ticker.Bid.Price)
 }

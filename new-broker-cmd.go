@@ -19,8 +19,9 @@ func newBrokerCommand() {
 
 	flags := flag.NewFlagSet("new-broker", flag.ExitOnError)
 	flags.StringVar(&bro.name, "n", "defaultBroker", "Name of the new broker.")
-	flags.StringVar(&bro.status, "s", "disabled", "Status of the new broker.")
 	flags.StringVar(&accountName, "a", "defaultAccount", "Name of the account the new broker belongs to.")
+	flags.StringVar(&bro.pair, "p", "ADA/EUR", "The asset pair's name the broker trades with.")
+	flags.StringVar(&bro.status, "s", "disabled", "Status of the new broker.")
 	flags.Float64Var(&bro.base, "b", 0, "Amount of 'base' currency handled by the broker.")
 	flags.Float64Var(&bro.quote, "q", 0, "Amount of 'quote' currency handled by the broker.")
 	flags.Float64Var(&bro.minWait, "w", 3600, "Minimum wait time between trades in seconds.")
@@ -42,8 +43,9 @@ func newBrokerCommand() {
 		log.Fatal(err)
 	}
 
-	sqlStmt := `INSERT INTO brokerHead (name, accountId) VALUES ($1, $2);`
-	_, err = tx.Exec(sqlStmt, bro.name, bro.accountId)
+	sqlStmt := `INSERT INTO brokerHead (name, accountId, pair)
+		VALUES ($1, $2, $3);`
+	_, err = tx.Exec(sqlStmt, bro.name, bro.accountId, bro.pair)
 	if err != nil {
 		log.Fatal(err)
 	}

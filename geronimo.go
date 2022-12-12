@@ -20,11 +20,13 @@ var debugLevels = map[string]log.Level{
 }
 
 var (
-	debugFlag string
+	debugFlag    string
+	databaseFlag string
 )
 
 func init() {
 	flag.StringVar(&debugFlag, "d", "debug", "Sets log level. (panic, fatal, error, warn, info, debug, trace)")
+	flag.StringVar(&databaseFlag, "D", "./settings.db", "Path to the settings database.")
 }
 
 func main() {

@@ -54,8 +54,8 @@ func updateBrokerCommand() {
 	log.Debug("Getting broker for update: ", oldName)
 
 	sqlStmt := `SELECT * FROM broker WHERE name = $1`
-	if err := db.QueryRow(sqlStmt, oldName).Scan(&bro.id, &bro.name, &bro.accountId,
-		&bro.status, &bro.minWait, &bro.maxWait, &bro.highLimit, &bro.lowLimit,
+	if err := db.QueryRow(sqlStmt, oldName).Scan(&bro.id, &bro.accountId, &bro.name,
+		&bro.pair, &bro.status, &bro.minWait, &bro.maxWait, &bro.highLimit, &bro.lowLimit,
 		&bro.delta, &bro.offset, &bro.base, &bro.quote); err != nil {
 		log.Fatal("Couldn't get broker for update: ", err)
 	}
