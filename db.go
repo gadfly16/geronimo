@@ -48,6 +48,7 @@ func createDB() {
 		CREATE TABLE account (
 			id INTEGER PRIMARY KEY,
 			name TEXT UNIQUE,
+			password TEXT,
 			apiPublicKey TEXT,
 			apiPrivateKey TEXT
 		);
@@ -95,7 +96,6 @@ func createDB() {
 		CREATE TABLE 'order' (
 			brokerId INTEGER,
 			status TEXT,
-			buy BOOL,
 			amount REAL,
 			price REAL,
 			tstamp INTEGER,

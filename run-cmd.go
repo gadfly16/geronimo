@@ -32,21 +32,22 @@ func runCommand() {
 	}
 	defer rows.Close()
 
-	var aa []account
+	var activeAccs []account
 
 	for rows.Next() {
-		var a account
-		if err := rows.Scan(&a.id, &a.name, &a.apiPublicKey, &a.apiPrivateKey); err != nil {
+		var acc account
+		if err := rows.Scan(&acc.id, &acc.name, &acc.apiPublicKey, &acc.apiPrivateKey); err != nil {
 			log.Fatal("Couldn't create account: ", err)
 		}
-		aa = append(aa, a)
+		activeAccs = append(activeAccs, acc)
 	}
 	if err = rows.Err(); err != nil {
 		log.Fatal(err)
 	}
 
-	for _, a := range aa {
-		go runBookkeeper(a)
+	for _, acc := range activeAccs {
+		setAccountKey(&acc)
+		go runBookkeeper(acc)
 	}
 
 	signals := make(chan os.Signal, 1)

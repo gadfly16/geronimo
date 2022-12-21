@@ -29,6 +29,11 @@ func TestClamp(t *testing.T) {
 	res := clamp01(fitTo01(60, 10, 50))
 	const want = 1
 	if res != want {
-		t.Errorf("Wrong result from `clamp`: %v, expected %v .", res, want)
+		t.Errorf("Wrong result from `clamp` (1): %v, expected %v .", res, want)
+	}
+	res = clamp01(fitTo01(5, 10, 50))
+	const want2 = 0
+	if res != want2 {
+		t.Errorf("Wrong result from `clamp` (2): %v, expected %v .", res, want2)
 	}
 }

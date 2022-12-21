@@ -2,9 +2,12 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"golang.org/x/term"
 
 	kws "github.com/aopoltorzhicky/go_kraken/websocket"
 	log "github.com/sirupsen/logrus"
@@ -13,6 +16,7 @@ import (
 type account struct {
 	id            int64
 	name          string
+	password      string
 	apiPublicKey  string
 	apiPrivateKey string
 }
@@ -25,6 +29,16 @@ func getAccountID(db *sql.DB, name string) int64 {
 	}
 	log.Debug("Account found: ", accountId)
 	return accountId
+}
+
+func setAccountKey(acc *account) {
+	fmt.Printf("Enter Password for account `%s`: ", acc.name)
+	bytePassword, err := term.ReadPassword(int(syscall.Stdin))
+	if err != nil {
+		log.Fatal("Couldn't get password.")
+	}
+
+	log.Debug("Pw: ", string(bytePassword))
 }
 
 func runBookkeeper(acc account) {
@@ -101,12 +115,25 @@ func runBookkeeper(acc account) {
 						receipt := make(chan order)
 						receipts[bro.id] = receipt
 						go runBroker(bro, orders, receipt)
+						brokersStarted = true
 					}
 				}
 			}
 		case ord := <-orders:
-			ord.ticker = tickers[bros[ord.brokerId].pair]
-			receipts[ord.brokerId] <- ord
+			if ord.midPrice == 0 {
+				// Broker asking for current midPrice
+				ticker := tickers[bros[ord.brokerId].pair]
+				askPrice, err := ticker.Ask.Price.Float64()
+				if err != nil {
+					log.Fatal("Couldn't convert ask price.")
+				}
+				bidPrice, err := ticker.Bid.Price.Float64()
+				if err != nil {
+					log.Fatal("Couldn't convert bid price.")
+				}
+				ord.midPrice = (askPrice + bidPrice) / 2
+				receipts[ord.brokerId] <- ord
+			}
 		}
 	}
 }
