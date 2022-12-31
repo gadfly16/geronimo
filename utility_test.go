@@ -37,3 +37,14 @@ func TestClamp(t *testing.T) {
 		t.Errorf("Wrong result from `clamp` (2): %v, expected %v .", res, want2)
 	}
 }
+
+func TestEncription(t *testing.T) {
+	password := "password"
+	salt := "salt"
+	message := "message"
+	encrypted := encryptString(password, salt, message)
+	decrypted := decryptString(password, salt, encrypted)
+	if decrypted != message {
+		t.Errorf("Wrong result from encryption cycle: %v, expected %v .", decrypted, message)
+	}
+}

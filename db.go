@@ -48,7 +48,7 @@ func createDB() {
 		CREATE TABLE account (
 			id INTEGER PRIMARY KEY,
 			name TEXT UNIQUE,
-			password TEXT,
+			pwhash TEXT,
 			apiPublicKey TEXT,
 			apiPrivateKey TEXT
 		);

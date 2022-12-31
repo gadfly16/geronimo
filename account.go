@@ -7,8 +7,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"golang.org/x/term"
-
 	kws "github.com/aopoltorzhicky/go_kraken/websocket"
 	log "github.com/sirupsen/logrus"
 )
@@ -16,7 +14,7 @@ import (
 type account struct {
 	id            int64
 	name          string
-	password      string
+	pwhash        string
 	apiPublicKey  string
 	apiPrivateKey string
 }
@@ -31,14 +29,14 @@ func getAccountID(db *sql.DB, name string) int64 {
 	return accountId
 }
 
-func setAccountKey(acc *account) {
-	fmt.Printf("Enter Password for account `%s`: ", acc.name)
-	bytePassword, err := term.ReadPassword(int(syscall.Stdin))
-	if err != nil {
-		log.Fatal("Couldn't get password.")
+func decryptAccountKeys(acc *account) {
+	password := getTerminalString(fmt.Sprintf("Enter Password for account `%s`: ", acc.name))
+	if acc.pwhash != hashPassword(password) {
+		log.Fatal("Wrong password.")
 	}
-
-	log.Debug("Pw: ", string(bytePassword))
+	acc.apiPublicKey = decryptString(password, acc.name, acc.apiPublicKey)
+	acc.apiPrivateKey = decryptString(password, acc.name, acc.apiPrivateKey)
+	log.Debug("Password checked.")
 }
 
 func runBookkeeper(acc account) {
@@ -51,9 +49,9 @@ func runBookkeeper(acc account) {
 	if err := kraken.Connect(); err != nil {
 		log.Fatalf("Error connecting to web socket: %s", err.Error())
 	}
-	// if err := kraken.Authenticate(os.Getenv("KRAKEN_API_KEY"), os.Getenv("KRAKEN_SECRET")); err != nil {
-	// 	log.Fatalf("Authenticate error: %s", err.Error())
-	// }
+	if err := kraken.Authenticate(acc.apiPublicKey, acc.apiPrivateKey); err != nil {
+		log.Fatalf("Kraken authenticate error: %s", err.Error())
+	}
 
 	db := openDB()
 	defer db.Close()

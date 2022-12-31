@@ -23,7 +23,8 @@ func runCommand() {
 	defer db.Close()
 
 	sqlStmt := `
-		SELECT DISTINCT a.id, a.name, a.apiPublicKey, a.apiPrivateKey FROM account a
+		SELECT DISTINCT a.id, a.name, a.pwhash, a.apiPublicKey, a.apiPrivateKey
+		FROM account a
 		JOIN broker b WHERE b.accountId = a.id
 		AND b.status = "active" `
 	rows, err := db.Query(sqlStmt)
@@ -36,7 +37,7 @@ func runCommand() {
 
 	for rows.Next() {
 		var acc account
-		if err := rows.Scan(&acc.id, &acc.name, &acc.apiPublicKey, &acc.apiPrivateKey); err != nil {
+		if err := rows.Scan(&acc.id, &acc.name, &acc.pwhash, &acc.apiPublicKey, &acc.apiPrivateKey); err != nil {
 			log.Fatal("Couldn't create account: ", err)
 		}
 		activeAccs = append(activeAccs, acc)
@@ -46,7 +47,7 @@ func runCommand() {
 	}
 
 	for _, acc := range activeAccs {
-		setAccountKey(&acc)
+		decryptAccountKeys(&acc)
 		go runBookkeeper(acc)
 	}
 
