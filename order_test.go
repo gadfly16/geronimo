@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"os"
 	"testing"
 	"time"
@@ -13,6 +14,14 @@ func TestMain(m *testing.M) {
 	os.Remove(databaseFlag)
 	createDB()
 	m.Run()
+}
+
+func deleteOrders(db *sql.DB) {
+	sqlStmt := `DELETE FROM 'order'`
+	_, err := db.Exec(sqlStmt)
+	if err != nil {
+		log.Fatal("Couldn't delete orders from test db.")
+	}
 }
 
 func TestOrderTime(t *testing.T) {
@@ -35,15 +44,25 @@ func TestOrderTime(t *testing.T) {
 	}
 }
 
+func TestOrderId(t *testing.T) {
+	db := openDB()
+	defer db.Close()
+
+	deleteOrders(db)
+
+	ord := &order{}
+	saveOrder(db, ord)
+
+	if ord.userRef == 0 {
+		t.Errorf("Order's `userRef` should be other than 0.")
+	}
+}
+
 func TestNoLastOrder(t *testing.T) {
 	db := openDB()
 	defer db.Close()
 
-	sqlStmt := `DELETE FROM 'order'`
-	_, err := db.Exec(sqlStmt)
-	if err != nil {
-		log.Fatal("Couldn't delete orders from test db.")
-	}
+	deleteOrders(db)
 
 	bro := broker{}
 

@@ -8,8 +8,10 @@ import (
 )
 
 type order struct {
+	userRef  int64
 	brokerId int64
 	status   string
+	orderId  string
 	amount   float64
 	price    float64
 	midPrice float64
@@ -17,11 +19,18 @@ type order struct {
 }
 
 func saveOrder(db *sql.DB, o *order) {
-	sqlStmt := `INSERT INTO 'order' VALUES ($1, $2, $3, $4, $5)`
-	_, err := db.Exec(sqlStmt, o.brokerId, o.status, o.amount,
-		o.price, o.tstamp.UnixMilli())
+	sqlStmt := `
+		INSERT INTO 'order'
+			(brokerId, status, orderId, amount, price, tstamp)
+			VALUES ($1, $2, $3, $4, $5, $6) RETURNING userRef`
+	result, err := db.Exec(sqlStmt, o.brokerId, o.status, o.orderId, o.amount,
+		o.price, time.Now().UnixMilli())
 	if err != nil {
 		log.Fatal("Couldn't insert order: ", err)
+	}
+	o.userRef, err = result.LastInsertId()
+	if err != nil {
+		log.Fatal("Couldn't get order ID: ", err)
 	}
 }
 
@@ -31,8 +40,8 @@ func getLastOrder(db *sql.DB, b broker) *order {
 	sqlStmt := `SELECT * FROM 'order'
 		WHERE brokerId = $1
 		ORDER BY tstamp DESC LIMIT 1`
-	if err := db.QueryRow(sqlStmt, b.id).Scan(&o.brokerId, &o.status,
-		&o.amount, &o.price, &ts); err != nil {
+	if err := db.QueryRow(sqlStmt, b.id).Scan(&o.userRef, &o.brokerId, &o.status,
+		&o.orderId, &o.amount, &o.price, &ts); err != nil {
 		if err == sql.ErrNoRows {
 			return nil
 		}

@@ -94,8 +94,10 @@ func createDB() {
 		;
 		
 		CREATE TABLE 'order' (
+			userRef INTEGER PRIMARY KEY,
 			brokerId INTEGER,
 			status TEXT,
+			orderId TEXT,
 			amount REAL,
 			price REAL,
 			tstamp INTEGER,

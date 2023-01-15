@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"math"
 	"os"
 	"os/signal"
 	"syscall"
@@ -45,11 +46,15 @@ func runBookkeeper(acc account) {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 
-	kraken := kws.NewKraken(kws.ProdBaseURL)
-	if err := kraken.Connect(); err != nil {
+	krakenPub := kws.NewKraken(kws.ProdBaseURL)
+	if err := krakenPub.Connect(); err != nil {
 		log.Fatalf("Error connecting to web socket: %s", err.Error())
 	}
-	if err := kraken.Authenticate(acc.apiPublicKey, acc.apiPrivateKey); err != nil {
+	krakenPriv := kws.NewKraken(kws.AuthBaseURL)
+	if err := krakenPriv.Connect(); err != nil {
+		log.Fatalf("Error connecting to web socket: %s", err.Error())
+	}
+	if err := krakenPriv.Authenticate(acc.apiPublicKey, acc.apiPrivateKey); err != nil {
 		log.Fatalf("Kraken authenticate error: %s", err.Error())
 	}
 
@@ -85,24 +90,29 @@ func runBookkeeper(acc account) {
 		log.Fatal(err)
 	}
 
-	if err := kraken.SubscribeTicker(tickerList); err != nil {
+	if err := krakenPub.SubscribeTicker(tickerList); err != nil {
 		log.Fatalf("SubscribeTicker error: %s", err.Error())
+	}
+
+	if err := krakenPriv.SubscribeOpenOrders(); err != nil {
+		log.Fatalf("SubscribeOpenOrders error: %s", err.Error())
 	}
 
 	orders := make(chan order)
 	receipts := map[int64](chan order){}
 
 	brokersStarted := false
-	updates := kraken.Listen()
+	pubUpdates := krakenPub.Listen()
+	privUpdates := krakenPriv.Listen()
 	for {
 		select {
 		case <-signals:
 			log.Warn("Stopping...")
-			if err := kraken.Close(); err != nil {
+			if err := krakenPub.Close(); err != nil {
 				log.Fatal(err)
 			}
 			return
-		case update := <-updates:
+		case update := <-pubUpdates:
 			switch data := update.Data.(type) {
 			case kws.TickerUpdate:
 				tickers[update.Pair] = data
@@ -117,6 +127,11 @@ func runBookkeeper(acc account) {
 					}
 				}
 			}
+		case update := <-privUpdates:
+			switch data := update.Data.(type) {
+			case kws.OpenOrdersUpdate:
+				log.Debug("Open orders update: ", data)
+			}
 		case ord := <-orders:
 			if ord.midPrice == 0 {
 				// Broker asking for current midPrice
@@ -130,7 +145,28 @@ func runBookkeeper(acc account) {
 					log.Fatal("Couldn't convert bid price.")
 				}
 				ord.midPrice = (askPrice + bidPrice) / 2
+				log.Debug("Answering price request from broker: ", bros[ord.brokerId].name)
 				receipts[ord.brokerId] <- ord
+			} else {
+				log.Debug("Received priced order from broker: ", bros[ord.brokerId].name)
+				saveOrder(db, &ord)
+				ordType := "buy"
+				if ord.amount < 0 {
+					ordType = "sell"
+				}
+				req := kws.AddOrderRequest{
+					Ordertype: "limit",
+					Pair:      bros[ord.brokerId].pair,
+					Price:     fmt.Sprintf("%f", ord.price),
+					Type:      ordType,
+					Volume:    fmt.Sprintf("%f", math.Abs(ord.amount)),
+					UserRef:   fmt.Sprintf("%d", ord.userRef),
+				}
+				err = krakenPriv.AddOrder(req)
+				if err != nil {
+					log.Fatal("Couldn't place order: ", ord)
+				}
+				log.Info("Placed order: ", ord)
 			}
 		}
 	}

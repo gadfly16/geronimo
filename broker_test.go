@@ -46,7 +46,7 @@ func TestBrokerPrepare(t *testing.T) {
 	}
 	lastOrd := &order{price: 0.5}
 	ord := order{midPrice: 0.404}
-	ord.prepare(bro, lastOrd)
+	ord.prepareTrade(bro, lastOrd)
 	res := ord.amount
 	const want1 = 187.5
 	if res != want1 {
@@ -54,7 +54,7 @@ func TestBrokerPrepare(t *testing.T) {
 	}
 	lastOrd = &order{price: 0.402}
 	ord = order{midPrice: 0.404}
-	ord.prepare(bro, lastOrd)
+	ord.prepareTrade(bro, lastOrd)
 	res = ord.amount
 	const want2 = 0
 	if res != want2 {

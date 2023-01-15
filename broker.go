@@ -67,19 +67,21 @@ func runBroker(bro broker, orders, receipt chan order) {
 	pricedOrd := <-receipt
 	log.Debugf("Broker `%s` received `midPrice`: %v",
 		bro.name, pricedOrd.midPrice)
-	pricedOrd.prepare(&bro, lastOrd)
+	pricedOrd.prepareTrade(&bro, lastOrd)
 	if pricedOrd.price == 0 {
 		log.Info("No order necessary.")
 	} else {
 		log.Infof("Requesting order placement by `%s`: %v @ %v", bro.name, pricedOrd.amount, pricedOrd.price)
+		orders <- pricedOrd
 	}
 }
 
-func (ord *order) prepare(bro *broker, lastOrd *order) {
+func (ord *order) prepareTrade(bro *broker, lastOrd *order) {
 	if lastOrd == nil ||
 		math.Abs(ord.midPrice-lastOrd.price)/lastOrd.price > bro.delta ||
 		ord.midPrice > bro.highLimit || ord.midPrice < bro.lowLimit {
-		if lastOrd.price > ord.midPrice {
+		diff := getAmount(ord.midPrice, bro.lowLimit, bro.highLimit, bro.base, bro.quote)
+		if diff > 0 {
 			ord.price = ord.midPrice / (1 + bro.offset)
 		} else {
 			ord.price = ord.midPrice * (1 + bro.offset)
