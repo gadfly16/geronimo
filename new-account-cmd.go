@@ -41,7 +41,7 @@ func newAccountCommand() {
 	acc.apiPublicKey = encryptString(password, acc.name, apiPublicKey)
 
 	if apiPrivateKey == "" {
-		apiPrivateKey = getTerminalString(fmt.Sprintf("Enter API public key for account `%s`: ", acc.name))
+		apiPrivateKey = getTerminalString(fmt.Sprintf("Enter API private key for account `%s`: ", acc.name))
 	}
 	acc.apiPrivateKey = encryptString(password, acc.name, apiPrivateKey)
 

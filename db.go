@@ -78,6 +78,7 @@ func createDB() {
 			brokerId INTEGER,
 			base REAL,
 			quote REAL,
+			fee REAL,
 			modt DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')),
 			FOREIGN KEY (brokerId) REFERENCES brokerHead (id)
 		);
@@ -97,12 +98,22 @@ func createDB() {
 			userRef INTEGER PRIMARY KEY,
 			brokerId INTEGER,
 			status TEXT,
-			orderId TEXT,
-			amount REAL,
+			orderId TEXT UNIQUE,
+			volume REAL,
+			completed REAL,
 			price REAL,
 			tstamp INTEGER,
 			FOREIGN KEY (brokerId) REFERENCES brokerHead (id)
-		); `
+		);
+		
+		CREATE TABLE trade (
+			id TEXT UNIQUE,
+			orderId TEXT,
+			volume REAL,
+			cost REAL,
+			fee REAL,
+			FOREIGN KEY (orderId) REFERENCES 'order' (orderId)
+		);`
 
 	_, err = db.Exec(sqlStmt)
 	if err != nil {

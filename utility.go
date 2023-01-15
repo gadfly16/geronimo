@@ -41,6 +41,7 @@ func getTerminalString(prompt string) string {
 	if err != nil {
 		log.Fatal("Couldn't get password.")
 	}
+	fmt.Println()
 	return string(pw)
 }
 

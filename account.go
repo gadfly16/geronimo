@@ -97,6 +97,9 @@ func runBookkeeper(acc account) {
 	if err := krakenPriv.SubscribeOpenOrders(); err != nil {
 		log.Fatalf("SubscribeOpenOrders error: %s", err.Error())
 	}
+	if err := krakenPriv.SubscribeOwnTrades(); err != nil {
+		log.Fatalf("SubscribeOwnTrades error: %s", err.Error())
+	}
 
 	orders := make(chan order)
 	receipts := map[int64](chan order){}
@@ -130,7 +133,28 @@ func runBookkeeper(acc account) {
 		case update := <-privUpdates:
 			switch data := update.Data.(type) {
 			case kws.OpenOrdersUpdate:
-				log.Debug("Open orders update: ", data)
+				for _, oOrdDict := range data {
+					for id, oOrd := range oOrdDict {
+						log.Debugf("Open order update: %v: %+v", id, oOrd)
+						updateOrder(db, oOrd, id)
+					}
+				}
+			case kws.OwnTradesUpdate:
+				for _, oTrdDict := range data {
+					for id, oTrd := range oTrdDict {
+						log.Debugf("Own trade update: %v: %+v", id, oTrd)
+						if tradeExists(db, id) {
+							log.Debugf("Trade already booked: %v", id)
+							continue
+						}
+						tOrd := getOrderById(db, oTrd.OrderID)
+						if tOrd == nil {
+							log.Debugf("Trade doesn't belong to any order: %v", id)
+							continue
+						}
+						log.Debugf("Bookkeeping trade: %v", id)
+					}
+				}
 			}
 		case ord := <-orders:
 			if ord.midPrice == 0 {
@@ -150,8 +174,16 @@ func runBookkeeper(acc account) {
 			} else {
 				log.Debug("Received priced order from broker: ", bros[ord.brokerId].name)
 				saveOrder(db, &ord)
+				openOrderIds := getOpenOrderIds(db, bros[ord.brokerId].id)
+				if len(openOrderIds) != 0 {
+					err := krakenPriv.CancelOrder(openOrderIds)
+					if err != nil {
+						log.Fatalf("Couldn't cancel open orders: %v", openOrderIds)
+					}
+				}
+				log.Infof("Canceled orders: %v", openOrderIds)
 				ordType := "buy"
-				if ord.amount < 0 {
+				if ord.volume < 0 {
 					ordType = "sell"
 				}
 				req := kws.AddOrderRequest{
@@ -159,7 +191,7 @@ func runBookkeeper(acc account) {
 					Pair:      bros[ord.brokerId].pair,
 					Price:     fmt.Sprintf("%f", ord.price),
 					Type:      ordType,
-					Volume:    fmt.Sprintf("%f", math.Abs(ord.amount)),
+					Volume:    fmt.Sprintf("%f", math.Abs(ord.volume)),
 					UserRef:   fmt.Sprintf("%d", ord.userRef),
 				}
 				err = krakenPriv.AddOrder(req)

@@ -71,7 +71,7 @@ func runBroker(bro broker, orders, receipt chan order) {
 	if pricedOrd.price == 0 {
 		log.Info("No order necessary.")
 	} else {
-		log.Infof("Requesting order placement by `%s`: %v @ %v", bro.name, pricedOrd.amount, pricedOrd.price)
+		log.Infof("Requesting order placement by `%s`: %v @ %v", bro.name, pricedOrd.volume, pricedOrd.price)
 		orders <- pricedOrd
 	}
 }
@@ -80,13 +80,13 @@ func (ord *order) prepareTrade(bro *broker, lastOrd *order) {
 	if lastOrd == nil ||
 		math.Abs(ord.midPrice-lastOrd.price)/lastOrd.price > bro.delta ||
 		ord.midPrice > bro.highLimit || ord.midPrice < bro.lowLimit {
-		diff := getAmount(ord.midPrice, bro.lowLimit, bro.highLimit, bro.base, bro.quote)
+		diff := getVolume(ord.midPrice, bro.lowLimit, bro.highLimit, bro.base, bro.quote)
 		if diff > 0 {
 			ord.price = ord.midPrice / (1 + bro.offset)
 		} else {
 			ord.price = ord.midPrice * (1 + bro.offset)
 		}
-		ord.amount = getAmount(ord.price, bro.lowLimit, bro.highLimit, bro.base, bro.quote)
+		ord.volume = getVolume(ord.price, bro.lowLimit, bro.highLimit, bro.base, bro.quote)
 	}
 }
 
@@ -94,7 +94,7 @@ func getBias(price, low, high float64) float64 {
 	return clamp01(fitTo01(math.Log(price), math.Log(high), math.Log(low)))
 }
 
-func getAmount(price, low, high, base, quote float64) float64 {
+func getVolume(price, low, high, base, quote float64) float64 {
 	bias := getBias(price, low, high)
 	baseValue := base * price
 	allValue := baseValue + quote
