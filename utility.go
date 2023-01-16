@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math"
@@ -17,6 +18,19 @@ import (
 )
 
 var hash256 = sha256.New()
+
+var krakenMinTradeVolumes = map[string]float64{
+	"ADA/EUR": 15,
+	"ADA/USD": 15,
+}
+
+func krakenMinTradeVolume(pair string) float64 {
+	mtv, ok := krakenMinTradeVolumes[pair]
+	if !ok {
+		log.Fatalf("Couldn't get minimum trade volume for: %v", pair)
+	}
+	return mtv
+}
 
 func fitTo01(val, low, high float64) float64 {
 	return (val - low) / (high - low)
@@ -90,4 +104,12 @@ func decryptString(password, salt, message string) string {
 	stream.XORKeyStream(ciphertext, ciphertext)
 
 	return string(ciphertext)
+}
+
+func jsonNumToFloat64(j json.Number) (f float64) {
+	f, err := j.Float64()
+	if err != nil {
+		log.Fatal("Couldn't cost json.Number to float64.")
+	}
+	return
 }

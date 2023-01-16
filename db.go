@@ -87,7 +87,7 @@ func createDB() {
 			SELECT
 				bh.id, bh.accountId, bh.name, bh.pair, bs.status, bs.minWait,
 				bs.maxWait, bs.highLimit, bs.lowLimit, bs.delta, bs.offset,
-				bb.base, bb.quote FROM brokerHead bh
+				bb.base, bb.quote, bb.fee FROM brokerHead bh
 			JOIN brokerSetting bs ON bh.id=bs.brokerId
 			JOIN brokerBalance bb ON bh.id=bb.brokerId
 			WHERE bs.modt = (SELECT max(modt) FROM brokerSetting bs2 WHERE bs2.brokerId = bh.id)
@@ -112,6 +112,7 @@ func createDB() {
 			volume REAL,
 			cost REAL,
 			fee REAL,
+			tstamp INTEGER,
 			FOREIGN KEY (orderId) REFERENCES 'order' (orderId)
 		);`
 

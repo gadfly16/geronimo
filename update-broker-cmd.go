@@ -66,6 +66,7 @@ func updateBrokerCommand() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer tx.Rollback()
 
 	change := false
 	if udName != "" {

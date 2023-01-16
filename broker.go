@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"time"
 
+	kws "github.com/aopoltorzhicky/go_kraken/websocket"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -23,6 +24,7 @@ type broker struct {
 	offset    float64
 	base      float64
 	quote     float64
+	fee       float64
 }
 
 func newBrokerSetting(tx *sql.Tx, bro *broker) {
@@ -38,41 +40,52 @@ func newBrokerSetting(tx *sql.Tx, bro *broker) {
 }
 
 func newBrokerBalance(tx *sql.Tx, bro *broker) {
-	sqlStmt := `INSERT INTO brokerBalance (brokerId, base, quote) VALUES ($1, $2, $3)`
-	_, err := tx.Exec(sqlStmt, bro.id, bro.base, bro.quote)
+	sqlStmt := `INSERT INTO brokerBalance (brokerId, base, quote, fee) VALUES ($1, $2, $3, $4)`
+	_, err := tx.Exec(sqlStmt, bro.id, bro.base, bro.quote, bro.fee)
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func runBroker(bro broker, orders, receipt chan order) {
+func runBroker(bro *broker, orders, receipt chan order) {
 	log.Debug("Running broker: ", bro.name)
 
 	db := openDB()
 	defer db.Close()
+	var lastCheck time.Time
 
 	lastOrd := getLastOrder(db, bro)
 	if lastOrd == nil {
-		log.Debug("No previous order found, doing immediate trade.")
+		log.Debug("No previous order found, last check set to epic.")
 	} else {
-		elapsed := time.Since(lastOrd.tstamp)
-		wait := time.Duration(fit01(rand.Float64(), bro.minWait, bro.maxWait))*time.Second - elapsed
-		log.Debugf("Waiting for next check: %s", wait.String())
-		time.Sleep(wait)
+		lastCheck = lastOrd.tstamp
 	}
 
-	ord := order{brokerId: bro.id}
-	log.Debugf("Broker `%s` is asking for `midPrice`.", bro.name)
-	orders <- ord
-	pricedOrd := <-receipt
-	log.Debugf("Broker `%s` received `midPrice`: %v",
-		bro.name, pricedOrd.midPrice)
-	pricedOrd.prepareTrade(&bro, lastOrd)
-	if pricedOrd.price == 0 {
-		log.Info("No order necessary.")
-	} else {
-		log.Infof("Requesting order placement by `%s`: %v @ %v", bro.name, pricedOrd.volume, pricedOrd.price)
-		orders <- pricedOrd
+	for {
+		log.Debugf("Cycle started for broker: %+v", bro)
+		lastOrd = getLastOrder(db, bro)
+		elapsed := time.Since(lastCheck)
+		wait := time.Duration(fit01(rand.Float64(), bro.minWait, bro.maxWait))*time.Second - elapsed
+		if wait < 0 {
+			log.Debug("Immediate trade needed.")
+		} else {
+			log.Debugf("Waiting for next check: %v", wait)
+			time.Sleep(wait)
+		}
+
+		ord := order{brokerId: bro.id}
+		orders <- ord
+		pricedOrd := <-receipt
+		pricedOrd.prepareTrade(bro, lastOrd)
+		if pricedOrd.price == 0 {
+			log.Info("No order necessary.")
+		} else if pricedOrd.price < krakenMinTradeVolume(bro.pair) {
+			log.Info("Volume '%v' smaller than kraken min volume for pair: %v", pricedOrd.price, bro.pair)
+		} else {
+			log.Infof("Requesting order placement by `%s`: %v @ %v", bro.name, pricedOrd.volume, pricedOrd.price)
+			orders <- pricedOrd
+		}
+		lastCheck = time.Now()
 	}
 }
 
@@ -100,4 +113,52 @@ func getVolume(price, low, high, base, quote float64) float64 {
 	allValue := baseValue + quote
 	newBaseValue := allValue * bias
 	return (newBaseValue - baseValue) / price
+}
+
+func (bro *broker) bookTrade(db *sql.DB, tid string, ownTrd kws.OwnTrade, trdOrd *order) {
+	tx, err := db.Begin()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer tx.Rollback()
+
+	cost := jsonNumToFloat64(ownTrd.Cost)
+	volume := jsonNumToFloat64(ownTrd.Vol)
+	if ownTrd.Type == "sell" {
+		volume *= -1
+	} else {
+		cost *= -1
+	}
+
+	trd := trade{
+		id:      tid,
+		orderId: ownTrd.OrderID,
+		volume:  volume,
+		cost:    cost,
+		fee:     jsonNumToFloat64(ownTrd.Fee),
+		tstamp:  time.UnixMilli(int64(jsonNumToFloat64(ownTrd.Time) * 1000)),
+	}
+
+	sqlStmt := `INSERT INTO trade VALUES ($1, $2, $3, $4, $5, $6)`
+	_, err = tx.Exec(sqlStmt, trd.id, trd.orderId, trd.volume,
+		trd.cost, trd.fee, trd.tstamp.UnixMilli())
+	if err != nil {
+		log.Fatalf("Couldn't insert new trade '%v': %v", tid, err)
+	}
+
+	bro.base += trd.volume
+	bro.quote += trd.cost
+	bro.fee += trd.fee
+	newBrokerBalance(tx, bro)
+
+	sqlStmt = `UPDATE 'order' SET completed=completed+$1 WHERE orderId=$2`
+	_, err = tx.Exec(sqlStmt, math.Abs(trd.volume), trd.orderId)
+	if err != nil {
+		log.Fatalf("Couldn't update order's completed value: %v", trd.orderId)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		log.Fatal(err)
+	}
 }

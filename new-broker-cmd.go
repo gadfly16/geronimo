@@ -42,6 +42,7 @@ func newBrokerCommand() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer tx.Rollback()
 
 	sqlStmt := `INSERT INTO brokerHead (name, accountId, pair)
 		VALUES ($1, $2, $3);`

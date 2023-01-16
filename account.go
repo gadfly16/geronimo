@@ -71,7 +71,7 @@ func runBookkeeper(acc account) {
 	}
 	defer rows.Close()
 
-	bros := map[int64]broker{}
+	bros := map[int64]*broker{}
 	tickers := map[string]kws.TickerUpdate{}
 	tickerList := []string{}
 
@@ -79,10 +79,10 @@ func runBookkeeper(acc account) {
 		var bro broker
 		if err := rows.Scan(&bro.id, &bro.accountId, &bro.name, &bro.pair,
 			&bro.status, &bro.minWait, &bro.maxWait, &bro.highLimit, &bro.lowLimit,
-			&bro.delta, &bro.offset, &bro.base, &bro.quote); err != nil {
+			&bro.delta, &bro.offset, &bro.base, &bro.quote, &bro.fee); err != nil {
 			log.Fatal("Couldn't scan broker for running: ", err)
 		}
-		bros[bro.id] = bro
+		bros[bro.id] = &bro
 		tickers[bro.pair] = kws.TickerUpdate{}
 		tickerList = append(tickerList, bro.pair)
 	}
@@ -105,6 +105,7 @@ func runBookkeeper(acc account) {
 	receipts := map[int64](chan order){}
 
 	brokersStarted := false
+	initialTradesBooked := false
 	pubUpdates := krakenPub.Listen()
 	privUpdates := krakenPriv.Listen()
 	for {
@@ -120,8 +121,8 @@ func runBookkeeper(acc account) {
 			case kws.TickerUpdate:
 				tickers[update.Pair] = data
 				log.Debugf("Updated ticker: %v (%v)", update.Pair, data.Ask.Price)
-				if !brokersStarted {
-					log.Debugf("First ticker arrived, brokers can be started for `%s`.", acc.name)
+				if !brokersStarted && initialTradesBooked {
+					log.Debugf("First ticker arrived and trades booked, brokers can be started for `%s`.", acc.name)
 					for _, bro := range bros {
 						receipt := make(chan order)
 						receipts[bro.id] = receipt
@@ -141,20 +142,22 @@ func runBookkeeper(acc account) {
 				}
 			case kws.OwnTradesUpdate:
 				for _, oTrdDict := range data {
-					for id, oTrd := range oTrdDict {
-						log.Debugf("Own trade update: %v: %+v", id, oTrd)
+					for id, ownTrd := range oTrdDict {
+						log.Debugf("Own trade update: %v: %+v", id, ownTrd)
 						if tradeExists(db, id) {
 							log.Debugf("Trade already booked: %v", id)
 							continue
 						}
-						tOrd := getOrderById(db, oTrd.OrderID)
-						if tOrd == nil {
+						trdOrd := getOrderById(db, ownTrd.OrderID)
+						if trdOrd == nil {
 							log.Debugf("Trade doesn't belong to any order: %v", id)
 							continue
 						}
 						log.Debugf("Bookkeeping trade: %v", id)
+						bros[trdOrd.brokerId].bookTrade(db, id, ownTrd, trdOrd)
 					}
 				}
+				initialTradesBooked = true
 			}
 		case ord := <-orders:
 			if ord.midPrice == 0 {
@@ -198,7 +201,7 @@ func runBookkeeper(acc account) {
 				if err != nil {
 					log.Fatal("Couldn't place order: ", ord)
 				}
-				log.Info("Placed order: ", ord)
+				log.Infof("Placed order: %+v", req)
 			}
 		}
 	}
