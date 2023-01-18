@@ -28,9 +28,10 @@ func updateBrokerCommand() {
 		udLowLimit    float64
 		udDelta       float64
 		udOffset      float64
+		udFee         float64
 	)
 
-	flags := flag.NewFlagSet("new-broker", flag.ExitOnError)
+	flags := flag.NewFlagSet("update-broker", flag.ExitOnError)
 	flags.StringVar(&oldName, "n", "defaultBroker", "Name of the broker to update.")
 	flags.StringVar(&udName, "N", "", "New name of the broker.")
 	flags.StringVar(&udAccountName, "a", "", "Name of the account the updated broker will belong to.")
@@ -43,6 +44,7 @@ func updateBrokerCommand() {
 	flags.Float64Var(&udLowLimit, "l", -1, "New low limit.")
 	flags.Float64Var(&udDelta, "d", -1, "New minimum price change between trades.")
 	flags.Float64Var(&udOffset, "o", -1, "New offset of limit trades from current price.")
+	flags.Float64Var(&udFee, "f", -1, "New fee amount.")
 
 	flags.Parse(flag.Args()[1:])
 
@@ -56,7 +58,7 @@ func updateBrokerCommand() {
 	sqlStmt := `SELECT * FROM broker WHERE name = $1`
 	if err := db.QueryRow(sqlStmt, oldName).Scan(&bro.id, &bro.accountId, &bro.name,
 		&bro.pair, &bro.status, &bro.minWait, &bro.maxWait, &bro.highLimit, &bro.lowLimit,
-		&bro.delta, &bro.offset, &bro.base, &bro.quote); err != nil {
+		&bro.delta, &bro.offset, &bro.base, &bro.quote, &bro.fee); err != nil {
 		log.Fatal("Couldn't get broker for update: ", err)
 	}
 
@@ -133,6 +135,11 @@ func updateBrokerCommand() {
 	if udQuote != -1 {
 		log.Debug("Changing quote to: ", udQuote)
 		bro.quote = udQuote
+		change = true
+	}
+	if udFee != -1 {
+		log.Debug("Changing fee to: ", udFee)
+		bro.fee = udFee
 		change = true
 	}
 	if change {

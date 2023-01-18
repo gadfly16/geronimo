@@ -122,7 +122,7 @@ func runBookkeeper(acc account) {
 				tickers[update.Pair] = data
 				log.Debugf("Updated ticker: %v (%v)", update.Pair, data.Ask.Price)
 				if !brokersStarted && initialTradesBooked {
-					log.Debugf("First ticker arrived and trades booked, brokers can be started for `%s`.", acc.name)
+					log.Debugf("First ticker arrived and trades booked, starting brokers for account: `%v`.", acc.name)
 					for _, bro := range bros {
 						receipt := make(chan order)
 						receipts[bro.id] = receipt
@@ -143,7 +143,6 @@ func runBookkeeper(acc account) {
 			case kws.OwnTradesUpdate:
 				for _, oTrdDict := range data {
 					for id, ownTrd := range oTrdDict {
-						log.Debugf("Own trade update: %v: %+v", id, ownTrd)
 						if tradeExists(db, id) {
 							log.Debugf("Trade already booked: %v", id)
 							continue
@@ -153,7 +152,7 @@ func runBookkeeper(acc account) {
 							log.Debugf("Trade doesn't belong to any order: %v", id)
 							continue
 						}
-						log.Debugf("Bookkeeping trade: %v", id)
+						log.Debugf("Bookkeeping trade: %v", ownTrd)
 						bros[trdOrd.brokerId].bookTrade(db, id, ownTrd, trdOrd)
 					}
 				}
@@ -172,7 +171,6 @@ func runBookkeeper(acc account) {
 					log.Fatal("Couldn't convert bid price.")
 				}
 				ord.midPrice = (askPrice + bidPrice) / 2
-				log.Debug("Answering price request from broker: ", bros[ord.brokerId].name)
 				receipts[ord.brokerId] <- ord
 			} else {
 				log.Debug("Received priced order from broker: ", bros[ord.brokerId].name)

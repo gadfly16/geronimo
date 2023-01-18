@@ -62,12 +62,12 @@ func runBroker(bro *broker, orders, receipt chan order) {
 	}
 
 	for {
-		log.Debugf("Cycle started for broker: %+v", bro)
+		log.Debugf("Cycle started for broker: %+v", *bro)
 		lastOrd = getLastOrder(db, bro)
 		elapsed := time.Since(lastCheck)
 		wait := time.Duration(fit01(rand.Float64(), bro.minWait, bro.maxWait))*time.Second - elapsed
 		if wait < 0 {
-			log.Debug("Immediate trade needed.")
+			log.Debug("Immediate check needed.")
 		} else {
 			log.Debugf("Waiting for next check: %v", wait)
 			time.Sleep(wait)
