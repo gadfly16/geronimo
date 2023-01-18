@@ -79,8 +79,9 @@ func runBroker(bro *broker, orders, receipt chan order) {
 		pricedOrd.prepareTrade(bro, lastOrd)
 		if pricedOrd.price == 0 {
 			log.Info("No order necessary.")
-		} else if pricedOrd.price < krakenMinTradeVolume(bro.pair) {
-			log.Info("Volume '%v' smaller than kraken min volume for pair: %v", pricedOrd.price, bro.pair)
+		} else if pricedOrd.volume < krakenMinTradeVolume(bro.pair) {
+			log.Infof("Volume '%v' smaller than kraken min volume for pair: %v (%v)",
+				pricedOrd.volume, bro.pair, krakenMinTradeVolume(bro.pair))
 		} else {
 			log.Infof("Requesting order placement by `%s`: %v @ %v", bro.name, pricedOrd.volume, pricedOrd.price)
 			orders <- pricedOrd
