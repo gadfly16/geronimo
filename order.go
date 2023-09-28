@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"math"
 	"time"
 
 	kws "github.com/aopoltorzhicky/go_kraken/websocket"
@@ -9,8 +10,8 @@ import (
 )
 
 type order struct {
+	bro       *broker
 	userRef   int64
-	brokerId  int64
 	status    string
 	orderId   string
 	volume    float64
@@ -20,13 +21,32 @@ type order struct {
 	tstamp    time.Time
 }
 
+func (ord *order) fillOrder() {
+	bro := ord.bro
+	diff := getVolume(ord.midPrice, bro.lowLimit, bro.highLimit, bro.base, bro.quote)
+	whole := bro.base + bro.quote/ord.midPrice
+	log.Infof("Blance needs: %v", diff)
+	inbalance := diff / whole
+	if math.Abs(inbalance) < bro.delta {
+		log.Infof("Inbalance under threshold: %.3f%% (%.3f%%)", inbalance*100, bro.delta)
+		return
+	}
+	log.Infof("Inbalance requires order placement: %.3f%%", inbalance*100)
+	if diff > 0 {
+		ord.price = ord.midPrice / (1 + bro.offset)
+	} else {
+		ord.price = ord.midPrice * (1 + bro.offset)
+	}
+	ord.volume = getVolume(ord.price, bro.lowLimit, bro.highLimit, bro.base, bro.quote)
+	ord.status = "requested"
+}
+
 func saveOrder(db *sql.DB, o *order) {
-	o.status = "requested"
 	sqlStmt := `
 		INSERT INTO 'order'
 			(brokerId, status, orderId, volume, completed, price, tstamp)
 			VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING userRef`
-	result, err := db.Exec(sqlStmt, o.brokerId, o.status, o.orderId, o.volume,
+	result, err := db.Exec(sqlStmt, o.bro.id, o.status, o.orderId, o.volume,
 		o.completed, o.price, time.Now().UnixMilli())
 	if err != nil {
 		log.Fatal("Couldn't insert order: ", err)
@@ -35,23 +55,6 @@ func saveOrder(db *sql.DB, o *order) {
 	if err != nil {
 		log.Fatal("Couldn't get order ID: ", err)
 	}
-}
-
-func getLastOrder(db *sql.DB, bro *broker) *order {
-	o := &order{}
-	var ts int64
-	sqlStmt := `SELECT * FROM 'order'
-		WHERE brokerId = $1 AND completed > 0
-		ORDER BY tstamp DESC LIMIT 1`
-	if err := db.QueryRow(sqlStmt, bro.id).Scan(&o.userRef, &o.brokerId, &o.status,
-		&o.orderId, &o.volume, &o.completed, &o.price, &ts); err != nil {
-		if err == sql.ErrNoRows {
-			return nil
-		}
-		log.Fatal("Couldn't get last order: ", err)
-	}
-	o.tstamp = time.UnixMilli(ts)
-	return o
 }
 
 func updateOrder(db *sql.DB, openOrd kws.OpenOrder, oid string) {
@@ -67,21 +70,28 @@ func updateOrder(db *sql.DB, openOrd kws.OpenOrder, oid string) {
 	}
 }
 
-func getOrderById(db *sql.DB, oid string) (o *order) {
-	o = &order{}
+func getOrderById(db *sql.DB, acc *account, oid string) *order {
+	o := &order{}
 	var ts int64
+	var broId int64
 	sqlStmt := `SELECT * FROM 'order' WHERE orderId=$1`
-	if err := db.QueryRow(sqlStmt, oid).Scan(&o.userRef, &o.brokerId,
+	if err := db.QueryRow(sqlStmt, oid).Scan(&o.userRef, &broId,
 		&o.status, &o.orderId, &o.volume, &o.completed, &o.price,
 		&ts); err != nil {
 		if err != sql.ErrNoRows {
 			log.Debug(err.Error())
 		}
-		o = nil
+		return nil
 	} else {
 		o.tstamp = time.UnixMilli(ts)
+		var ok bool
+		o.bro, ok = acc.brokers[broId]
+		if !ok {
+			log.Info("Kraken order doesn't match any active broker belonging to account.")
+			return nil
+		}
 	}
-	return
+	return o
 }
 
 func getOpenOrderIds(db *sql.DB, bid int64) (oids []string) {
@@ -89,7 +99,7 @@ func getOpenOrderIds(db *sql.DB, bid int64) (oids []string) {
 	sqlStmt := `SELECT orderId FROM 'order' WHERE status='open' AND brokerId=$1`
 	rows, err := db.Query(sqlStmt, bid)
 	if err != nil {
-		log.Fatalf("Couldn't get open orders for broker: ", bid)
+		log.Fatalf("Couldn't get open orders for broker id: %v", bid)
 	}
 	defer rows.Close()
 	for rows.Next() {

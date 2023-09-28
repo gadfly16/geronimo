@@ -36,7 +36,7 @@ func newBrokerCommand() {
 	db := openDB()
 	defer db.Close()
 
-	bro.accountId = getAccountID(db, accountName)
+	accountId := getAccountID(db, accountName)
 
 	tx, err := db.Begin()
 	if err != nil {
@@ -46,7 +46,7 @@ func newBrokerCommand() {
 
 	sqlStmt := `INSERT INTO brokerHead (name, accountId, pair)
 		VALUES ($1, $2, $3);`
-	_, err = tx.Exec(sqlStmt, bro.name, bro.accountId, bro.pair)
+	_, err = tx.Exec(sqlStmt, bro.name, accountId, bro.pair)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -56,14 +56,13 @@ func newBrokerCommand() {
 		log.Fatal("Couldn't get broker ID:", err)
 	}
 
-	newBrokerSetting(tx, &bro)
-	newBrokerBalance(tx, &bro)
-	log.Debug("Broker inserted: ", bro.name, bro.id)
+	bro.newSetting(tx)
+	bro.newBalance(tx)
 
 	err = tx.Commit()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	log.Debug("Created new broker.")
+	log.Debug("Created new broker: ", bro.name, bro.id)
 }

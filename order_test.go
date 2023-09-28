@@ -30,13 +30,13 @@ func TestOrderTime(t *testing.T) {
 
 	bro := broker{}
 
-	ord := &order{}
-	ord.brokerId = bro.id
+	ord := &order{bro: &bro}
 	ts := time.Now()
 	ord.tstamp = ts
+	ord.completed = 1
 	saveOrder(db, ord)
 
-	ord = getLastOrder(db, &bro)
+	ord = bro.getLastOrder(db)
 	ts = time.UnixMilli(ts.UnixMilli())
 	if ord.tstamp != ts {
 		t.Errorf("Order's timestamp doesn't match: got %s, expected %s .",
@@ -50,7 +50,8 @@ func TestOrderId(t *testing.T) {
 
 	deleteOrders(db)
 
-	ord := &order{}
+	bro := broker{}
+	ord := &order{bro: &bro}
 	saveOrder(db, ord)
 
 	if ord.userRef == 0 {
@@ -66,7 +67,7 @@ func TestNoLastOrder(t *testing.T) {
 
 	bro := broker{}
 
-	ord := getLastOrder(db, &bro)
+	ord := bro.getLastOrder(db)
 	if ord != nil {
 		t.Errorf("Order returned when no orders are in db.")
 	}

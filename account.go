@@ -4,9 +4,6 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
-	"os"
-	"os/signal"
-	"syscall"
 
 	kws "github.com/aopoltorzhicky/go_kraken/websocket"
 	log "github.com/sirupsen/logrus"
@@ -18,6 +15,10 @@ type account struct {
 	pwhash        string
 	apiPublicKey  string
 	apiPrivateKey string
+
+	brokers map[int64]*broker
+	msg     chan accountMsg
+	orders  chan order
 }
 
 func getAccountID(db *sql.DB, name string) int64 {
@@ -30,7 +31,34 @@ func getAccountID(db *sql.DB, name string) int64 {
 	return accountId
 }
 
-func decryptAccountKeys(acc *account) {
+func getActiveAccounts(db *sql.DB) []account {
+	sqlStmt := `
+	SELECT DISTINCT a.id, a.name, a.pwhash, a.apiPublicKey, a.apiPrivateKey
+	FROM account a
+	JOIN broker b WHERE b.accountId = a.id
+	AND b.status = "active" `
+	rows, err := db.Query(sqlStmt)
+	if err != nil {
+		log.Fatal("Couldn't get accounts with active brokers: ", err)
+	}
+	defer rows.Close()
+
+	var activeAccs []account
+
+	for rows.Next() {
+		var acc account
+		if err := rows.Scan(&acc.id, &acc.name, &acc.pwhash, &acc.apiPublicKey, &acc.apiPrivateKey); err != nil {
+			log.Fatal("Couldn't create account: ", err)
+		}
+		activeAccs = append(activeAccs, acc)
+	}
+	if err = rows.Err(); err != nil {
+		log.Fatal(err)
+	}
+	return activeAccs
+}
+
+func (acc *account) decryptKeys() {
 	password := getTerminalString(fmt.Sprintf("Enter Password for account `%s`: ", acc.name))
 	if acc.pwhash != hashPassword(password) {
 		log.Fatal("Wrong password.")
@@ -40,29 +68,34 @@ func decryptAccountKeys(acc *account) {
 	log.Debug("Password checked.")
 }
 
-func runBookkeeper(acc account) {
-	log.Debug("Running bookkeeper for: ", acc.name)
+// func registerAccount(accountId int64) chan accountMsg {
+// 	glRunningAccounts[accountId] = make(chan accountMsg)
+// 	return glRunningAccounts[accountId]
+// }
 
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+// func unregisterAccount(accountId int64) {
+// 	delete(glRunningAccounts, accountId)
+// }
 
-	krakenPub := kws.NewKraken(kws.ProdBaseURL)
-	if err := krakenPub.Connect(); err != nil {
-		log.Fatalf("Error connecting to web socket: %s", err.Error())
-	}
-	krakenPriv := kws.NewKraken(kws.AuthBaseURL)
-	if err := krakenPriv.Connect(); err != nil {
-		log.Fatalf("Error connecting to web socket: %s", err.Error())
-	}
-	if err := krakenPriv.Authenticate(acc.apiPublicKey, acc.apiPrivateKey); err != nil {
-		log.Fatalf("Kraken authenticate error: %s", err.Error())
-	}
+// Runs the goroutine managing the account
+func (acc *account) run() {
+	log.Debug("Running accountant for: ", acc.name)
+
+	krakenPub := krakenConnectPublic()
+	krakenPriv := krakenConnectPrivate(acc)
 
 	db := openDB()
 	defer db.Close()
 
+	// Get active brokers
+	acc.brokers = map[int64]*broker{}
+	pairs := map[string]kws.TickerUpdate{}
+
 	sqlStmt := `
-		SELECT * FROM broker
+		SELECT
+			id, name, pair, status, minWait, maxWait,
+			highLimit, lowLimit, delta, offset, base, quote, fee
+		FROM broker
 		WHERE accountId = $1
 		AND status = "active"`
 	rows, err := db.Query(sqlStmt, acc.id)
@@ -71,73 +104,57 @@ func runBookkeeper(acc account) {
 	}
 	defer rows.Close()
 
-	bros := map[int64]*broker{}
-	tickers := map[string]kws.TickerUpdate{}
-	tickerList := []string{}
-
 	for rows.Next() {
 		var bro broker
-		if err := rows.Scan(&bro.id, &bro.accountId, &bro.name, &bro.pair,
+		if err := rows.Scan(&bro.id, &bro.name, &bro.pair,
 			&bro.status, &bro.minWait, &bro.maxWait, &bro.highLimit, &bro.lowLimit,
 			&bro.delta, &bro.offset, &bro.base, &bro.quote, &bro.fee); err != nil {
 			log.Fatal("Couldn't scan broker for running: ", err)
 		}
-		bros[bro.id] = &bro
-		tickers[bro.pair] = kws.TickerUpdate{}
-		tickerList = append(tickerList, bro.pair)
+		bro.acc = acc
+		bro.msg = make(chan brokerMsg)
+		bro.receipts = make(chan order)
+		acc.brokers[bro.id] = &bro
+		pairs[bro.pair] = kws.TickerUpdate{}
 	}
 	if err = rows.Err(); err != nil {
 		log.Fatal(err)
 	}
 
-	if err := krakenPub.SubscribeTicker(tickerList); err != nil {
-		log.Fatalf("SubscribeTicker error: %s", err.Error())
-	}
+	krakenSubscribeTickers(krakenPub, pairs)
+	krakenSubscribeOpenOrders(krakenPriv)
+	krakenSubscribeOwnTrades(krakenPriv)
 
-	if err := krakenPriv.SubscribeOpenOrders(); err != nil {
-		log.Fatalf("SubscribeOpenOrders error: %s", err.Error())
-	}
-	if err := krakenPriv.SubscribeOwnTrades(); err != nil {
-		log.Fatalf("SubscribeOwnTrades error: %s", err.Error())
-	}
-
-	orders := make(chan order)
-	receipts := map[int64](chan order){}
+	// Initialization done, registering account in global map
+	acc.msg = make(chan accountMsg)
+	acc.orders = make(chan order)
 
 	brokersStarted := false
-	initialTradesBooked := false
+	tradesBooked := false
 	pubUpdates := krakenPub.Listen()
 	privUpdates := krakenPriv.Listen()
 	for {
 		select {
-		case <-signals:
-			log.Warn("Stopping...")
-			if err := krakenPub.Close(); err != nil {
-				log.Fatal(err)
-			}
-			return
 		case update := <-pubUpdates:
 			switch data := update.Data.(type) {
 			case kws.TickerUpdate:
-				tickers[update.Pair] = data
+				pairs[update.Pair] = data
 				log.Debugf("Updated ticker: %v (%v)", update.Pair, data.Ask.Price)
-				if !brokersStarted && initialTradesBooked {
+				if !brokersStarted && tradesBooked {
 					log.Debugf("First ticker arrived and trades booked, starting brokers for account: `%v`.", acc.name)
-					for _, bro := range bros {
-						receipt := make(chan order)
-						receipts[bro.id] = receipt
-						go runBroker(bro, orders, receipt)
-						brokersStarted = true
+					for _, bro := range acc.brokers {
+						go bro.run()
 					}
+					brokersStarted = true
 				}
 			}
 		case update := <-privUpdates:
 			switch data := update.Data.(type) {
 			case kws.OpenOrdersUpdate:
-				for _, oOrdDict := range data {
-					for id, oOrd := range oOrdDict {
-						log.Debugf("Open order update: %v: %+v", id, oOrd)
-						updateOrder(db, oOrd, id)
+				for _, openOrdDict := range data {
+					for id, openOrd := range openOrdDict {
+						log.Debugf("Open order update: %v: %+v", id, openOrd)
+						updateOrder(db, openOrd, id)
 					}
 				}
 			case kws.OwnTradesUpdate:
@@ -147,21 +164,21 @@ func runBookkeeper(acc account) {
 							log.Debugf("Trade already booked: %v", id)
 							continue
 						}
-						trdOrd := getOrderById(db, ownTrd.OrderID)
+						trdOrd := getOrderById(db, acc, ownTrd.OrderID)
 						if trdOrd == nil {
 							log.Debugf("Trade doesn't belong to any order: %v", id)
 							continue
 						}
 						log.Debugf("Bookkeeping trade: %v", ownTrd)
-						bros[trdOrd.brokerId].bookTrade(db, id, ownTrd, trdOrd)
+						acc.brokers[trdOrd.bro.id].bookTrade(db, id, ownTrd, trdOrd)
 					}
 				}
-				initialTradesBooked = true
+				tradesBooked = true
 			}
-		case ord := <-orders:
+		case ord := <-acc.orders:
 			if ord.midPrice == 0 {
 				// Broker asking for current midPrice
-				ticker := tickers[bros[ord.brokerId].pair]
+				ticker := pairs[ord.bro.pair]
 				askPrice, err := ticker.Ask.Price.Float64()
 				if err != nil {
 					log.Fatal("Couldn't convert ask price.")
@@ -171,11 +188,11 @@ func runBookkeeper(acc account) {
 					log.Fatal("Couldn't convert bid price.")
 				}
 				ord.midPrice = (askPrice + bidPrice) / 2
-				receipts[ord.brokerId] <- ord
+				ord.bro.receipts <- ord
 			} else {
-				log.Debug("Received priced order from broker: ", bros[ord.brokerId].name)
+				log.Debug("Received priced order from broker: ", ord.bro.name)
 				saveOrder(db, &ord)
-				openOrderIds := getOpenOrderIds(db, bros[ord.brokerId].id)
+				openOrderIds := getOpenOrderIds(db, ord.bro.id)
 				if len(openOrderIds) != 0 {
 					err := krakenPriv.CancelOrder(openOrderIds)
 					if err != nil {
@@ -189,7 +206,7 @@ func runBookkeeper(acc account) {
 				}
 				req := kws.AddOrderRequest{
 					Ordertype: "limit",
-					Pair:      bros[ord.brokerId].pair,
+					Pair:      ord.bro.pair,
 					Price:     fmt.Sprintf("%f", ord.price),
 					Type:      ordType,
 					Volume:    fmt.Sprintf("%f", math.Abs(ord.volume)),

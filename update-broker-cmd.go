@@ -52,11 +52,12 @@ func updateBrokerCommand() {
 	defer db.Close()
 
 	var bro broker
+	var accountId int64
 
 	log.Debug("Getting broker for update: ", oldName)
 
 	sqlStmt := `SELECT * FROM broker WHERE name = $1`
-	if err := db.QueryRow(sqlStmt, oldName).Scan(&bro.id, &bro.accountId, &bro.name,
+	if err := db.QueryRow(sqlStmt, oldName).Scan(&bro.id, &accountId, &bro.name,
 		&bro.pair, &bro.status, &bro.minWait, &bro.maxWait, &bro.highLimit, &bro.lowLimit,
 		&bro.delta, &bro.offset, &bro.base, &bro.quote, &bro.fee); err != nil {
 		log.Fatal("Couldn't get broker for update: ", err)
@@ -78,12 +79,12 @@ func updateBrokerCommand() {
 	}
 	if udAccountName != "" {
 		log.Debug("Changing account to: ", udAccountName)
-		bro.accountId = getAccountID(db, udAccountName)
+		accountId = getAccountID(db, udAccountName)
 		change = true
 	}
 	if change {
 		sqlStmt = `UPDATE brokerHead SET name=$1, accountId=$2 WHERE id=$3`
-		tx.Exec(sqlStmt, bro.name, bro.accountId, bro.id)
+		tx.Exec(sqlStmt, bro.name, accountId, bro.id)
 	}
 
 	change = false
@@ -123,7 +124,7 @@ func updateBrokerCommand() {
 		change = true
 	}
 	if change {
-		newBrokerSetting(tx, &bro)
+		bro.newSetting(tx)
 	}
 
 	change = false
@@ -143,7 +144,7 @@ func updateBrokerCommand() {
 		change = true
 	}
 	if change {
-		newBrokerBalance(tx, &bro)
+		bro.newBalance(tx)
 	}
 
 	err = tx.Commit()

@@ -87,11 +87,15 @@ func createDB() {
 			SELECT
 				bh.id, bh.accountId, bh.name, bh.pair, bs.status, bs.minWait,
 				bs.maxWait, bs.highLimit, bs.lowLimit, bs.delta, bs.offset,
-				bb.base, bb.quote, bb.fee FROM brokerHead bh
+				bb.base, bb.quote, bb.fee, ch.modt AS lastcheck, ord.price AS lastprice FROM brokerHead bh
 			JOIN brokerSetting bs ON bh.id=bs.brokerId
 			JOIN brokerBalance bb ON bh.id=bb.brokerId
+			JOIN 'check' ch ON bh.id=ch.brokerId
+			JOIN 'order' ord ON bh.id=ord.brokerId
 			WHERE bs.modt = (SELECT max(modt) FROM brokerSetting bs2 WHERE bs2.brokerId = bh.id)
 				AND bb.modt = (SELECT max(modt) FROM brokerBalance bb2 WHERE bb2.brokerId = bh.id)
+				AND ch.modt = (SELECT max(modt) FROM 'check' ch2 WHERE ch2.brokerId = bh.id)
+				AND ord.tstamp = (SELECT max(tstamp) FROM 'order' ord2 WHERE ord2.brokerId = bh.id AND ord2.completed > 0)
 		;
 		
 		CREATE TABLE 'order' (
@@ -114,6 +118,14 @@ func createDB() {
 			fee REAL,
 			tstamp INTEGER,
 			FOREIGN KEY (orderId) REFERENCES 'order' (orderId)
+		);
+		
+		CREATE TABLE 'check' (
+			brokerId INTEGER,
+			orderUserRef INTEGER,
+			modt DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')),
+			FOREIGN KEY (brokerId) REFERENCES brokerHead (id),
+			FOREIGN KEY (orderUserRef) REFERENCES 'order' (userRef)
 		);`
 
 	_, err = db.Exec(sqlStmt)

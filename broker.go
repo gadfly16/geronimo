@@ -11,10 +11,11 @@ import (
 )
 
 type broker struct {
+	acc *account
+
 	id        int64
 	name      string
 	pair      string
-	accountId int64
 	status    string
 	minWait   float64
 	maxWait   float64
@@ -25,9 +26,12 @@ type broker struct {
 	base      float64
 	quote     float64
 	fee       float64
+
+	msg      chan brokerMsg
+	receipts chan order
 }
 
-func newBrokerSetting(tx *sql.Tx, bro *broker) {
+func (bro *broker) newSetting(tx *sql.Tx) {
 	sqlStmt := `
 		INSERT INTO brokerSetting
 			(brokerId, status, minWait, maxWait, highLimit, lowLimit, delta, offset)
@@ -39,7 +43,7 @@ func newBrokerSetting(tx *sql.Tx, bro *broker) {
 	}
 }
 
-func newBrokerBalance(tx *sql.Tx, bro *broker) {
+func (bro *broker) newBalance(tx *sql.Tx) {
 	sqlStmt := `INSERT INTO brokerBalance (brokerId, base, quote, fee) VALUES ($1, $2, $3, $4)`
 	_, err := tx.Exec(sqlStmt, bro.id, bro.base, bro.quote, bro.fee)
 	if err != nil {
@@ -47,14 +51,33 @@ func newBrokerBalance(tx *sql.Tx, bro *broker) {
 	}
 }
 
-func runBroker(bro *broker, orders, receipt chan order) {
+func (bro *broker) getLastOrder(db *sql.DB) *order {
+	o := &order{}
+	var ts int64
+	var brokerId int64
+	sqlStmt := `SELECT * FROM 'order'
+		WHERE brokerId = $1 AND completed > 0
+		ORDER BY tstamp DESC LIMIT 1`
+	if err := db.QueryRow(sqlStmt, bro.id).Scan(&o.userRef, &brokerId, &o.status,
+		&o.orderId, &o.volume, &o.completed, &o.price, &ts); err != nil {
+		if err == sql.ErrNoRows {
+			return nil
+		}
+		log.Fatal("Couldn't get last order: ", err)
+	}
+	o.bro = bro
+	o.tstamp = time.UnixMilli(ts)
+	return o
+}
+
+func (bro *broker) run() {
 	log.Debug("Running broker: ", bro.name)
 
 	db := openDB()
 	defer db.Close()
 	var lastCheck time.Time
 
-	lastOrd := getLastOrder(db, bro)
+	lastOrd := bro.getLastOrder(db)
 	if lastOrd == nil {
 		log.Debug("No previous order found, last check set to epic.")
 	} else {
@@ -62,8 +85,7 @@ func runBroker(bro *broker, orders, receipt chan order) {
 	}
 
 	for {
-		log.Debugf("Cycle started for broker: %+v", *bro)
-		lastOrd = getLastOrder(db, bro)
+		log.Debugf("Cycle started for broker: %+v", bro)
 		elapsed := time.Since(lastCheck)
 		wait := time.Duration(fit01(rand.Float64(), bro.minWait, bro.maxWait))*time.Second - elapsed
 		if wait < 0 {
@@ -73,34 +95,23 @@ func runBroker(bro *broker, orders, receipt chan order) {
 			time.Sleep(wait)
 		}
 
-		ord := order{brokerId: bro.id}
-		orders <- ord
-		pricedOrd := <-receipt
-		pricedOrd.prepareTrade(bro, lastOrd)
+		// Ask for price
+		ord := order{bro: bro}
+		bro.acc.orders <- ord
+		pricedOrd := <-bro.receipts
+
+		pricedOrd.fillOrder()
+
 		if pricedOrd.price == 0 {
 			log.Info("No order necessary.")
-		} else if pricedOrd.volume < krakenMinTradeVolume(bro.pair) {
+		} else if math.Abs(pricedOrd.volume) < krakenMinTradeVolume(bro.pair) {
 			log.Infof("Volume '%v' smaller than kraken min volume for pair: %v (%v)",
 				pricedOrd.volume, bro.pair, krakenMinTradeVolume(bro.pair))
 		} else {
 			log.Infof("Requesting order placement by `%s`: %v @ %v", bro.name, pricedOrd.volume, pricedOrd.price)
-			orders <- pricedOrd
+			bro.acc.orders <- pricedOrd
 		}
 		lastCheck = time.Now()
-	}
-}
-
-func (ord *order) prepareTrade(bro *broker, lastOrd *order) {
-	if lastOrd == nil ||
-		math.Abs(ord.midPrice-lastOrd.price)/lastOrd.price > bro.delta ||
-		ord.midPrice > bro.highLimit || ord.midPrice < bro.lowLimit {
-		diff := getVolume(ord.midPrice, bro.lowLimit, bro.highLimit, bro.base, bro.quote)
-		if diff > 0 {
-			ord.price = ord.midPrice / (1 + bro.offset)
-		} else {
-			ord.price = ord.midPrice * (1 + bro.offset)
-		}
-		ord.volume = getVolume(ord.price, bro.lowLimit, bro.highLimit, bro.base, bro.quote)
 	}
 }
 
@@ -108,6 +119,7 @@ func getBias(price, low, high float64) float64 {
 	return clamp01(fitTo01(math.Log(price), math.Log(high), math.Log(low)))
 }
 
+// getVolume calculates the volume of the order to be made
 func getVolume(price, low, high, base, quote float64) float64 {
 	bias := getBias(price, low, high)
 	baseValue := base * price
@@ -150,7 +162,7 @@ func (bro *broker) bookTrade(db *sql.DB, tid string, ownTrd kws.OwnTrade, trdOrd
 	bro.base += trd.volume
 	bro.quote += trd.cost
 	bro.fee += trd.fee
-	newBrokerBalance(tx, bro)
+	bro.newBalance(tx)
 
 	sqlStmt = `UPDATE 'order' SET completed=completed+$1 WHERE orderId=$2`
 	_, err = tx.Exec(sqlStmt, math.Abs(trd.volume), trd.orderId)

@@ -1,0 +1,50 @@
+package main
+
+import (
+	kws "github.com/aopoltorzhicky/go_kraken/websocket"
+	log "github.com/sirupsen/logrus"
+)
+
+func krakenConnectPublic() *kws.Kraken {
+	krakenPub := kws.NewKraken(kws.ProdBaseURL)
+	if err := krakenPub.Connect(); err != nil {
+		log.Fatalf("Error connecting to web socket: %s", err.Error())
+	}
+	return krakenPub
+}
+
+func krakenConnectPrivate(acc *account) *kws.Kraken {
+	krakenPriv := kws.NewKraken(kws.AuthBaseURL)
+	if err := krakenPriv.Connect(); err != nil {
+		log.Fatalf("Error connecting to web socket: %s", err.Error())
+	}
+	if err := krakenPriv.Authenticate(acc.apiPublicKey, acc.apiPrivateKey); err != nil {
+		log.Fatalf("Kraken authenticate error: %s", err.Error())
+	}
+	return krakenPriv
+}
+
+func krakenSubscribeTickers(krakenPub *kws.Kraken, pairs map[string]kws.TickerUpdate) {
+	pairList := []string{}
+	for pairName := range pairs {
+		pairList = append(pairList, pairName)
+	}
+	if err := krakenPub.SubscribeTicker(pairList); err != nil {
+		log.Fatalf("SubscribeTicker error: %s", err.Error())
+	}
+	log.Info("Subscribed to pairs: ", pairList)
+}
+
+func krakenSubscribeOpenOrders(krakenPriv *kws.Kraken) {
+	if err := krakenPriv.SubscribeOpenOrders(); err != nil {
+		log.Fatalf("SubscribeOpenOrders error: %s", err.Error())
+	}
+	log.Info("Subscribed to open orders.")
+}
+
+func krakenSubscribeOwnTrades(krakenPriv *kws.Kraken) {
+	if err := krakenPriv.SubscribeOwnTrades(); err != nil {
+		log.Fatalf("SubscribeOwnTrades error: %s", err.Error())
+	}
+	log.Info("Subscribed to own trades.")
+}

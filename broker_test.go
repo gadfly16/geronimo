@@ -35,8 +35,8 @@ func TestGetAmount(t *testing.T) {
 	}
 }
 
-func TestBrokerPrepare(t *testing.T) {
-	bro := &broker{
+func TestPrepareOrder(t *testing.T) {
+	bro := broker{
 		base:      0,
 		quote:     100,
 		highLimit: 3.2,
@@ -44,21 +44,85 @@ func TestBrokerPrepare(t *testing.T) {
 		delta:     0.04,
 		offset:    0.01,
 	}
-	lastOrd := &order{price: 0.5}
-	ord := order{midPrice: 0.404}
-	ord.prepareTrade(bro, lastOrd)
+
+	ord := order{bro: &bro, midPrice: 0.404}
+	ord.fillOrder()
 	res := ord.volume
 	const want1 = 187.5
 	if res != want1 {
-		t.Errorf("Wrong result from `broker.prapare` (1): %v, expected %v .", res, want1)
-	}
-	lastOrd = &order{price: 0.402}
-	ord = order{midPrice: 0.404}
-	ord.prepareTrade(bro, lastOrd)
-	res = ord.volume
-	const want2 = 0
-	if res != want2 {
-		t.Errorf("Wrong result from `broker.prapare` (1): %v, expected %v .", res, want2)
+		t.Errorf("Wrong result from `order.prapare` (1): %v, expected %v .", res, want1)
 	}
 
+	ord = order{bro: &bro, midPrice: 1.616}
+	ord.fillOrder()
+	res = ord.volume
+	const want2 = 15.625
+	if res != want2 {
+		t.Errorf("Wrong result from `order.prapare` (2): %v, expected %v .", res, want2)
+	}
+
+	ord = order{bro: &bro, midPrice: 0.101}
+	ord.fillOrder()
+	res = ord.volume
+	const want3 = 1000
+	if res != want3 {
+		t.Errorf("Wrong result from `order.prapare` (3): %v, expected %v .", res, want3)
+	}
+
+	ord = order{bro: &bro, midPrice: 4.04}
+	ord.fillOrder()
+	res = ord.volume
+	const want4 = 0
+	if res != want4 {
+		t.Errorf("Wrong result from `order.prapare` (4): %v, expected %v .", res, want4)
+	}
+
+	bro = broker{
+		base:      1000,
+		quote:     400,
+		highLimit: 1.6,
+		lowLimit:  0.1,
+		delta:     0.04,
+		offset:    0.01,
+	}
+
+	ord = order{bro: &bro, midPrice: 0.4}
+	ord.fillOrder()
+	res = ord.volume
+	const want5 = 0
+	if res != want5 {
+		t.Errorf("Wrong result from `order.prapare` (5): %v, expected %v .", res, want5)
+	}
+
+	ord = order{bro: &bro, midPrice: 0.202}
+	ord.fillOrder()
+	res = ord.volume
+	const want6 = 1250
+	if res != want6 {
+		t.Errorf("Wrong result from `order.prapare` (6): %v, expected %v .", res, want6)
+	}
+
+	ord = order{bro: &bro, midPrice: 0.7920792079207921}
+	ord.fillOrder()
+	res = ord.volume
+	const want7 = -625
+	if res != want7 {
+		t.Errorf("Wrong result from `order.prapare` (7): %v, expected %v .", res, want7)
+	}
+
+	ord = order{bro: &bro, midPrice: 5}
+	ord.fillOrder()
+	res = ord.volume
+	const want8 = -1000
+	if res != want8 {
+		t.Errorf("Wrong result from `order.prapare` (8): %v, expected %v .", res, want8)
+	}
+
+	ord = order{bro: &bro, midPrice: 0.05}
+	ord.fillOrder()
+	res = ord.volume
+	const want9 = 8080
+	if res != want9 {
+		t.Errorf("Wrong result from `order.prapare` (9): %v, expected %v .", res, want9)
+	}
 }
