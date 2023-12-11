@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"flag"
@@ -56,8 +56,8 @@ func newBrokerCommand() {
 		log.Fatal("Couldn't get broker ID:", err)
 	}
 
-	bro.newSetting(tx)
-	bro.newBalance(tx)
+	bro.saveSetting(tx)
+	bro.saveBalance(tx)
 
 	err = tx.Commit()
 	if err != nil {

@@ -1,21 +1,21 @@
-package main
+package cli
 
 import (
 	"flag"
 
-	_ "github.com/mattn/go-sqlite3"
+	"github.com/gadfly16/geronimo/server"
 	log "github.com/sirupsen/logrus"
 )
 
 func init() {
-	commands["init"] = initCommand
+	Commands["init"] = initCommand
 }
 
-func initCommand() {
+func initCommand(settings server.Settings) error {
 	log.Debug("Running 'init' command.")
 
 	initFlags := flag.NewFlagSet("init", flag.ExitOnError)
 	initFlags.Parse(flag.Args()[1:])
 
-	createDB()
+	return server.CreateDB(settings)
 }

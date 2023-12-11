@@ -1,9 +1,22 @@
-package main
+package geronimo
 
 import (
 	kws "github.com/aopoltorzhicky/go_kraken/websocket"
 	log "github.com/sirupsen/logrus"
 )
+
+var krakenMinTradeVolumes = map[string]float64{
+	"ADA/EUR": 15,
+	"ADA/USD": 15,
+}
+
+func krakenMinTradeVolume(pair string) float64 {
+	mtv, ok := krakenMinTradeVolumes[pair]
+	if !ok {
+		log.Fatalf("Couldn't get minimum trade volume for: %v", pair)
+	}
+	return mtv
+}
 
 func krakenConnectPublic() *kws.Kraken {
 	krakenPub := kws.NewKraken(kws.ProdBaseURL)

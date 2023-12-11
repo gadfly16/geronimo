@@ -124,7 +124,7 @@ func updateBrokerCommand() {
 		change = true
 	}
 	if change {
-		bro.newSetting(tx)
+		bro.saveSetting(tx)
 	}
 
 	change = false
@@ -144,7 +144,7 @@ func updateBrokerCommand() {
 		change = true
 	}
 	if change {
-		bro.newBalance(tx)
+		bro.saveBalance(tx)
 	}
 
 	err = tx.Commit()

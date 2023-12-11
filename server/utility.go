@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"crypto/aes"
@@ -7,31 +7,22 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"io"
 	"math"
-	"syscall"
+	"sync/atomic"
 
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/scrypt"
-	"golang.org/x/term"
 )
 
-var hash256 = sha256.New()
+// Atomic counter for messages
+var globalMsgIDCounter *int64 = new(int64)
 
-var krakenMinTradeVolumes = map[string]float64{
-	"ADA/EUR": 15,
-	"ADA/USD": 15,
+func nextMsgID() MsgID {
+	return MsgID(atomic.AddInt64(globalMsgIDCounter, 1))
 }
 
-func krakenMinTradeVolume(pair string) float64 {
-	mtv, ok := krakenMinTradeVolumes[pair]
-	if !ok {
-		log.Fatalf("Couldn't get minimum trade volume for: %v", pair)
-	}
-	return mtv
-}
-
+// Math
 func fitTo01(val, low, high float64) float64 {
 	return (val - low) / (high - low)
 }
@@ -44,22 +35,15 @@ func clamp01(val float64) float64 {
 	return math.Min(1, math.Max(0, val))
 }
 
-func hashPassword(pw string) string {
+// Encryption
+var hash256 = sha256.New()
+
+func HashPassword(pw string) string {
 	hash256.Write([]byte(pw))
 	return base64.StdEncoding.EncodeToString(hash256.Sum(nil))
 }
 
-func getTerminalString(prompt string) string {
-	fmt.Print(prompt)
-	pw, err := term.ReadPassword(int(syscall.Stdin))
-	if err != nil {
-		log.Fatal("Couldn't get password.")
-	}
-	fmt.Println()
-	return string(pw)
-}
-
-func encryptString(password, salt, message string) string {
+func EncryptString(password, salt, message string) string {
 	plaintext := []byte(message)
 	key, err := scrypt.Key([]byte(password), []byte(salt), 32768, 8, 1, 32)
 	if err != nil {

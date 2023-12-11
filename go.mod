@@ -3,19 +3,21 @@ module github.com/gadfly16/geronimo
 go 1.19
 
 require (
-	github.com/sirupsen/logrus v1.9.0
-	golang.org/x/crypto v0.4.0
-	golang.org/x/term v0.3.0
+	github.com/gorilla/websocket v1.5.0
+	github.com/sirupsen/logrus v1.9.3
+	golang.org/x/crypto v0.13.0
+	golang.org/x/term v0.12.0
+	gorm.io/driver/sqlite v1.5.4
+	gorm.io/gorm v1.25.5
 )
 
 require (
-	github.com/aopoltorzhicky/go_kraken/rest v0.0.3 // indirect
-	github.com/gorilla/websocket v1.4.1 // indirect
-	github.com/pkg/errors v0.9.1 // indirect
+	github.com/jinzhu/inflection v1.0.0 // indirect
+	github.com/jinzhu/now v1.1.5 // indirect
+	github.com/stretchr/testify v1.8.1 // indirect
 )
 
 require (
-	github.com/aopoltorzhicky/go_kraken/websocket v0.1.10
-	github.com/mattn/go-sqlite3 v1.14.15
-	golang.org/x/sys v0.3.0 // indirect
+	github.com/mattn/go-sqlite3 v1.14.17 // indirect
+	golang.org/x/sys v0.12.0 // indirect
 )

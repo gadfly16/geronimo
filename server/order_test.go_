@@ -1,4 +1,4 @@
-package main
+package geronimo
 
 import (
 	"database/sql"
@@ -36,7 +36,7 @@ func TestOrderTime(t *testing.T) {
 	ord.completed = 1
 	saveOrder(db, ord)
 
-	ord = bro.getLastOrder(db)
+	ord = bro.getLastCompletedOrder(db)
 	ts = time.UnixMilli(ts.UnixMilli())
 	if ord.tstamp != ts {
 		t.Errorf("Order's timestamp doesn't match: got %s, expected %s .",
@@ -67,7 +67,7 @@ func TestNoLastOrder(t *testing.T) {
 
 	bro := broker{}
 
-	ord := bro.getLastOrder(db)
+	ord := bro.getLastCompletedOrder(db)
 	if ord != nil {
 		t.Errorf("Order returned when no orders are in db.")
 	}
