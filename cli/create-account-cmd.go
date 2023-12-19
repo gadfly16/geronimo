@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 
@@ -11,7 +12,7 @@ import (
 )
 
 func init() {
-	Commands["create-account"] = createAccountCLI
+	CommandHandlers["create-account"] = createAccountCLI
 }
 
 func createAccountCLI(s server.Settings) error {
@@ -49,31 +50,35 @@ func createAccountCLI(s server.Settings) error {
 	acc.ApiPrivateKey = server.EncryptString(password, acc.Name, apiPrivateKey)
 
 	// Connect to server
-	conn, err := connectWSServer(s.WSAddr)
+	conn, clientID, err := connectWSServer(s.WSAddr)
 	if err != nil {
 		log.Fatal("Error connecting to Websocket Server:", err)
 	}
-	defer server.CloseServerConnection(conn)
 
-	msg := server.Message{
-		Type:    mt.CreateAccount,
-		Payload: acc,
+	msg := &server.Message{
+		Type:     mt.CreateAccount,
+		Payload:  acc,
+		ID:       1,
+		ClientID: clientID,
 	}
 
 	err = msg.SendWSMessage(conn)
 	if err != nil {
-		log.Fatalln("Error during sending command: ", err)
+		log.Fatalln("Error during sen ding command: ", err)
 	}
 
-	resp, err := server.ReceiveWSMessage(conn)
+	resp, err := waitForResponse(conn, msg)
 	if err != nil {
 		return err
 	}
-
 	if resp.Type == mt.Error {
 		return resp.Payload.(error)
 	}
+	if resp.Type != mt.NewAccount {
+		return errors.New(fmt.Sprint("not the expected response type: ", resp.Type))
+	}
 
-	log.Info("Account created succesfully.")
-	return nil
+	log.Info("Account created succesfully: ", resp.Payload.(server.Account).Name)
+
+	return closeServerConnection(conn)
 }

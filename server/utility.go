@@ -16,10 +16,10 @@ import (
 )
 
 // Atomic counter for messages
-var globalMsgIDCounter *int64 = new(int64)
+var globalIDCounter *int64 = new(int64)
 
-func nextMsgID() MsgID {
-	return MsgID(atomic.AddInt64(globalMsgIDCounter, 1))
+func nextID() int64 {
+	return atomic.AddInt64(globalIDCounter, 1)
 }
 
 // Math

@@ -1,7 +1,12 @@
+interface account {
+    ID: number;
+    Name: string;
+}
+
 
 function main() {
     let socket = new WebSocket("ws://127.0.0.1:8088/socket")
-    var state: any[]
+    var state: account[]
 
     let details = document.getElementById("details")!
 

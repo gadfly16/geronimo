@@ -10,7 +10,7 @@ import (
 )
 
 func init() {
-	Commands["show"] = showCLI
+	CommandHandlers["show"] = showCLI
 }
 
 func showCLI(s server.Settings) error {
@@ -20,14 +20,17 @@ func showCLI(s server.Settings) error {
 	runFlags.Parse(flag.Args()[1:])
 
 	// Connect to server
-	conn, err := connectWSServer(s.WSAddr)
+	conn, clientID, err := connectWSServer(s.WSAddr)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
 
+	log.Debugln("Client ID:", clientID)
+
 	msg := server.Message{
-		Type: mt.FullStateRequest,
+		Type:     mt.FullStateRequest,
+		ClientID: clientID,
 	}
 
 	err = msg.SendWSMessage(conn)
@@ -42,9 +45,5 @@ func showCLI(s server.Settings) error {
 
 	fmt.Println(string(resp.JSPayload))
 
-	err = server.CloseServerConnection(conn)
-	if err != nil {
-		return err
-	}
-	return nil
+	return closeServerConnection(conn)
 }

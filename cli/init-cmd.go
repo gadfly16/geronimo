@@ -8,7 +8,7 @@ import (
 )
 
 func init() {
-	Commands["init"] = initCommand
+	CommandHandlers["init"] = initCommand
 }
 
 func initCommand(settings server.Settings) error {

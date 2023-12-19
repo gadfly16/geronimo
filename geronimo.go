@@ -45,7 +45,7 @@ func main() {
 		log.Fatal("No command given.")
 	}
 
-	command, exists := cli.Commands[flag.Arg(0)]
+	command, exists := cli.CommandHandlers[flag.Arg(0)]
 	if !exists {
 		log.Fatalf("%s is not a valid command.", flag.Arg(0))
 	}

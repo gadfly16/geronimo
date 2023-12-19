@@ -6,7 +6,7 @@ import (
 )
 
 func init() {
-	Commands["serve"] = serveCLI
+	CommandHandlers["serve"] = serveCLI
 }
 
 func serveCLI(s server.Settings) error {
@@ -15,8 +15,7 @@ func serveCLI(s server.Settings) error {
 	// serveFlags := flag.NewFlagSet("run", flag.ExitOnError)
 	// serveFlags.Parse(flag.Args()[1:])
 
-	c := server.NewCore(s)
-	return c.Run()
+	return server.Serve(s)
 
 	// Wait for stop signals and quit gently
 	// signals := make(chan os.Signal, 1)
