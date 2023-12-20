@@ -2,7 +2,7 @@ package messagetypes
 
 const (
 	Error            = "Error"
-	Done             = "Done"
+	ClientID         = "ClientID"
 	CreateAccount    = "CreateAccount"
 	NewAccount       = "NewAccount"
 	CommandResponse  = "CommandResponse"

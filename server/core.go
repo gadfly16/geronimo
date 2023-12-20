@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 
 	mt "github.com/gadfly16/geronimo/messagetypes"
-	"github.com/gorilla/websocket"
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/driver/sqlite"
@@ -41,8 +40,6 @@ type Core struct {
 	unregisterClient chan *Client
 }
 
-var upgrader = websocket.Upgrader{}
-
 type messageHandler func(*Core, *Message) error
 
 var messageHandlers = map[string]messageHandler{
@@ -63,10 +60,11 @@ func Serve(s Settings) error {
 
 func newCore(s Settings) (c *Core, err error) {
 	c = &Core{
-		settings:       s,
-		clients:        map[int64]*Client{},
-		message:        make(chan *Message),
-		registerClient: make(chan *Client),
+		settings:         s,
+		clients:          map[int64]*Client{},
+		message:          make(chan *Message),
+		registerClient:   make(chan *Client),
+		unregisterClient: make(chan *Client),
 	}
 	// Load state
 	c.db, err = gorm.Open(sqlite.Open(c.settings.SettingsDbPath), &gorm.Config{})
@@ -91,18 +89,22 @@ func (c *Core) Run() (err error) {
 			if _, ok := c.clients[cl.id]; ok {
 				delete(c.clients, cl.id)
 				cl.conn.Close()
-				log.Infoln("Unregistered client:", cl.id)
+				log.Info("Unregistered client: ", cl.id)
 			} else {
-				log.Errorln("Can't unregister unregistered client:", cl.id)
+				log.Error("Can't unregister unregistered client: ", cl.id)
 			}
 		case req := <-c.message:
+			if req.ClientID == 0 {
+				log.Error("Received message with no client id.")
+				continue
+			}
 			if mh, ok := messageHandlers[req.Type]; ok {
 				err = mh(c, req)
 				if err != nil {
 					resp := req.prepareResponse()
 					resp.Type = mt.Error
 					resp.Payload = err
-					c.clients[req.ClientID].directMessage(resp)
+					c.clients[req.ClientID].outgoing <- resp
 				}
 			} else {
 				log.Errorln("Reveived unknown message type.")
@@ -140,10 +142,7 @@ func (msg *Message) prepareResponse() *Message {
 
 func (c *Core) broadcastMessage(msg *Message) {
 	for _, cl := range c.clients {
-		err := cl.directMessage(msg)
-		if err != nil {
-			log.Errorln(err)
-		}
+		cl.outgoing <- msg
 	}
 }
 
@@ -156,8 +155,10 @@ func createAccountHandler(c *Core, msg *Message) (err error) {
 	if err != nil {
 		return err
 	}
+	c.accounts = append(c.accounts, acc)
 	resp.Payload = acc
 	c.broadcastMessage(resp)
+	log.Info("Created new account: ", acc.Name)
 	return nil
 }
 
@@ -170,6 +171,6 @@ func fullStateRequestHandler(c *Core, msg *Message) (err error) {
 	if err != nil {
 		return err
 	}
-	c.clients[msg.ClientID].directMessage(resp)
+	c.clients[msg.ClientID].outgoing <- resp
 	return nil
 }

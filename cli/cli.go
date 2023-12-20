@@ -1,9 +1,9 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"syscall"
 
 	mt "github.com/gadfly16/geronimo/messagetypes"
@@ -29,16 +29,26 @@ func getTerminalString(prompt string) string {
 
 func connectWSServer(WSAddr string) (*websocket.Conn, int64, error) {
 	reqHeader := http.Header{"User-Agent": []string{server.CLIAgentID}}
-	conn, resp, err := websocket.DefaultDialer.Dial(WSAddr, reqHeader)
+	conn, _, err := websocket.DefaultDialer.Dial(WSAddr, reqHeader)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	clientID, err := strconv.ParseInt(resp.Header.Get(mt.GeronimoClientID), 10, 64)
+	msg, err := server.ReceiveWSMessage(conn)
 	if err != nil {
 		return nil, 0, err
 	}
-	return conn, clientID, nil
+	if msg.Type != mt.ClientID {
+		return nil, 0, errors.New("didn't received client id message, but: " + msg.Type)
+	}
+	clid := msg.Payload.(int64)
+	msg.ClientID = clid
+	err = msg.SendWSMessage(conn)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return conn, clid, nil
 }
 
 func waitForResponse(conn *websocket.Conn, msg *server.Message) (resp *server.Message, err error) {
