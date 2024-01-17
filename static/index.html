@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en" >
+
+<head>
+  <meta charset="UTF-8">
+  <title>Geronimo</title>
+  <link href="https://fonts.googleapis.com/css?family=Roboto:regular,bold" rel="stylesheet">
+  <link rel="stylesheet" href="./gui.css">
+  <link rel="icon" href="./favicon.svg">
+</head>
+
+<body>
+  <div id="login-screen">
+    <div id="login-block">
+      <form id="login-form">
+        <label for="email">Email:</label>
+        <input type="text" id="login-email" name="email" placeholder="mate@example.org"><br>
+        <label for="password">Password:</label>
+        <input type="password" id="login-password" name="password" placeholder="valami"><br><br>
+        <input type="submit" value="Login">
+        <button type="button" id="cancel-login">Cancel</button>
+        <button type="button" id="sign-up-button">Sign Up New User</button>
+      </form>
+    </div>
+  </div>
+  
+  <div id="sign-up-screen">
+    <div id="sign-up-block">
+      <form id="sign-up-form">
+        <label for="name">Name:</label>
+        <input type="text" id="sign-up-name" name="name" placeholder="Mate"><br>
+        <label for="email">Email:</label>
+        <input type="text" id="sign-up-email" name="email" placeholder="mate@example.org"><br>
+        <label for="password">Password:</label>
+        <input type="password" id="sign-up-password" name="password" placeholder="valami"><br><br>
+        <input type="submit" value="Sign Up">
+      </form>
+    </div>
+  </div>
+
+  <div id="header">
+    <div id="header-content">
+      <img id="logo" src="./favicon.svg">
+      <div id="name">Geronimo</div>
+    </div>
+  </div>
+
+  <div id="content">
+    <div id="details"></div>
+  </div>
+
+  <script src="./gui.js"></script>
+
+  <template id="accountTemplate">
+    <div class="account">
+      <div class="title">
+      </div>
+    </div>
+  </template>
+  
+</body>
+
+</html>

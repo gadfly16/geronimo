@@ -17,5 +17,5 @@ func initCommand(settings server.Settings) error {
 	initFlags := flag.NewFlagSet("init", flag.ExitOnError)
 	initFlags.Parse(flag.Args()[1:])
 
-	return server.CreateDB(settings)
+	return server.Init(settings)
 }

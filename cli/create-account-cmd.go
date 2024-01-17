@@ -37,7 +37,7 @@ func createAccountCLI(s server.Settings) error {
 	if password == "" {
 		password = getTerminalString(fmt.Sprintf("Enter password for account `%s`: ", acc.Name))
 	}
-	acc.PasswordHash = server.HashPassword(password)
+	// acc.PasswordHash = server.HashPassword(password)
 
 	if apiPublicKey == "" {
 		apiPublicKey = getTerminalString(fmt.Sprintf("Enter API public key for account `%s`: ", acc.Name))

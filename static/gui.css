@@ -1,0 +1,86 @@
+body {
+    margin: 0;
+    padding: 0;
+    /* overflow: hidden; */
+    background-color: #808080;
+    width: 100%;
+    height: 100%;
+    font-family: "Roboto";
+    font-size: 14px;
+}
+
+#header {
+    height: 6em;
+    width: 100%;
+    background-color: #809ec0;
+}
+
+#header-content {
+    width: 85%;
+    margin: auto;
+}
+
+#logo {
+    margin: 0.75em;
+    height: 4.5em;
+    float: left;
+}
+
+#name {
+    color: #e4f1ff;
+    font-size: 3em;
+    font-weight: bold;
+    padding-top: 0.4em;
+}
+
+#content {
+    width: 80%;
+    margin: auto;
+}  
+
+.account {
+    margin: 1em ;
+    padding: 1em ;
+    background-color: #606060;
+    border: 1px solid #000000 ;
+}
+
+.account .title {
+    font-size: 24px;
+    font-weight: bold;
+    color: #b0b0b0;
+}
+
+#login-screen {
+    /* display: none; */
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+}
+
+#login-block {
+    width: 40em;
+    margin: auto;
+    padding: 1em;
+    background-color: rgba(200,200,200,1);
+}
+
+#sign-up-button {
+    float: right;
+}
+
+#sign-up-block {
+    width: 40em;
+    margin: auto;
+    padding: 1em;
+    background-color: rgba(200,200,200,1);
+}
+
+#sign-up-screen {
+    display: none;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+}

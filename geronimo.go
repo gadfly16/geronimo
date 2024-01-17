@@ -29,8 +29,8 @@ func init() {
 		"l", "debug", "Sets log level. (panic, fatal, error, warn, info, debug, trace)")
 	flag.StringVar(&s.HTTPAddr,
 		"A", "127.0.0.1:8088", "Listening address.")
-	flag.StringVar(&s.SettingsDbPath,
-		"D", "./state.db", "Path to the settings database.")
+	flag.StringVar(&s.WorkDir,
+		"D", os.Getenv("HOME")+"/.config/Geronimo", "Working directory.")
 }
 
 func main() {

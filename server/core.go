@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"os"
 
 	mt "github.com/gadfly16/geronimo/messagetypes"
 
@@ -24,10 +25,10 @@ type Message struct {
 }
 
 type Settings struct {
-	LogLevel       log.Level
-	SettingsDbPath string
-	HTTPAddr       string
-	WSAddr         string
+	LogLevel log.Level
+	WorkDir  string
+	HTTPAddr string
+	WSAddr   string
 }
 
 type Core struct {
@@ -38,6 +39,7 @@ type Core struct {
 	db               *gorm.DB
 	registerClient   chan *Client
 	unregisterClient chan *Client
+	jwtKey           []byte
 }
 
 type messageHandler func(*Core, *Message) error
@@ -45,6 +47,15 @@ type messageHandler func(*Core, *Message) error
 var messageHandlers = map[string]messageHandler{
 	mt.CreateAccount:    createAccountHandler,
 	mt.FullStateRequest: fullStateRequestHandler,
+}
+
+func Init(s Settings) error {
+	err := createDB(s)
+	if err != nil {
+		return err
+	}
+
+	return createSecret(s, "jwtKey", 14)
 }
 
 func Serve(s Settings) error {
@@ -67,11 +78,16 @@ func newCore(s Settings) (c *Core, err error) {
 		unregisterClient: make(chan *Client),
 	}
 	// Load state
-	c.db, err = gorm.Open(sqlite.Open(c.settings.SettingsDbPath), &gorm.Config{})
+	c.db, err = gorm.Open(sqlite.Open(c.settings.WorkDir+"/state.db"), &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}
 	res := c.db.Find(&c.accounts)
+	if res.Error != nil {
+		return nil, err
+	}
+	// Load secret
+	c.jwtKey, err = os.ReadFile(s.WorkDir + "/jwtKey")
 	if res.Error != nil {
 		return nil, err
 	}

@@ -4,13 +4,16 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"io"
 	"math"
+	"os"
 	"sync/atomic"
 
+	"golang.org/x/crypto/bcrypt"
+
+	"github.com/dgrijalva/jwt-go"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/scrypt"
 )
@@ -36,11 +39,48 @@ func clamp01(val float64) float64 {
 }
 
 // Encryption
-var hash256 = sha256.New()
+func hashPassword(pw string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(pw), 14)
+	return string(bytes), err
+}
 
-func HashPassword(pw string) string {
-	hash256.Write([]byte(pw))
-	return base64.StdEncoding.EncodeToString(hash256.Sum(nil))
+func compareHashPassword(password, hash string) error {
+	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+}
+
+func generateSecret(l int) ([]byte, error) {
+	s := make([]byte, l)
+	_, err := rand.Read(s)
+	if err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
+func createSecret(s Settings, name string, l int) error {
+	secret, err := generateSecret(l)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(s.WorkDir+"/"+name, secret, 0600)
+}
+
+func (core *Core) parseToken(tokenString string) (claims *Claims, err error) {
+	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		return core.jwtKey, nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	claims, ok := token.Claims.(*Claims)
+
+	if !ok {
+		return nil, err
+	}
+
+	return claims, nil
 }
 
 func EncryptString(password, salt, message string) string {

@@ -3,9 +3,9 @@ package server
 import (
 	"encoding/json"
 	"errors"
-	"net/http"
 
 	mt "github.com/gadfly16/geronimo/messagetypes"
+	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 )
@@ -29,11 +29,11 @@ func NewClient(c *Core, conn *websocket.Conn, id int64) *Client {
 
 var upgrader = websocket.Upgrader{}
 
-func (c *Core) wsHandler(w http.ResponseWriter, r *http.Request) {
-	log.Debug("Received connection request from: ", r.Header.Get("User-Agent"))
+func (core *Core) wsHandler(c *gin.Context) {
+	log.Debug("Received connection request from: ", c.Request.Header.Get("User-Agent"))
 
 	// Upgrade our raw HTTP connection to a websocket based one
-	conn, err := upgrader.Upgrade(w, r, nil)
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Errorln("Error during connection upgradation:", err)
 		return
@@ -61,8 +61,8 @@ func (c *Core) wsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cl := NewClient(c, conn, clid)
-	c.registerClient <- cl
+	cl := NewClient(core, conn, clid)
+	core.registerClient <- cl
 	go cl.readMessages()
 	go cl.writeMessages()
 }

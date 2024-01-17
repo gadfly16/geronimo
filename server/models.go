@@ -1,9 +1,27 @@
 package server
 
 import (
+	"github.com/dgrijalva/jwt-go"
 	"gorm.io/gorm"
 	// log "github.com/sirupsen/logrus"
 )
+
+type User struct {
+	gorm.Model
+	Email    string `gorm:"unique"`
+	Name     string
+	Password string
+	Role     string
+}
+
+const (
+	UserRole = "user"
+)
+
+type Claims struct {
+	jwt.StandardClaims
+	Role string
+}
 
 type Account struct {
 	gorm.Model
