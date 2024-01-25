@@ -12,6 +12,8 @@ type User struct {
 	Name     string
 	Password string
 	Role     string
+
+	Accounts []*Account
 }
 
 const (
@@ -25,6 +27,8 @@ type Claims struct {
 
 type Account struct {
 	gorm.Model
+	UserID uint
+
 	Name          string `gorm:"unique"`
 	Status        string
 	PasswordHash  string
@@ -47,7 +51,6 @@ type Checkpoint struct {
 type Broker struct {
 	gorm.Model
 	AccountID uint
-	//	Account   *Account
 
 	Name      string
 	Pair      string

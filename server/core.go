@@ -27,13 +27,17 @@ type Message struct {
 type Settings struct {
 	LogLevel log.Level
 	WorkDir  string
+	DBName   string
 	HTTPAddr string
 	WSAddr   string
 }
 
 type Core struct {
 	settings         Settings
-	accounts         []Account
+	users            []*User
+	userMap          map[uint]*User
+	accountMap       map[uint]*Account
+	brokerMap        map[uint]*Broker
 	clients          map[int64]*Client
 	message          chan *Message
 	db               *gorm.DB
@@ -72,20 +76,39 @@ func Serve(s Settings) error {
 func newCore(s Settings) (c *Core, err error) {
 	c = &Core{
 		settings:         s,
+		users:            []*User{},
+		userMap:          map[uint]*User{},
+		accountMap:       map[uint]*Account{},
+		brokerMap:        map[uint]*Broker{},
 		clients:          map[int64]*Client{},
 		message:          make(chan *Message),
 		registerClient:   make(chan *Client),
 		unregisterClient: make(chan *Client),
 	}
-	// Load state
-	c.db, err = gorm.Open(sqlite.Open(c.settings.WorkDir+"/state.db"), &gorm.Config{})
+
+	// Connect to db
+	c.db, err = gorm.Open(sqlite.Open(c.settings.DBName), &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}
-	res := c.db.Find(&c.accounts)
+
+	// Load models
+	res := c.db.Find(&c.users)
 	if res.Error != nil {
 		return nil, err
 	}
+
+	// Fill out model maps
+	for _, u := range c.users {
+		c.userMap[u.ID] = u
+		for _, a := range u.Accounts {
+			c.accountMap[a.ID] = a
+			for _, b := range a.Brokers {
+				c.brokerMap[b.ID] = b
+			}
+		}
+	}
+
 	// Load secret
 	c.jwtKey, err = os.ReadFile(s.WorkDir + "/jwtKey")
 	if res.Error != nil {
@@ -163,30 +186,30 @@ func (c *Core) broadcastMessage(msg *Message) {
 }
 
 func createAccountHandler(c *Core, msg *Message) (err error) {
-	resp := msg.prepareResponse()
-	resp.Type = mt.NewAccount
+	// resp := msg.prepareResponse()
+	// resp.Type = mt.NewAccount
 
-	acc := msg.Payload.(Account)
-	err = acc.Save(c.db)
-	if err != nil {
-		return err
-	}
-	c.accounts = append(c.accounts, acc)
-	resp.Payload = acc
-	c.broadcastMessage(resp)
-	log.Info("Created new account: ", acc.Name)
+	// acc := msg.Payload.(Account)
+	// err = acc.Save(c.db)
+	// if err != nil {
+	// 	return err
+	// }
+	// c.accounts = append(c.accounts, acc)
+	// resp.Payload = acc
+	// c.broadcastMessage(resp)
+	// log.Info("Created new account: ", acc.Name)
 	return nil
 }
 
 func fullStateRequestHandler(c *Core, msg *Message) (err error) {
-	log.Debugln("Handling full state request.")
-	resp := msg.prepareResponse()
-	resp.Type = mt.FullState
+	// log.Debugln("Handling full state request.")
+	// resp := msg.prepareResponse()
+	// resp.Type = mt.FullState
 
-	resp.JSPayload, err = json.Marshal(c.accounts)
-	if err != nil {
-		return err
-	}
-	c.clients[msg.ClientID].outgoing <- resp
+	// resp.JSPayload, err = json.Marshal(c.accounts)
+	// if err != nil {
+	// 	return err
+	// }
+	// c.clients[msg.ClientID].outgoing <- resp
 	return nil
 }

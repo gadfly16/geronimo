@@ -18,66 +18,11 @@ window.onload = function () {
     // Load templates
     accountTemplate = document.getElementById("accountTemplate");
     // Attach handlers
-    document.getElementById("login-form").onsubmit = login;
-    document.getElementById("sign-up-form").onsubmit = signup;
-    document.getElementById("cancel-login").onclick = cancelLogin;
-    document.getElementById("sign-up-button").onclick = switchToSignup;
     // Start GUI
     socket = new WebSocket("ws://127.0.0.1:8088/socket");
     details.addEventListener("rebuild", rebuidDetails);
     socket.addEventListener("message", receiveClientID);
 };
-function login() {
-    var formData = {
-        "Email": document.getElementById("login-email").value,
-        "Password": document.getElementById("login-password").value
-    };
-    // Send the request
-    fetch("/login", {
-        method: 'post',
-        body: JSON.stringify(formData),
-        mode: 'same-origin',
-    }).then(function (response) {
-        if (response.ok) {
-            return response.json();
-        }
-        else {
-            throw 'unauthorized';
-        }
-    }).then(function (data) {
-        // Now we have a OTP, send a Request to Connect to WebSocket
-        // connectWebsocket(data.otp);
-    }).catch(function (e) { alert(e); });
-    return false;
-}
-function cancelLogin() {
-    document.getElementById("login-screen").style.display = "none";
-}
-function switchToSignup() {
-    cancelLogin();
-    document.getElementById("sign-up-screen").style.display = "block";
-}
-function signup() {
-    var formData = {
-        "Name": document.getElementById("sign-up-name").value,
-        "Email": document.getElementById("sign-up-email").value,
-        "Password": document.getElementById("sign-up-password").value
-    };
-    // Send the request
-    fetch("/signup", {
-        method: 'post',
-        body: JSON.stringify(formData),
-        mode: 'same-origin',
-    }).then(function (response) {
-        if (response.ok) {
-            return response.json();
-        }
-        else {
-            throw 'failed';
-        }
-    }).catch(function (e) { alert(e); });
-    return false;
-}
 function rebuidDetails() {
     console.log("Rebuilding details.");
     details.innerHTML = '';

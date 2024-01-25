@@ -40,6 +40,7 @@ func main() {
 	log.SetLevel(s.LogLevel)
 
 	s.WSAddr = "ws://" + s.HTTPAddr + "/socket"
+	s.DBName = s.WorkDir + "/state.db"
 
 	if len(os.Args) < 1 {
 		log.Fatal("No command given.")

@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
 	"math"
 	"os"
@@ -136,4 +137,13 @@ func jsonNumToFloat64(j json.Number) (f float64) {
 		log.Fatal("Couldn't cost json.Number to float64.")
 	}
 	return
+}
+
+func fileExists(fn string) bool {
+	if _, err := os.Stat(fn); err == nil {
+		return true
+	} else if !errors.Is(err, os.ErrNotExist) {
+		log.Fatal("Couldn't stat file: ", fn)
+	}
+	return false
 }
