@@ -8,16 +8,26 @@ import (
 
 type User struct {
 	gorm.Model
-	Email    string `gorm:"unique"`
-	Name     string
-	Password string
-	Role     string
+	Email string `gorm:"unique"`
+	Name  string
+	Role  string
 
 	Accounts []*Account
 }
 
+type UserSecret struct {
+	gorm.Model
+	UserID   uint
+	Password string
+}
+
+type UserWithSecret struct {
+	User   *User
+	Secret *UserSecret
+}
+
 const (
-	UserRole = "user"
+	RoleUser = "user"
 )
 
 type Claims struct {
@@ -27,19 +37,23 @@ type Claims struct {
 
 type Account struct {
 	gorm.Model
-	UserID uint
-
-	Name          string `gorm:"unique"`
-	Status        string
-	PasswordHash  string
-	ApiPublicKey  string
-	ApiPrivateKey string
+	UserID uint   `gorm:"UNIQUE_INDEX:unique_name_per_user"`
+	Name   string `gorm:"UNIQUE_INDEX:unique_name_per_user"`
+	Status string
 
 	Brokers []*Broker
-	// pairs   map[string]kws.TickerUpdate
-	// msg     chan accountMsg
-	// orders  chan order
+}
 
+type AccountSecret struct {
+	gorm.Model
+	AccountID     uint
+	ApiPublicKey  string
+	ApiPrivateKey string
+}
+
+type AccountWithSecret struct {
+	Account *Account
+	Secret  *AccountSecret
 }
 
 type Checkpoint struct {
@@ -72,7 +86,7 @@ type Broker struct {
 	// receipts chan order
 }
 
-func (acc *Account) Save(db *gorm.DB) error {
-	result := db.Create(acc)
-	return result.Error
-}
+// func (acc *Account) Save(db *gorm.DB) error {
+// 	result := db.Create(acc)
+// 	return result.Error
+// }

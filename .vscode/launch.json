@@ -10,7 +10,7 @@
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "${fileDirname}",
+            "program": "geronimo.go",
             "args": ["serve"]
         },
 
@@ -19,8 +19,8 @@
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "${fileDirname}",
-            "args": ["create-account", "-n", "eszter", "-p", "jelszo", "-u", "publicKey", "-r", "privateKey"]
+            "program": "geronimo.go",
+            "args": ["-u", "mate@example.org", "-p", "valami", "create-account", "-n", "first", "-k", "publicKey", "-K", "privateKey"]
         }
     ]
 }

@@ -1,73 +1,114 @@
 package cli
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"strings"
 	"syscall"
+	"time"
 
-	mt "github.com/gadfly16/geronimo/messagetypes"
+	"github.com/dgrijalva/jwt-go"
 	"github.com/gadfly16/geronimo/server"
-	"github.com/gorilla/websocket"
+	"github.com/go-resty/resty/v2"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/term"
 )
+
+type connection struct {
+	claims *server.Claims
+	client *resty.Client
+	cookie string
+}
 
 type commandHandler func(server.Settings) error
 
 var CommandHandlers = make(map[string]commandHandler)
 
-func getTerminalString(prompt string) string {
+func getTerminalPassword(prompt string) string {
 	fmt.Print(prompt)
 	pw, err := term.ReadPassword(int(syscall.Stdin))
+	fmt.Println()
 	if err != nil {
 		log.Fatal("Couldn't get password.")
 	}
-	fmt.Println()
 	return string(pw)
 }
 
-func connectWSServer(WSAddr string) (*websocket.Conn, int64, error) {
-	reqHeader := http.Header{"User-Agent": []string{server.CLIAgentID}}
-	conn, _, err := websocket.DefaultDialer.Dial(WSAddr, reqHeader)
+func getTerminalString(prompt string) string {
+	fmt.Print(prompt)
+	reader := bufio.NewReader(os.Stdin)
+	text, err := reader.ReadString('\n')
 	if err != nil {
-		return nil, 0, err
+		log.Fatal("Couldn't get input from terminal.")
 	}
-
-	msg, err := server.ReceiveWSMessage(conn)
-	if err != nil {
-		return nil, 0, err
-	}
-	if msg.Type != mt.ClientID {
-		return nil, 0, errors.New("didn't received client id message, but: " + msg.Type)
-	}
-	clid := msg.Payload.(int64)
-	msg.ClientID = clid
-	err = msg.SendWSMessage(conn)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	return conn, clid, nil
+	return strings.TrimSuffix(text, "\n")
 }
 
-func waitForResponse(conn *websocket.Conn, msg *server.Message) (resp *server.Message, err error) {
-	for {
-		resp, err = server.ReceiveWSMessage(conn)
-		if err != nil {
-			return
-		}
-		if resp.ClientID == msg.ClientID && resp.ReqID == msg.ID {
-			break
-		}
+func parseClaimsUnverified(cookie string) (claims *server.Claims, err error) {
+	token, _, err := new(jwt.Parser).ParseUnverified(cookie, &server.Claims{})
+	if err != nil {
+		return
+	}
+	claims, ok := token.Claims.(*server.Claims)
+	if !ok {
+		return nil, errors.New("misformed claims field")
 	}
 	return
 }
 
-func closeServerConnection(conn *websocket.Conn) error {
-	err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-	if err != nil {
-		return err
+func connectServer(s *server.Settings) (conn *connection, err error) {
+	conn = &connection{client: resty.New().SetBaseURL("http://" + s.HTTPAddr)}
+	expirationTime := time.Time{}
+	if s.UserEmail == "" && server.FileExists(s.CLICookiePath) {
+		savedCookie, err := os.ReadFile(s.CLICookiePath)
+		if err != nil {
+			return nil, err
+		}
+		conn.cookie = string(savedCookie)
+		conn.claims, err = parseClaimsUnverified(conn.cookie)
+		if err != nil {
+			return nil, err
+		}
+		expirationTime = time.Unix(conn.claims.StandardClaims.ExpiresAt, 0)
 	}
-	return nil
+	if time.Now().After(expirationTime) {
+		var (
+			user   server.User
+			secret server.UserSecret
+		)
+		if s.UserEmail != "" {
+			user.Email = s.UserEmail
+		} else {
+			user.Email = getTerminalString("Login email: ")
+		}
+		if s.UserPassword != "" {
+			secret.Password = s.UserPassword
+		} else {
+			secret.Password = getTerminalPassword("Login password: ")
+		}
+
+		resp, err := conn.client.R().
+			SetBody(server.UserWithSecret{User: &user, Secret: &secret}).
+			SetResult(&server.LoginResp{}).
+			SetError(&server.APIError{}).
+			Post(server.AuthLogin)
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode() >= 400 {
+			return nil, errors.New(resp.Error().(*server.APIError).Error)
+		}
+
+		conn.cookie = resp.Cookies()[0].Value
+		conn.claims, err = parseClaimsUnverified(conn.cookie)
+		if err != nil {
+			return nil, err
+		}
+		os.WriteFile(s.CLICookiePath, []byte(conn.cookie), 0600)
+	}
+	conn.client.SetCookie(&http.Cookie{Name: "token", Value: conn.cookie})
+	return conn, nil
 }

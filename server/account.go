@@ -1,5 +1,14 @@
 package server
 
+// func (core *Core) saveAccount(aws *AccountWithSecret) error {
+// 	tx := core.db.Create(aws.Account)
+// 	if tx.Error != nil {
+// 		return tx.Error
+// 	}
+// 	tx =
+// 	return result.Error
+// }
+
 // "gorm.io/gorm"
 // log "github.com/sirupsen/logrus"
 

@@ -2,13 +2,20 @@ package server
 
 import (
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
-	mt "github.com/gadfly16/geronimo/messagetypes"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
+)
+
+const (
+	AuthLogin  = "/login"
+	AuthSignup = "/signup"
+	APIAccount = "/account"
+	APIState   = "/state"
 )
 
 func (core *Core) serveHTTP() {
@@ -20,10 +27,10 @@ func (core *Core) serveHTTP() {
 	r.LoadHTMLGlob("./web/gui/*")
 
 	// Authentication routes
-	r.StaticFile("/login", "./web/login.html")
-	r.StaticFile("/signup", "./web/signup.html")
-	r.POST("/login", core.login)
-	r.POST("/signup", core.signup)
+	r.StaticFile(AuthLogin, "./web/login.html")
+	r.StaticFile(AuthSignup, "./web/signup.html")
+	r.POST(AuthLogin, core.login)
+	r.POST(AuthSignup, core.signup)
 
 	// Statuc content routes
 	r.Static("/static", "./web/static")
@@ -36,100 +43,72 @@ func (core *Core) serveHTTP() {
 		c.Redirect(http.StatusMovedPermanently, "/gui/home")
 	})
 
-	// Gui page routes
-	gui := r.Group("/gui", core.needUserRoleOrLogin)
-	{
-		gui.GET("/user/:id", core.user)
-	}
+	// Gui
+	r.GET("/gui/*path", core.needUserRoleOrLogin, core.gui)
 
 	// API routes
-	api := r.Group("/api", core.needUserRole)
-	{
-		api.GET("/account", core.getAccounts)
-		api.POST("/account", core.postAccount)
-	}
+	core.apiRoutes(r)
 
 	err := r.Run(core.settings.HTTPAddr)
 	core.message <- &Message{
-		Type:    mt.WebServerError,
+		Type:    MessageWebServerError,
 		Payload: err,
 	}
 }
 
+type LoginResp struct {
+	Success bool
+	Message string
+}
+
 func (core *Core) login(c *gin.Context) {
-	var user User
-	if err := c.ShouldBindJSON(&user); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+	var uws UserWithSecret
+	if err := c.ShouldBindJSON(&uws); err != nil {
+		c.JSON(http.StatusBadRequest, APIError{Error: err.Error()})
 		return
 	}
 
-	var existingUser User
-	core.db.Where("email = ?", user.Email).First(&existingUser)
-	if existingUser.ID == 0 {
-		c.JSON(400, gin.H{"error": "user does not exist"})
+	resp := core.send(MessageAuthenticateUser, uws)
+	if resp.Type == MessageError {
+		c.JSON(resp.extractError())
 		return
 	}
+	user := resp.Payload.(*User)
 
-	err := compareHashPassword(user.Password, existingUser.Password)
-	if err != nil {
-		c.JSON(400, gin.H{"error": "invalid password"})
-		return
-	}
-
-	expirationDuration := 5 * time.Minute
+	expirationDuration := ExiprationMins * time.Minute
 	expirationTime := time.Now().Add(expirationDuration)
 	claims := &Claims{
-		Role: existingUser.Role,
+		Role: user.Role,
 		StandardClaims: jwt.StandardClaims{
-			Subject:   strconv.Itoa(int(existingUser.ID)),
+			Subject:   strconv.Itoa(int(user.ID)),
 			ExpiresAt: expirationTime.Unix(),
 		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
 	tokenString, err := token.SignedString(core.jwtKey)
-
 	if err != nil {
-		c.JSON(500, gin.H{"error": "could not generate token"})
+		c.JSON(http.StatusInternalServerError, APIError{Error: "could not generate token"})
 		return
 	}
 
 	c.SetSameSite(http.SameSiteStrictMode)
 	c.SetCookie("token", tokenString, int(expirationDuration.Seconds()), "/", "localhost", false, true)
-	c.JSON(200, gin.H{"success": "user logged in", "userid": existingUser.ID})
+	c.JSON(http.StatusOK, &LoginResp{Success: true, Message: "user logged in"})
 }
 
 func (core *Core) signup(c *gin.Context) {
-	var user User
-	if err := c.ShouldBindJSON(&user); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+	var uws UserWithSecret
+	if err := c.ShouldBindJSON(&uws); err != nil {
+		c.JSON(http.StatusBadRequest, APIError{Error: err.Error()})
 		return
 	}
 
-	var userExists bool
-	err := core.db.Model(&user).Select("count(*)>0").Where("email = ?", user.Email).First(&userExists).Error
-	if err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
+	resp := core.send(MessageCreateUser, uws)
+	if resp.Type == MessageError {
+		c.JSON(resp.extractError())
 		return
 	}
-	if userExists {
-		c.JSON(400, gin.H{"error": "user already exists"})
-		return
-	}
-
-	user.Password, err = hashPassword(user.Password)
-	if err != nil {
-		c.JSON(500, gin.H{"error": "could not generate password hash"})
-		return
-	}
-
-	user.Role = UserRole
-
-	// Add user to database and core
-	core.db.Create(&user)
-	core.users = append(core.users, &user)
-	core.userMap[user.ID] = &user
 
 	c.JSON(200, gin.H{"success": "user created"})
 }
@@ -142,14 +121,14 @@ func (core *Core) needUserRole(c *gin.Context) {
 		return
 	}
 
-	claims, err := core.parseToken(token)
+	claims, err := core.ParseToken(token)
 	if err != nil {
 		c.JSON(401, gin.H{"error": "unauthorized"})
 		c.Abort()
 		return
 	}
 
-	if claims.Role != UserRole {
+	if claims.Role != RoleUser {
 		c.JSON(401, gin.H{"error": "needs user role"})
 		c.Abort()
 		return
@@ -159,26 +138,30 @@ func (core *Core) needUserRole(c *gin.Context) {
 }
 
 func (core *Core) needUserRoleOrLogin(c *gin.Context) {
+	dest := url.Values{}
+	dest.Set("dest", c.Param("path"))
+	loginURL := "/login?" + dest.Encode()
+
 	token, err := c.Cookie("token")
 	if err != nil {
 		// c.JSON(401, gin.H{"error": "unauthorized"})
 		c.Abort()
-		c.Redirect(http.StatusMovedPermanently, "/login")
+		c.Redirect(http.StatusTemporaryRedirect, loginURL)
 		return
 	}
 
-	claims, err := core.parseToken(token)
+	claims, err := core.ParseToken(token)
 	if err != nil {
 		// c.JSON(401, gin.H{"error": "unauthorized"})
 		c.Abort()
-		c.Redirect(http.StatusMovedPermanently, "/login")
+		c.Redirect(http.StatusTemporaryRedirect, loginURL)
 		return
 	}
 
-	if claims.Role != UserRole {
+	if claims.Role != RoleUser {
 		// c.JSON(401, gin.H{"error": "needs user role"})
 		c.Abort()
-		c.Redirect(http.StatusMovedPermanently, "/login")
+		c.Redirect(http.StatusTemporaryRedirect, loginURL)
 		return
 	}
 	c.Set("role", claims.Role)
@@ -191,17 +174,7 @@ func (core *Core) needUserRoleOrLogin(c *gin.Context) {
 	c.Set("userID", uint(userID))
 }
 
-func (core *Core) user(c *gin.Context) {
-	authUserID, _ := c.Get("userID")
-	reqUserID, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		c.JSON(401, gin.H{"error": "bad user id"})
-		return
-	}
-	if authUserID.(uint) != uint(reqUserID) {
-		c.JSON(401, gin.H{"error": "user has no permission to see data"})
-		return
-	}
-	user := core.userMap[uint(reqUserID)]
-	c.HTML(http.StatusOK, "user.html", user)
+func (core *Core) gui(c *gin.Context) {
+	userID := c.GetUint("userID")
+	c.HTML(http.StatusOK, "gui.html", core.userMap[userID])
 }

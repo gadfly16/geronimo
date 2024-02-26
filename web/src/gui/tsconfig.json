@@ -1,0 +1,10 @@
+{
+  "extends": "../base-tsconfig.json",
+  "compilerOptions": {
+    "lib": ["esnext", "dom", "DOM.Iterable"],
+  },
+  "references": [
+    {"path": "../workers"},
+    {"path": "../shared"}
+  ]
+}

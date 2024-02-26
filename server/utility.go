@@ -58,25 +58,26 @@ func generateSecret(l int) ([]byte, error) {
 	return s, nil
 }
 
-func createSecret(s Settings, name string, l int) error {
-	secret, err := generateSecret(l)
+func createSecret(path string) error {
+	if FileExists(path) {
+		return errors.New("key file already exists: " + path)
+	}
+	secret, err := generateSecret(14)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(s.WorkDir+"/"+name, secret, 0600)
+	return os.WriteFile(path, secret, 0600)
 }
 
-func (core *Core) parseToken(tokenString string) (claims *Claims, err error) {
+func (core *Core) ParseToken(tokenString string) (claims *Claims, err error) {
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 		return core.jwtKey, nil
 	})
-
 	if err != nil {
 		return nil, err
 	}
 
 	claims, ok := token.Claims.(*Claims)
-
 	if !ok {
 		return nil, err
 	}
@@ -84,15 +85,15 @@ func (core *Core) parseToken(tokenString string) (claims *Claims, err error) {
 	return claims, nil
 }
 
-func EncryptString(password, salt, message string) string {
+func encryptString(password []byte, salt, message string) (encstr string, err error) {
 	plaintext := []byte(message)
-	key, err := scrypt.Key([]byte(password), []byte(salt), 32768, 8, 1, 32)
+	key, err := scrypt.Key(password, []byte(salt), 32768, 8, 1, 32)
 	if err != nil {
-		log.Fatal("Couldn't create key from password.")
+		return
 	}
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		log.Fatal("Couldn't create cipher block.")
+		return
 	}
 	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
 	iv := ciphertext[:aes.BlockSize]
@@ -102,24 +103,24 @@ func EncryptString(password, salt, message string) string {
 	stream := cipher.NewCFBEncrypter(block, iv)
 	stream.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
 
-	return base64.StdEncoding.EncodeToString(ciphertext)
+	return base64.StdEncoding.EncodeToString(ciphertext), nil
 }
 
-func decryptString(password, salt, message string) string {
+func decryptString(password []byte, salt, message string) (decstr string, err error) {
 	ciphertext, err := base64.StdEncoding.DecodeString(message)
 	if err != nil {
-		log.Fatal("Couldn't decode encoded message.")
+		return
 	}
-	key, err := scrypt.Key([]byte(password), []byte(salt), 32768, 8, 1, 32)
+	key, err := scrypt.Key(password, []byte(salt), 32768, 8, 1, 32)
 	if err != nil {
-		log.Fatal("Couldn't create key from password.")
+		return
 	}
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		log.Fatal("Couldn't create cipher block.")
+		return
 	}
 	if len(ciphertext) < aes.BlockSize {
-		log.Fatal("Ciphertext too short.")
+		return
 	}
 	iv := ciphertext[:aes.BlockSize]
 	ciphertext = ciphertext[aes.BlockSize:]
@@ -128,7 +129,7 @@ func decryptString(password, salt, message string) string {
 
 	stream.XORKeyStream(ciphertext, ciphertext)
 
-	return string(ciphertext)
+	return string(ciphertext), nil
 }
 
 func jsonNumToFloat64(j json.Number) (f float64) {
@@ -139,7 +140,7 @@ func jsonNumToFloat64(j json.Number) (f float64) {
 	return
 }
 
-func fileExists(fn string) bool {
+func FileExists(fn string) bool {
 	if _, err := os.Stat(fn); err == nil {
 		return true
 	} else if !errors.Is(err, os.ErrNotExist) {

@@ -1,10 +1,7 @@
 package server
 
 import (
-	"encoding/json"
 	"os"
-
-	mt "github.com/gadfly16/geronimo/messagetypes"
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/driver/sqlite"
@@ -13,23 +10,33 @@ import (
 
 const (
 	CLIAgentID = "Geronimo CLI"
+
+	NameStateDB   = "state.db"
+	NameJWTKey    = "jwt-key"
+	NameDBKey     = "db-key"
+	NameCLICookie = "cli-cookie"
+
+	ExiprationMins = 60
+
+	GeronimoClientID = "Geronimo-Client-ID"
 )
 
-type Message struct {
-	ID, ReqID, ClientID int64
-	Type                string
-	Payload             interface{} `json:"-"`
-	JSPayload           json.RawMessage
-
-	RespChan chan *Message `json:"-"`
+type ErrorPayload struct {
+	Status int
+	Error  string
 }
 
 type Settings struct {
-	LogLevel log.Level
-	WorkDir  string
-	DBName   string
-	HTTPAddr string
-	WSAddr   string
+	LogLevel      log.Level
+	WorkDir       string
+	HTTPAddr      string
+	WSAddr        string
+	UserEmail     string
+	UserPassword  string
+	DBPath        string
+	JWTKeyPath    string
+	DBKeyPath     string
+	CLICookiePath string
 }
 
 type Core struct {
@@ -44,22 +51,17 @@ type Core struct {
 	registerClient   chan *Client
 	unregisterClient chan *Client
 	jwtKey           []byte
+	dbKey            []byte
 }
 
-type messageHandler func(*Core, *Message) error
-
-var messageHandlers = map[string]messageHandler{
-	mt.CreateAccount:    createAccountHandler,
-	mt.FullStateRequest: fullStateRequestHandler,
-}
-
-func Init(s Settings) error {
-	err := createDB(s)
-	if err != nil {
-		return err
+func Init(s Settings) (err error) {
+	if err = createDB(s); err != nil {
+		return
 	}
-
-	return createSecret(s, "jwtKey", 14)
+	if err = createSecret(s.JWTKeyPath); err != nil {
+		return
+	}
+	return createSecret(s.DBKeyPath)
 }
 
 func Serve(s Settings) error {
@@ -73,8 +75,8 @@ func Serve(s Settings) error {
 	return c.Run()
 }
 
-func newCore(s Settings) (c *Core, err error) {
-	c = &Core{
+func newCore(s Settings) (core *Core, err error) {
+	core = &Core{
 		settings:         s,
 		users:            []*User{},
 		userMap:          map[uint]*User{},
@@ -87,34 +89,36 @@ func newCore(s Settings) (c *Core, err error) {
 	}
 
 	// Connect to db
-	c.db, err = gorm.Open(sqlite.Open(c.settings.DBName), &gorm.Config{})
+	core.db, err = gorm.Open(sqlite.Open(s.DBPath), &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}
 
 	// Load models
-	res := c.db.Find(&c.users)
+	res := core.db.Preload("Accounts.Brokers").Find(&core.users)
 	if res.Error != nil {
 		return nil, err
 	}
 
-	// Fill out model maps
-	for _, u := range c.users {
-		c.userMap[u.ID] = u
+	// Fill out model maps and initialize states
+	for _, u := range core.users {
+		core.userMap[u.ID] = u
 		for _, a := range u.Accounts {
-			c.accountMap[a.ID] = a
+			core.accountMap[a.ID] = a
 			for _, b := range a.Brokers {
-				c.brokerMap[b.ID] = b
+				core.brokerMap[b.ID] = b
 			}
 		}
 	}
 
-	// Load secret
-	c.jwtKey, err = os.ReadFile(s.WorkDir + "/jwtKey")
-	if res.Error != nil {
+	// Load secrets
+	if core.jwtKey, err = os.ReadFile(s.JWTKeyPath); err != nil {
 		return nil, err
 	}
-	return c, nil
+	if core.dbKey, err = os.ReadFile(s.DBKeyPath); err != nil {
+		return nil, err
+	}
+	return core, nil
 }
 
 func (c *Core) Run() (err error) {
@@ -133,18 +137,9 @@ func (c *Core) Run() (err error) {
 				log.Error("Can't unregister unregistered client: ", cl.id)
 			}
 		case req := <-c.message:
-			if req.ClientID == 0 {
-				log.Error("Received message with no client id.")
-				continue
-			}
 			if mh, ok := messageHandlers[req.Type]; ok {
-				err = mh(c, req)
-				if err != nil {
-					resp := req.prepareResponse()
-					resp.Type = mt.Error
-					resp.Payload = err
-					c.clients[req.ClientID].outgoing <- resp
-				}
+				resp := mh(c, req)
+				req.RespChan <- resp
 			} else {
 				log.Errorln("Reveived unknown message type.")
 			}
@@ -175,41 +170,16 @@ func (c *Core) Run() (err error) {
 	}
 }
 
-func (msg *Message) prepareResponse() *Message {
-	return &Message{ReqID: msg.ID, ClientID: msg.ClientID}
-}
-
-func (c *Core) broadcastMessage(msg *Message) {
-	for _, cl := range c.clients {
-		cl.outgoing <- msg
-	}
-}
-
-func createAccountHandler(c *Core, msg *Message) (err error) {
-	// resp := msg.prepareResponse()
-	// resp.Type = mt.NewAccount
-
-	// acc := msg.Payload.(Account)
-	// err = acc.Save(c.db)
-	// if err != nil {
-	// 	return err
-	// }
-	// c.accounts = append(c.accounts, acc)
-	// resp.Payload = acc
-	// c.broadcastMessage(resp)
-	// log.Info("Created new account: ", acc.Name)
-	return nil
-}
-
-func fullStateRequestHandler(c *Core, msg *Message) (err error) {
-	// log.Debugln("Handling full state request.")
-	// resp := msg.prepareResponse()
-	// resp.Type = mt.FullState
-
-	// resp.JSPayload, err = json.Marshal(c.accounts)
-	// if err != nil {
-	// 	return err
-	// }
-	// c.clients[msg.ClientID].outgoing <- resp
-	return nil
-}
+// func (core *Core) initAccount(acc *Account) (err error) {
+// 	acc.ueApiPublicKey, err = decryptString(core.dbKey, acc.Name, acc.ApiPublicKey)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	acc.ueApiPrivateKey, err = decryptString(core.dbKey, acc.Name, acc.ApiPrivateKey)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	acc.ApiPublicKey = ""
+// 	acc.ApiPrivateKey = ""
+// 	return
+// }

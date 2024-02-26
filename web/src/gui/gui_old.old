@@ -30,7 +30,7 @@ var details: HTMLDivElement
 // Declare templates
 var accountTemplate: HTMLTemplateElement 
 
-window.onload = function() {
+window.onload = () => {
     // Load DOM mutation points
     details = <HTMLDivElement> document.getElementById("details")!
 

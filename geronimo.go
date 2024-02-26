@@ -31,6 +31,10 @@ func init() {
 		"A", "127.0.0.1:8088", "Listening address.")
 	flag.StringVar(&s.WorkDir,
 		"D", os.Getenv("HOME")+"/.config/Geronimo", "Working directory.")
+	flag.StringVar(&s.UserEmail,
+		"u", "", "User email.")
+	flag.StringVar(&s.UserPassword,
+		"p", "", "User password.")
 }
 
 func main() {
@@ -40,7 +44,12 @@ func main() {
 	log.SetLevel(s.LogLevel)
 
 	s.WSAddr = "ws://" + s.HTTPAddr + "/socket"
-	s.DBName = s.WorkDir + "/state.db"
+
+	// Init file paths
+	s.DBPath = s.WorkDir + "/" + server.NameStateDB
+	s.DBKeyPath = s.WorkDir + "/" + server.NameDBKey
+	s.JWTKeyPath = s.WorkDir + "/" + server.NameJWTKey
+	s.CLICookiePath = s.WorkDir + "/" + server.NameCLICookie
 
 	if len(os.Args) < 1 {
 		log.Fatal("No command given.")

@@ -10,19 +10,19 @@ import (
 )
 
 func createDB(s Settings) error {
-	if fileExists(s.DBName) {
+	if FileExists(s.DBPath) {
 		return errors.New("database already exists")
 	}
 
 	log.Debug("Creating settings database.")
 
-	db, err := gorm.Open(sqlite.Open(s.DBName), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(s.DBPath), &gorm.Config{})
 	if err != nil {
 		return err
 	}
 
-	db.AutoMigrate(&Checkpoint{}, &Broker{}, &Account{}, &User{})
+	db.AutoMigrate(&Checkpoint{}, &Broker{}, &Account{}, &AccountSecret{}, &User{}, &UserSecret{})
 
-	log.Infoln("Created database: ", s.DBName)
+	log.Infoln("Created database: ", s.DBPath)
 	return nil
 }

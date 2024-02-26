@@ -7,7 +7,7 @@
 }
 
 #header-content {
-    width: 85%;
+    width: 100%;
     margin: auto;
 }
 
@@ -25,9 +25,15 @@
 }
 
 #content {
-    width: 80%;
+    width: 100%;
     margin: auto;
-}  
+}
+
+#sidebar {
+    width: 20%;
+    height: 100%;
+    background-color: chartreuse;
+}
 
 .account {
     margin: 1em ;
@@ -41,3 +47,9 @@
     font-weight: bold;
     color: #b0b0b0;
 }
+
+data:hover::after {
+    content: ' #' attr(value);
+    font-size: 0.7em;
+  }
+  

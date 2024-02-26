@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 
-	mt "github.com/gadfly16/geronimo/messagetypes"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
@@ -42,7 +41,7 @@ func (core *Core) wsHandler(c *gin.Context) {
 	// Send client a new client ID
 	clid := nextID()
 	msg := &Message{
-		Type:    mt.ClientID,
+		Type:    MessageClientID,
 		Payload: clid,
 	}
 	log.Debug("Sending new client ID: ", clid)
@@ -55,7 +54,7 @@ func (core *Core) wsHandler(c *gin.Context) {
 
 	// Wait for client affirm client id
 	resp, err := ReceiveWSMessage(conn)
-	if err != nil || resp.Type != mt.ClientID || resp.ClientID != clid {
+	if err != nil || resp.Type != MessageClientID {
 		log.Error("Error during client id affirmation. Closing connection.")
 		conn.Close()
 		return
@@ -105,14 +104,13 @@ func (cl *Client) writeMessages() {
 
 func (msg *Message) SendWSMessage(conn *websocket.Conn) (err error) {
 	// Some messages are already in JSON because of deep copying structures
-	if msg.Type != mt.FullState {
+	if msg.Type != MessageState {
 		msg.JSPayload, err = json.Marshal(msg.Payload)
 		if err != nil {
 			return err
 		}
 	}
 
-	msg.ID = nextID()
 	err = conn.WriteJSON(msg)
 	if err != nil {
 		return err
@@ -127,28 +125,28 @@ func ReceiveWSMessage(conn *websocket.Conn) (msg *Message, err error) {
 	}
 
 	switch msg.Type {
-	case mt.Error:
+	case MessageError:
 		var errMsg string
 		err = json.Unmarshal(msg.JSPayload, &errMsg)
 		if err != nil {
 			return nil, err
 		}
 		return nil, errors.New(errMsg)
-	case mt.ClientID:
+	case MessageClientID:
 		var clid int64
 		err = json.Unmarshal(msg.JSPayload, &clid)
 		if err != nil {
 			return nil, err
 		}
 		msg.Payload = clid
-	case mt.CreateAccount, mt.NewAccount:
+	case MessageCreateAccount, MessageAccount:
 		var acc Account
 		err = json.Unmarshal(msg.JSPayload, &acc)
 		if err != nil {
 			return nil, err
 		}
 		msg.Payload = acc
-	case mt.FullState:
+	case MessageState:
 		var accs []Account
 		err = json.Unmarshal(msg.JSPayload, &accs)
 		if err != nil {
