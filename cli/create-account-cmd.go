@@ -19,7 +19,7 @@ func createAccountCLI(s server.Settings) error {
 	log.Debug("Running 'create-account' command.")
 
 	var (
-		acc    server.Account
+		acc    server.AccountDetail
 		secret server.AccountSecret
 	)
 

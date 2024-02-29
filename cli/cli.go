@@ -76,7 +76,7 @@ func connectServer(s *server.Settings) (conn *connection, err error) {
 	}
 	if time.Now().After(expirationTime) {
 		var (
-			user   server.User
+			user   server.UserDetail
 			secret server.UserSecret
 		)
 		if s.UserEmail != "" {

@@ -85,7 +85,7 @@ func authenticateUserHandler(core *Core, msg *Message) (resp *Message) {
 	if tx.Error != nil {
 		return errorMessage(http.StatusInternalServerError, tx.Error.Error())
 	}
-	if exuws.Secret.ID == 0 {
+	if exuws.Secret.UserID == 0 {
 		return errorMessage(http.StatusInternalServerError, "user secret does not exist")
 	}
 	log.Debug(uws.Secret.Password, exuws.Secret.Password)
@@ -100,7 +100,7 @@ func authenticateUserHandler(core *Core, msg *Message) (resp *Message) {
 func createUserHandler(core *Core, msg *Message) (resp *Message) {
 	uws := msg.Payload.(UserWithSecret)
 	var userExists bool
-	err := core.db.Model(User{}).Select("count(*)>0").Where("email = ?", uws.User.Email).First(&userExists).Error
+	err := core.db.Model(UserDetail{}).Select("count(*)>0").Where("email = ?", uws.User.Email).First(&userExists).Error
 	if err != nil {
 		return errorMessage(http.StatusInternalServerError, err.Error())
 	}

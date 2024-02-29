@@ -41,10 +41,10 @@ type Settings struct {
 
 type Core struct {
 	settings         Settings
-	users            []*User
-	userMap          map[uint]*User
-	accountMap       map[uint]*Account
-	brokerMap        map[uint]*Broker
+	users            []*UserDetail
+	userMap          map[uint]*UserDetail
+	accountMap       map[uint]*AccountDetail
+	brokerMap        map[uint]*BrokerDetail
 	clients          map[int64]*Client
 	message          chan *Message
 	db               *gorm.DB
@@ -78,10 +78,10 @@ func Serve(s Settings) error {
 func newCore(s Settings) (core *Core, err error) {
 	core = &Core{
 		settings:         s,
-		users:            []*User{},
-		userMap:          map[uint]*User{},
-		accountMap:       map[uint]*Account{},
-		brokerMap:        map[uint]*Broker{},
+		users:            []*UserDetail{},
+		userMap:          map[uint]*UserDetail{},
+		accountMap:       map[uint]*AccountDetail{},
+		brokerMap:        map[uint]*BrokerDetail{},
 		clients:          map[int64]*Client{},
 		message:          make(chan *Message),
 		registerClient:   make(chan *Client),

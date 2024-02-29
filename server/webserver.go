@@ -73,7 +73,7 @@ func (core *Core) login(c *gin.Context) {
 		c.JSON(resp.extractError())
 		return
 	}
-	user := resp.Payload.(*User)
+	user := resp.Payload.(*UserDetail)
 
 	expirationDuration := ExiprationMins * time.Minute
 	expirationTime := time.Now().Add(expirationDuration)

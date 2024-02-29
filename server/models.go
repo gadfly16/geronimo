@@ -1,28 +1,54 @@
 package server
 
 import (
+	"time"
+
 	"github.com/dgrijalva/jwt-go"
 	"gorm.io/gorm"
 	// log "github.com/sirupsen/logrus"
 )
 
-type User struct {
+const (
+	NodeRoot = iota
+	NodeUser
+	NodeAccount
+	NodeBroker
+)
+
+type Detail interface{}
+
+type treeNode struct {
 	gorm.Model
+	DetailType uint
+	ParentID   uint
+	Parent     *treeNode
+	Children   []*treeNode
+
+	detail *Detail
+}
+
+type detailModel struct {
+	ID         uint      `gorm:"primarykey"`
+	CreatedAt  time.Time `gorm:"index"`
+	TreeNodeID uint
+	Name       string
+	TreeNode   *treeNode
+}
+
+type UserDetail struct {
+	detailModel
 	Email string `gorm:"unique"`
 	Name  string
 	Role  string
-
-	Accounts []*Account
 }
 
 type UserSecret struct {
-	gorm.Model
-	UserID   uint
+	UserID   uint `gorm:"primarykey"`
 	Password string
 }
 
 type UserWithSecret struct {
-	User   *User
+	User   *UserDetail
 	Secret *UserSecret
 }
 
@@ -35,35 +61,32 @@ type Claims struct {
 	Role string
 }
 
-type Account struct {
-	gorm.Model
+type AccountDetail struct {
+	detailModel
 	UserID uint   `gorm:"UNIQUE_INDEX:unique_name_per_user"`
 	Name   string `gorm:"UNIQUE_INDEX:unique_name_per_user"`
 	Status string
-
-	Brokers []*Broker
 }
 
 type AccountSecret struct {
-	gorm.Model
 	AccountID     uint
 	ApiPublicKey  string
 	ApiPrivateKey string
 }
 
 type AccountWithSecret struct {
-	Account *Account
+	Account *AccountDetail
 	Secret  *AccountSecret
 }
 
 type Checkpoint struct {
-	gorm.Model
-	Price    float64
-	BrokerID uint
+	CreatedAt time.Time
+	BrokerID  uint
+	Price     float64
 }
 
-type Broker struct {
-	gorm.Model
+type BrokerDetail struct {
+	detailModel
 	AccountID uint
 
 	Name      string
@@ -80,13 +103,4 @@ type Broker struct {
 	Fee       float64
 
 	LastCheck *Checkpoint
-	//	lastOrd   *order
-
-	// msg      chan brokerMsg
-	// receipts chan order
 }
-
-// func (acc *Account) Save(db *gorm.DB) error {
-// 	result := db.Create(acc)
-// 	return result.Error
-// }

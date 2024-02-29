@@ -140,14 +140,14 @@ func ReceiveWSMessage(conn *websocket.Conn) (msg *Message, err error) {
 		}
 		msg.Payload = clid
 	case MessageCreateAccount, MessageAccount:
-		var acc Account
+		var acc AccountDetail
 		err = json.Unmarshal(msg.JSPayload, &acc)
 		if err != nil {
 			return nil, err
 		}
 		msg.Payload = acc
 	case MessageState:
-		var accs []Account
+		var accs []AccountDetail
 		err = json.Unmarshal(msg.JSPayload, &accs)
 		if err != nil {
 			return nil, err
