@@ -1,5 +1,34 @@
 package server
 
+import "time"
+
+type Checkpoint struct {
+	ID        uint
+	CreatedAt time.Time
+	BrokerID  uint
+	Price     float64
+}
+
+type Broker struct {
+	DetailModel
+	AccountID uint
+
+	Name      string
+	Pair      string
+	Status    string
+	MinWait   float64
+	MaxWait   float64
+	HighLimit float64
+	LowLimit  float64
+	Delta     float64
+	Offset    float64
+	Base      float64
+	Quote     float64
+	Fee       float64
+
+	lastCheck *Checkpoint
+}
+
 // "gorm.io/gorm"
 // kws "github.com/aopoltorzhicky/go_kraken/websocket"
 // log "github.com/sirupsen/logrus"

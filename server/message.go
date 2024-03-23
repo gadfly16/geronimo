@@ -13,7 +13,7 @@ const (
 	MessageState            = "State"
 	MessageWebServerError   = "WebServerError"
 	MessageAuthenticateUser = "AuthenticateUser"
-	MessageUserWithSecret   = "UserWithSecret"
+	MessageUser             = "UserWithSecret"
 	MessageCreateUser       = "CreateUser"
 )
 

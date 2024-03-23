@@ -21,7 +21,13 @@ func createDB(s Settings) error {
 		return err
 	}
 
-	db.AutoMigrate(&Checkpoint{}, &BrokerDetail{}, &AccountDetail{}, &AccountSecret{}, &UserDetail{}, &UserSecret{})
+	db.AutoMigrate(
+		&Node{},
+		&Checkpoint{},
+		&Broker{},
+		&Account{},
+		&User{},
+	)
 
 	log.Infoln("Created database: ", s.DBPath)
 	return nil

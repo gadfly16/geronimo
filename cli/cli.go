@@ -75,23 +75,20 @@ func connectServer(s *server.Settings) (conn *connection, err error) {
 		expirationTime = time.Unix(conn.claims.StandardClaims.ExpiresAt, 0)
 	}
 	if time.Now().After(expirationTime) {
-		var (
-			user   server.UserDetail
-			secret server.UserSecret
-		)
+		var user server.User
 		if s.UserEmail != "" {
 			user.Email = s.UserEmail
 		} else {
 			user.Email = getTerminalString("Login email: ")
 		}
 		if s.UserPassword != "" {
-			secret.Password = s.UserPassword
+			user.Password = s.UserPassword
 		} else {
-			secret.Password = getTerminalPassword("Login password: ")
+			user.Password = getTerminalPassword("Login password: ")
 		}
 
 		resp, err := conn.client.R().
-			SetBody(server.UserWithSecret{User: &user, Secret: &secret}).
+			SetBody(user).
 			SetResult(&server.LoginResp{}).
 			SetError(&server.APIError{}).
 			Post(server.AuthLogin)

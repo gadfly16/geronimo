@@ -62,25 +62,25 @@ type LoginResp struct {
 }
 
 func (core *Core) login(c *gin.Context) {
-	var uws UserWithSecret
-	if err := c.ShouldBindJSON(&uws); err != nil {
+	user := &User{}
+	if err := c.ShouldBindJSON(user); err != nil {
 		c.JSON(http.StatusBadRequest, APIError{Error: err.Error()})
 		return
 	}
 
-	resp := core.send(MessageAuthenticateUser, uws)
+	resp := core.send(MessageAuthenticateUser, user)
 	if resp.Type == MessageError {
 		c.JSON(resp.extractError())
 		return
 	}
-	user := resp.Payload.(*UserDetail)
+	user = resp.Payload.(*User)
 
 	expirationDuration := ExiprationMins * time.Minute
 	expirationTime := time.Now().Add(expirationDuration)
 	claims := &Claims{
 		Role: user.Role,
 		StandardClaims: jwt.StandardClaims{
-			Subject:   strconv.Itoa(int(user.ID)),
+			Subject:   strconv.Itoa(int(user.NodeID)),
 			ExpiresAt: expirationTime.Unix(),
 		},
 	}
@@ -98,13 +98,15 @@ func (core *Core) login(c *gin.Context) {
 }
 
 func (core *Core) signup(c *gin.Context) {
-	var uws UserWithSecret
-	if err := c.ShouldBindJSON(&uws); err != nil {
+	userNode := &Node{
+		Detail: &User{},
+	}
+	if err := c.ShouldBindJSON(userNode); err != nil {
 		c.JSON(http.StatusBadRequest, APIError{Error: err.Error()})
 		return
 	}
 
-	resp := core.send(MessageCreateUser, uws)
+	resp := core.send(MessageCreateUser, userNode)
 	if resp.Type == MessageError {
 		c.JSON(resp.extractError())
 		return
@@ -144,7 +146,6 @@ func (core *Core) needUserRoleOrLogin(c *gin.Context) {
 
 	token, err := c.Cookie("token")
 	if err != nil {
-		// c.JSON(401, gin.H{"error": "unauthorized"})
 		c.Abort()
 		c.Redirect(http.StatusTemporaryRedirect, loginURL)
 		return
@@ -152,14 +153,12 @@ func (core *Core) needUserRoleOrLogin(c *gin.Context) {
 
 	claims, err := core.ParseToken(token)
 	if err != nil {
-		// c.JSON(401, gin.H{"error": "unauthorized"})
 		c.Abort()
 		c.Redirect(http.StatusTemporaryRedirect, loginURL)
 		return
 	}
 
 	if claims.Role != RoleUser {
-		// c.JSON(401, gin.H{"error": "needs user role"})
 		c.Abort()
 		c.Redirect(http.StatusTemporaryRedirect, loginURL)
 		return
@@ -176,5 +175,5 @@ func (core *Core) needUserRoleOrLogin(c *gin.Context) {
 
 func (core *Core) gui(c *gin.Context) {
 	userID := c.GetUint("userID")
-	c.HTML(http.StatusOK, "gui.html", core.userMap[userID])
+	c.HTML(http.StatusOK, "gui.html", core.nodes[userID])
 }

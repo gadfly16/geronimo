@@ -1,5 +1,11 @@
 package server
 
+type Account struct {
+	DetailModel
+	ApiPublicKey  string
+	ApiPrivateKey string
+}
+
 // func (core *Core) saveAccount(aws *AccountWithSecret) error {
 // 	tx := core.db.Create(aws.Account)
 // 	if tx.Error != nil {

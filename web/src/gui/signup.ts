@@ -1,3 +1,5 @@
+import {NodeType} from "../shared/gui_types.js"
+
 window.onload = function() {
     // Attach handlers
     document.getElementById("signup-form")!.onsubmit = signup;
@@ -5,19 +7,18 @@ window.onload = function() {
 
 function signup(e: SubmitEvent) {
     const data = new FormData(<HTMLFormElement>e.target)
-    let uws = {
-        User: {
-            Name: data.get("Name"),
-            Email: data.get("Email")
-        },
-        Secret: {
-            Password: data.get("Password")
+    let userNode = {
+        DetailType: NodeType.User,
+        Name: data.get("Name"),
+        Detail: {
+            Email: data.get("Email"),
+            Password: data.get("Password"),
         }
     }
    // Send the request
     fetch("/signup", {
         method: 'post',
-        body: JSON.stringify(uws),
+        body: JSON.stringify(userNode),
         mode: 'same-origin',
     }).then((response) => {
         if (response.ok) {

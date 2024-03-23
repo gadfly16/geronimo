@@ -26,24 +26,26 @@ func (core *Core) getAccount(c *gin.Context) {
 }
 
 func (core *Core) postAccount(c *gin.Context) {
-	var aws AccountWithSecret
+	accNode := &Node{
+		Detail: &Account{},
+	}
 	var err error
 
-	if err = c.ShouldBindJSON(&aws); err != nil {
+	if err = c.ShouldBindJSON(accNode); err != nil {
 		c.JSON(http.StatusBadRequest, APIError{Error: err.Error()})
 		return
 	}
 
 	userRole, _ := c.Get("role")
 	userID, _ := c.Get("userID")
-	if userRole != "admin" && userID != strconv.Itoa(int(aws.Account.UserID)) {
+	if userRole != "admin" && userID != strconv.Itoa(int(accNode.ParentID)) {
 		c.JSON(http.StatusMethodNotAllowed, APIError{Error: "method not allowed"})
 		return
 	}
 
 	msg := &Message{
 		Type:     MessageCreateAccount,
-		Payload:  &aws,
+		Payload:  accNode,
 		RespChan: make(chan *Message),
 	}
 
@@ -53,7 +55,7 @@ func (core *Core) postAccount(c *gin.Context) {
 		c.JSON(resp.extractError())
 		return
 	}
-	log.Debugf("Account created: %+v\n", aws)
+	log.Debugf("Account created: %+v\n", accNode)
 }
 
 func (core *Core) getState(c *gin.Context) {

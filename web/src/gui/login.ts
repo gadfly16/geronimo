@@ -5,17 +5,13 @@ window.onload = function() {
 
 function login(e: SubmitEvent) {
     const data = new FormData(<HTMLFormElement>e.target)
-    let uws = {
-        User: {
-            Email: data.get("Email")
-        },
-        Secret: {
-            Password: data.get("Password")
-        }
+    let user = {
+        Email: data.get("Email"),
+        Password: data.get("Password"),
     }
     fetch("/login", {
         method: 'post',
-        body: JSON.stringify(uws),
+        body: JSON.stringify(user),
         mode: 'same-origin',
     }).then((response) => {
         if (response.ok) {

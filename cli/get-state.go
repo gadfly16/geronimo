@@ -44,11 +44,14 @@ func getStateCLI(s server.Settings) error {
 		return errors.New(resp.Error().(*server.APIError).Error)
 	}
 
-	state := &server.UserDetail{}
-	if err = json.Unmarshal(resp.Body(), state); err != nil {
+	state := map[string]any{}
+	if err = json.Unmarshal(resp.Body(), &state); err != nil {
 		return err
 	}
 	output, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		return err
+	}
 	fmt.Println(string(output))
 	return nil
 }

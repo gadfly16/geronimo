@@ -41,10 +41,8 @@ type Settings struct {
 
 type Core struct {
 	settings         Settings
-	users            []*UserDetail
-	userMap          map[uint]*UserDetail
-	accountMap       map[uint]*AccountDetail
-	brokerMap        map[uint]*BrokerDetail
+	root             *Node
+	nodes            map[uint]*Node
 	clients          map[int64]*Client
 	message          chan *Message
 	db               *gorm.DB
@@ -58,10 +56,15 @@ func Init(s Settings) (err error) {
 	if err = createDB(s); err != nil {
 		return
 	}
+
 	if err = createSecret(s.JWTKeyPath); err != nil {
 		return
 	}
-	return createSecret(s.DBKeyPath)
+
+	if err = createSecret(s.DBKeyPath); err != nil {
+		return
+	}
+	return
 }
 
 func Serve(s Settings) error {
@@ -78,47 +81,32 @@ func Serve(s Settings) error {
 func newCore(s Settings) (core *Core, err error) {
 	core = &Core{
 		settings:         s,
-		users:            []*UserDetail{},
-		userMap:          map[uint]*UserDetail{},
-		accountMap:       map[uint]*AccountDetail{},
-		brokerMap:        map[uint]*BrokerDetail{},
+		root:             &Node{DetailType: NodeRoot},
+		nodes:            map[uint]*Node{},
 		clients:          map[int64]*Client{},
 		message:          make(chan *Message),
 		registerClient:   make(chan *Client),
 		unregisterClient: make(chan *Client),
 	}
-
+	core.nodes[0] = core.root
 	// Connect to db
 	core.db, err = gorm.Open(sqlite.Open(s.DBPath), &gorm.Config{})
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	// Load models
-	res := core.db.Preload("Accounts.Brokers").Find(&core.users)
-	if res.Error != nil {
-		return nil, err
-	}
-
-	// Fill out model maps and initialize states
-	for _, u := range core.users {
-		core.userMap[u.ID] = u
-		for _, a := range u.Accounts {
-			core.accountMap[a.ID] = a
-			for _, b := range a.Brokers {
-				core.brokerMap[b.ID] = b
-			}
-		}
+	if err = core.loadChildren(core.root); err != nil {
+		return
 	}
 
 	// Load secrets
 	if core.jwtKey, err = os.ReadFile(s.JWTKeyPath); err != nil {
-		return nil, err
+		return
 	}
 	if core.dbKey, err = os.ReadFile(s.DBKeyPath); err != nil {
-		return nil, err
+		return
 	}
-	return core, nil
+	return
 }
 
 func (c *Core) Run() (err error) {
