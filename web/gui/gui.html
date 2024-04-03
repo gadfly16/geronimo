@@ -11,19 +11,17 @@
 
 <body>
   <div id="header">
-    <div id="header-content">
-      <img id="logo" src="/static/favicon.svg">
-      <div id="name">Geronimo</div>
-    </div>
+    <img id="logo" src="/static/favicon.svg">
+    <div id="name">Geronimo</div>
   </div>
 
-  <div id="content">
-    <div id="sidebar">
-      <div id="user-email"><data id="user-id" value="{{.ID}}">{{.Detail.Email}}</data></div>
-    </div>
-    <div id="details">
-      Details
-    </div>
+  <div id="sidebar">
+    <div id="user-email"><data id="user-id" value="{{.ID}}">{{.Detail.Email}}</data></div>
+    <ul id="tree"></ul>
+  </div>
+
+  <div id="details">
+    Details
   </div>
   
   <template id="accountTemplate">

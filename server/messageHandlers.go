@@ -50,10 +50,11 @@ func createUserHandler(core *Core, msg *Message) (resp *Message) {
 	}
 
 	user.Password = ""
+	node.children = make(map[string]*Node)
 	node.parent = core.root
 	node.Detail = user
 	core.nodes[node.ID] = node
-	core.root.children = append(core.root.children, node)
+	core.root.children[node.Name] = node
 
 	return &Message{Type: MessageOK}
 }
@@ -116,8 +117,9 @@ func createAccountHandler(core *Core, msg *Message) (resp *Message) {
 		return errorMessage(http.StatusInternalServerError, err.Error())
 	}
 
+	node.children = make(map[string]*Node)
 	node.parent = core.nodes[node.ParentID]
-	node.parent.children = append(node.parent.children, node)
+	node.parent.children[node.Name] = node
 	node.Detail = acc
 	core.nodes[node.ID] = node
 

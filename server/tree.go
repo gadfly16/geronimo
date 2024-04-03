@@ -33,7 +33,7 @@ type Node struct {
 	Detail Detail `gorm:"-:all"`
 
 	parent   *Node
-	children []*Node
+	children map[string]*Node
 }
 
 // Details are only created, so the newest detail is always the current one.
@@ -55,11 +55,14 @@ var detailLoaders = map[uint]detailLoader{
 }
 
 func (core *Core) loadChildren(parent *Node) (err error) {
-	if err = core.db.Where("parent_id = ?", parent.ID).Find(&parent.children).Error; err != nil {
+	parent.children = make(map[string]*Node)
+	chs := []*Node{}
+	if err = core.db.Where("parent_id = ?", parent.ID).Find(&chs).Error; err != nil {
 		return
 	}
 
-	for _, child := range parent.children {
+	for _, child := range chs {
+		parent.children[child.Name] = child
 		core.nodes[child.ID] = child
 		child.parent = parent
 		if err = detailLoaders[child.DetailType](core, child); err != nil {

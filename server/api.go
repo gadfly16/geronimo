@@ -1,31 +1,79 @@
 package server
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
+)
+
+const (
+	APIAccount = "/account"
+	APITree    = "/tree"
+	APIDetail  = "/detail"
 )
 
 type APIError struct {
 	Error string
 }
 
+type requestUser struct {
+	userID uint
+	role   string
+}
+
 func (core *Core) apiRoutes(r *gin.Engine) {
 	api := r.Group("/api", core.needUserRole)
 	{
-		api.GET(APIAccount, core.getAccount)
 		api.POST(APIAccount, core.postAccount)
-		api.GET(APIState, core.getState)
+		api.GET(APITree, core.getTree)
+		api.GET(APIDetail+"/*path", core.getDetail)
 	}
 }
 
-func (core *Core) getAccount(c *gin.Context) {
+func getRequestUser(c *gin.Context) (reqUser requestUser) {
+	reqUser.role = c.GetString("role")
+	reqUser.userID = c.GetUint("userID")
+	return
+}
 
+func (core *Core) findNode(parent *Node, path []string, user requestUser) (node *Node, err error) {
+	node, ok := parent.children[path[0]]
+	if !ok {
+		return
+	}
+	if node.DetailType == NodeUser {
+		if user.role != "admin" && node.ID != user.userID {
+			return nil, errors.New("not authorized")
+		}
+	}
+	if len(path) > 1 {
+		return core.findNode(node, path[1:], user)
+	}
+	return
+}
+
+func (core *Core) getDetail(c *gin.Context) {
+	reqUser := getRequestUser(c)
+	path := strings.Split(c.Param("path"), "/")[1:]
+	detail, err := core.findNode(core.root, path, reqUser)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, APIError{err.Error()})
+		return
+	}
+	if detail == nil {
+		c.JSON(http.StatusBadRequest, APIError{"can't find node"})
+		return
+	}
+	log.Printf("Path param: %s", path)
+	c.JSON(http.StatusOK, detail)
 }
 
 func (core *Core) postAccount(c *gin.Context) {
+	reqUser := getRequestUser(c)
 	accNode := &Node{
 		Detail: &Account{},
 	}
@@ -36,9 +84,7 @@ func (core *Core) postAccount(c *gin.Context) {
 		return
 	}
 
-	userRole, _ := c.Get("role")
-	userID, _ := c.Get("userID")
-	if userRole != "admin" && userID != strconv.Itoa(int(accNode.ParentID)) {
+	if reqUser.role != "admin" && reqUser.userID != accNode.ParentID {
 		c.JSON(http.StatusMethodNotAllowed, APIError{Error: "method not allowed"})
 		return
 	}
@@ -58,22 +104,21 @@ func (core *Core) postAccount(c *gin.Context) {
 	log.Debugf("Account created: %+v\n", accNode)
 }
 
-func (core *Core) getState(c *gin.Context) {
-	userRole, _ := c.Get("role")
-	userID, _ := c.Get("userID")
-	reqUserID := c.Query("userid")
-	if userRole != "admin" && userID != reqUserID {
-		c.JSON(http.StatusMethodNotAllowed, APIError{Error: "method not allowed"})
-		return
-	}
+func (core *Core) getTree(c *gin.Context) {
+	reqUser := getRequestUser(c)
 
-	uid, err := strconv.Atoi(reqUserID)
+	queryUserID, err := strconv.Atoi(c.Query("userid"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, APIError{Error: err.Error()})
 		return
 	}
 
-	resp := core.send(MessageGetState, uint(uid))
+	if reqUser.role != "admin" && int(reqUser.userID) != queryUserID {
+		c.JSON(http.StatusMethodNotAllowed, APIError{Error: "method not allowed"})
+		return
+	}
+
+	resp := core.send(MessageGetState, uint(queryUserID))
 	if resp.Type == MessageError {
 		c.JSON(resp.extractError())
 		return

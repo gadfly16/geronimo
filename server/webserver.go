@@ -14,8 +14,6 @@ import (
 const (
 	AuthLogin  = "/login"
 	AuthSignup = "/signup"
-	APIAccount = "/account"
-	APIState   = "/state"
 )
 
 func (core *Core) serveHTTP() {
@@ -135,8 +133,15 @@ func (core *Core) needUserRole(c *gin.Context) {
 		c.Abort()
 		return
 	}
+
 	c.Set("role", claims.Role)
-	c.Set("userID", claims.Subject)
+	userID, err := strconv.Atoi(claims.Subject)
+	if err != nil {
+		c.JSON(401, gin.H{"error": "can't convert user id"})
+		c.Abort()
+		return
+	}
+	c.Set("userID", uint(userID))
 }
 
 func (core *Core) needUserRoleOrLogin(c *gin.Context) {
@@ -163,6 +168,7 @@ func (core *Core) needUserRoleOrLogin(c *gin.Context) {
 		c.Redirect(http.StatusTemporaryRedirect, loginURL)
 		return
 	}
+
 	c.Set("role", claims.Role)
 	userID, err := strconv.Atoi(claims.Subject)
 	if err != nil {
@@ -175,5 +181,7 @@ func (core *Core) needUserRoleOrLogin(c *gin.Context) {
 
 func (core *Core) gui(c *gin.Context) {
 	userID := c.GetUint("userID")
+	log.Printf("UserID: %v", userID)
+	log.Printf("Nodes: %#v", core.nodes)
 	c.HTML(http.StatusOK, "gui.html", core.nodes[userID])
 }

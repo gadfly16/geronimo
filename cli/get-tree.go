@@ -11,10 +11,10 @@ import (
 )
 
 func init() {
-	CommandHandlers["get-state"] = getStateCLI
+	CommandHandlers["get-tree"] = getTreeCLI
 }
 
-func getStateCLI(s server.Settings) error {
+func getTreeCLI(s server.Settings) error {
 	var userID uint
 	flags := flag.NewFlagSet("show", flag.ExitOnError)
 	flags.UintVar(&userID, "user-id", 0, "User ID of the owner of the account.")
@@ -36,7 +36,7 @@ func getStateCLI(s server.Settings) error {
 	resp, err := conn.client.R().
 		SetError(&server.APIError{}).
 		SetQueryParam("userid", strconv.Itoa(int(userID))).
-		Get("/api" + server.APIState)
+		Get("/api" + server.APITree)
 	if err != nil {
 		return err
 	}
