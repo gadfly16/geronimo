@@ -1,4 +1,4 @@
-package cli
+package main
 
 import (
 	"github.com/gadfly16/geronimo/server"
@@ -6,14 +6,18 @@ import (
 )
 
 func init() {
-	CommandHandlers["serve"] = serveCLI
+	parser.AddCommand(
+		"serve",
+		"run Geronimo server",
+		"starts the Geronimo backend server",
+		&serveOptions{})
 }
 
-func serveCLI(s server.Settings) error {
-	log.Debug("Running 'serve' command.")
+type serveOptions struct{}
 
-	// serveFlags := flag.NewFlagSet("run", flag.ExitOnError)
-	// serveFlags.Parse(flag.Args()[1:])
+func (serveOpts *serveOptions) Execute(args []string) error {
+	s.Init()
+	log.Debug("Running 'serve' command.")
 
 	return server.Serve(s)
 

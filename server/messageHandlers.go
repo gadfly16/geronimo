@@ -93,11 +93,11 @@ func createAccountHandler(core *Core, msg *Message) (resp *Message) {
 		return errorMessage(http.StatusBadRequest, "account already exists")
 	}
 
-	acc.ApiPublicKey, err = encryptString(core.dbKey, node.Name, acc.ApiPublicKey)
+	acc.APIPublicKey, err = encryptString(core.dbKey, node.Name, acc.APIPublicKey)
 	if err != nil {
 		return errorMessage(http.StatusInternalServerError, err.Error())
 	}
-	acc.ApiPrivateKey, err = encryptString(core.dbKey, node.Name, acc.ApiPrivateKey)
+	acc.APIPrivateKey, err = encryptString(core.dbKey, node.Name, acc.APIPrivateKey)
 	if err != nil {
 		return errorMessage(http.StatusInternalServerError, err.Error())
 	}

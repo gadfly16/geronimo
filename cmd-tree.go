@@ -1,9 +1,8 @@
-package cli
+package main
 
 import (
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"strconv"
 
@@ -11,31 +10,35 @@ import (
 )
 
 func init() {
-	CommandHandlers["get-tree"] = getTreeCLI
+	parser.AddCommand(
+		"tree",
+		"gets the object tree from the server",
+		"The tree command gets the tree structure from the server.",
+		&treeOptions{})
 }
 
-func getTreeCLI(s server.Settings) error {
-	var userID uint
-	flags := flag.NewFlagSet("show", flag.ExitOnError)
-	flags.UintVar(&userID, "user-id", 0, "User ID of the owner of the account.")
-	flags.Parse(flag.Args()[1:])
+type treeOptions struct {
+	UserID uint `short:"u"`
+}
 
+func (treeOpts *treeOptions) Execute(args []string) error {
+	s.Init()
 	conn, err := connectServer(&s)
 	if err != nil {
 		return err
 	}
 
-	if userID == 0 {
+	if treeOpts.UserID == 0 {
 		uid, err := strconv.Atoi(conn.claims.StandardClaims.Subject)
 		if err != nil {
 			return err
 		}
-		userID = uint(uid)
+		treeOpts.UserID = uint(uid)
 	}
 
 	resp, err := conn.client.R().
 		SetError(&server.APIError{}).
-		SetQueryParam("userid", strconv.Itoa(int(userID))).
+		SetQueryParam("userid", strconv.Itoa(int(treeOpts.UserID))).
 		Get("/api" + server.APITree)
 	if err != nil {
 		return err

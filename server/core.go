@@ -27,9 +27,9 @@ type ErrorPayload struct {
 }
 
 type Settings struct {
-	LogLevel      log.Level
-	WorkDir       string
-	HTTPAddr      string
+	LogLevel      string `short:"l" long:"log-level" description:"logging level" default:"debug" choice:"info" choice:"debug"`
+	WorkDir       string `short:"w" long:"work-dir" description:"work directory" default:"" default-mask:"$HOME/.config/Geronimo"`
+	HTTPAddr      string `short:"A" long:"http-address" description:"http address" default:"localhost:8088"`
 	WSAddr        string
 	UserEmail     string
 	UserPassword  string
@@ -50,6 +50,20 @@ type Core struct {
 	unregisterClient chan *Client
 	jwtKey           []byte
 	dbKey            []byte
+}
+
+func (s *Settings) Init() {
+	logLevel, _ := log.ParseLevel(s.LogLevel)
+	log.SetLevel(logLevel)
+
+	if s.WorkDir == "" {
+		s.WorkDir = os.Getenv("HOME") + "/.config/Geronimo"
+	}
+	s.DBPath = s.WorkDir + "/" + NameStateDB
+	s.DBKeyPath = s.WorkDir + "/" + NameDBKey
+	s.JWTKeyPath = s.WorkDir + "/" + NameJWTKey
+	s.CLICookiePath = s.WorkDir + "/" + NameCLICookie
+	s.WSAddr = "ws://" + s.HTTPAddr + "/socket"
 }
 
 func Init(s Settings) (err error) {

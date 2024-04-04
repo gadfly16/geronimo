@@ -2,8 +2,8 @@ package server
 
 type Account struct {
 	DetailModel
-	ApiPublicKey  string
-	ApiPrivateKey string
+	APIPublicKey  string
+	APIPrivateKey string
 }
 
 // func (core *Core) saveAccount(aws *AccountWithSecret) error {
