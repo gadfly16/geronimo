@@ -28,11 +28,11 @@ type ErrorPayload struct {
 
 type Settings struct {
 	LogLevel      string `short:"l" long:"log-level" description:"logging level" default:"debug" choice:"info" choice:"debug"`
-	WorkDir       string `short:"w" long:"work-dir" description:"work directory" default:"" default-mask:"$HOME/.config/Geronimo"`
+	WorkDir       string `short:"w" long:"work-dir" description:"work directory" default-mask:"$HOME/.config/Geronimo"`
 	HTTPAddr      string `short:"A" long:"http-address" description:"http address" default:"localhost:8088"`
+	UserEmail     string `short:"u" long:"user-email" description:"user email address"`
+	UserPassword  string `short:"p" long:"user-password" description:"user password"`
 	WSAddr        string
-	UserEmail     string
-	UserPassword  string
 	DBPath        string
 	JWTKeyPath    string
 	DBKeyPath     string
