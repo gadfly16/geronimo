@@ -1,79 +1,76 @@
 package server
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 )
 
 const (
-	APIAccount = "/account"
 	APITree    = "/tree"
 	APIDetail  = "/detail"
+	APIAccount = "/account"
+	APICreate  = "/create"
 )
 
 type APIError struct {
 	Error string
 }
 
-type requestUser struct {
-	userID uint
-	role   string
-}
-
 func (core *Core) apiRoutes(r *gin.Engine) {
 	api := r.Group("/api", core.needUserRole)
 	{
-		api.POST(APIAccount, core.postAccount)
 		api.GET(APITree, core.getTree)
 		api.GET(APIDetail+"/*path", core.getDetail)
+		api.POST(APICreate+"/:objtype", core.createAPIHandler)
+		api.POST(APIAccount, core.postAccount)
 	}
 }
 
-func getRequestUser(c *gin.Context) (reqUser requestUser) {
-	reqUser.role = c.GetString("role")
-	reqUser.userID = c.GetUint("userID")
-	return
+func getRequestUser(c *gin.Context) (user *User) {
+	return core.nodes[c.GetUint("userID")].Detail.(*User)
 }
 
-func (core *Core) findNode(parent *Node, path []string, user requestUser) (node *Node, err error) {
-	node, ok := parent.children[path[0]]
-	if !ok {
+func (core *Core) createAPIHandler(c *gin.Context) {
+	// body, _ := io.ReadAll(c.Request.Body)
+	// log.Debug(string(body))
+	user := getRequestUser(c)
+	objType := c.Param("objtype")
+	node := &Node{}
+	switch objType {
+	case "broker":
+		node.Detail = &Broker{}
+	}
+	msg := &Message{Payload: node}
+	if err := c.BindJSON(msg); err != nil {
+		c.JSON(http.StatusBadRequest, APIError{Error: err.Error()})
 		return
 	}
-	if node.DetailType == NodeUser {
-		if user.role != "admin" && node.ID != user.userID {
-			return nil, errors.New("not authorized")
-		}
+	msg.User = user
+	resp := msg.toCore()
+	if resp.Type == MessageError {
+		c.JSON(resp.extractError())
+		return
 	}
-	if len(path) > 1 {
-		return core.findNode(node, path[1:], user)
-	}
-	return
+	log.Debugf("%+v %+v %+v %+v", objType, msg, msg.Payload, msg.Payload.(*Node).Detail)
 }
 
 func (core *Core) getDetail(c *gin.Context) {
 	reqUser := getRequestUser(c)
-	path := strings.Split(c.Param("path"), "/")[1:]
-	detail, err := core.findNode(core.root, path, reqUser)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, APIError{err.Error()})
-		return
-	}
-	if detail == nil {
+	path := c.Param("path")
+	node := core.find(core.root, path, reqUser)
+	if node == nil {
 		c.JSON(http.StatusBadRequest, APIError{"can't find node"})
 		return
 	}
 	log.Printf("Path param: %s", path)
-	c.JSON(http.StatusOK, detail)
+	c.JSON(http.StatusOK, node)
 }
 
 func (core *Core) postAccount(c *gin.Context) {
-	reqUser := getRequestUser(c)
+	user := getRequestUser(c)
 	accNode := &Node{
 		Detail: &Account{},
 	}
@@ -84,19 +81,12 @@ func (core *Core) postAccount(c *gin.Context) {
 		return
 	}
 
-	if reqUser.role != "admin" && reqUser.userID != accNode.ParentID {
+	if user.Role != "admin" && user.NodeID != accNode.ParentID {
 		c.JSON(http.StatusMethodNotAllowed, APIError{Error: "method not allowed"})
 		return
 	}
 
-	msg := &Message{
-		Type:     MessageCreateAccount,
-		Payload:  accNode,
-		RespChan: make(chan *Message),
-	}
-
-	core.message <- msg
-	resp := <-msg.RespChan
+	resp := core.send(MessageCreateAccount, accNode)
 	if resp.Type == MessageError {
 		c.JSON(resp.extractError())
 		return
@@ -105,7 +95,7 @@ func (core *Core) postAccount(c *gin.Context) {
 }
 
 func (core *Core) getTree(c *gin.Context) {
-	reqUser := getRequestUser(c)
+	user := getRequestUser(c)
 
 	queryUserID, err := strconv.Atoi(c.Query("userid"))
 	if err != nil {
@@ -113,7 +103,7 @@ func (core *Core) getTree(c *gin.Context) {
 		return
 	}
 
-	if reqUser.role != "admin" && int(reqUser.userID) != queryUserID {
+	if user.Role != "admin" && int(user.NodeID) != queryUserID {
 		c.JSON(http.StatusMethodNotAllowed, APIError{Error: "method not allowed"})
 		return
 	}
@@ -123,5 +113,5 @@ func (core *Core) getTree(c *gin.Context) {
 		c.JSON(resp.extractError())
 		return
 	}
-	c.String(http.StatusOK, string(resp.JSPayload))
+	c.String(http.StatusOK, string(resp.Payload.([]byte)))
 }

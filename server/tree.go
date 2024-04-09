@@ -52,6 +52,7 @@ type detailLoader func(*Core, *Node) error
 var detailLoaders = map[uint]detailLoader{
 	NodeUser:    loadUserDetail,
 	NodeAccount: loadAccountDetail,
+	NodeBroker:  loadBrokerDetail,
 }
 
 func (core *Core) loadChildren(parent *Node) (err error) {
@@ -90,6 +91,15 @@ func loadAccountDetail(core *Core, node *Node) (err error) {
 		return
 	}
 	node.Detail = acc
+	return
+}
+
+func loadBrokerDetail(core *Core, node *Node) (err error) {
+	bro := &Broker{}
+	if err = core.db.Where("node_id = ?", node.ID).First(bro).Error; err != nil {
+		return
+	}
+	node.Detail = bro
 	return
 }
 

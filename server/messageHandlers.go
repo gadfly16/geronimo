@@ -11,9 +11,10 @@ type messageHandler func(*Core, *Message) *Message
 
 var messageHandlers = map[string]messageHandler{
 	MessageCreateAccount:    createAccountHandler,
-	MessageGetState:         getStateHandler,
+	MessageGetState:         getTreeHandler,
 	MessageAuthenticateUser: authenticateUserHandler,
 	MessageCreateUser:       createUserHandler,
+	MessageCreate:           createHandler,
 }
 
 func createUserHandler(core *Core, msg *Message) (resp *Message) {
@@ -126,11 +127,53 @@ func createAccountHandler(core *Core, msg *Message) (resp *Message) {
 	return &Message{Type: MessageOK}
 }
 
-func getStateHandler(c *Core, msg *Message) (resp *Message) {
+func createHandler(core *Core, msg *Message) (resp *Message) {
+	var err error
+	node := msg.Payload.(*Node)
+
+	if msg.Path == "" {
+		return errorMessage(http.StatusBadRequest, "can't create node without a path")
+	}
+	if core.find(core.root, msg.Path, msg.User) != nil {
+		return errorMessage(http.StatusBadRequest, "node already exists")
+	}
+	parent := core.findParent(core.root, msg.Path, msg.User)
+	if parent == nil {
+		return errorMessage(http.StatusBadRequest, "parent doesn't exists")
+	}
+	node.ParentID = parent.ID
+	node.Name = name(msg.Path)
+
+	err = core.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(node).Error; err != nil {
+			return err
+		}
+		switch obj := node.Detail.(type) {
+		case *Broker:
+			obj.NodeID = node.ID
+			if err := tx.Create(&obj).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return errorMessage(http.StatusInternalServerError, err.Error())
+	}
+
+	node.children = make(map[string]*Node)
+	node.parent = core.nodes[node.ParentID]
+	node.parent.children[node.Name] = node
+	core.nodes[node.ID] = node
+
+	return &Message{Type: MessageOK}
+}
+
+func getTreeHandler(c *Core, msg *Message) (resp *Message) {
 	var err error
 	resp = &Message{Type: MessageState}
 
-	resp.JSPayload, err = json.Marshal(c.nodes[msg.Payload.(uint)].treeMap())
+	resp.Payload, err = json.Marshal(c.nodes[msg.Payload.(uint)].treeMap())
 	if err != nil {
 		return errorMessage(http.StatusInternalServerError, err.Error())
 	}

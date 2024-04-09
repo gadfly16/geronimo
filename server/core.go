@@ -2,11 +2,14 @@ package server
 
 import (
 	"os"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
+
+var core *Core
 
 const (
 	CLIAgentID = "Geronimo CLI"
@@ -27,11 +30,9 @@ type ErrorPayload struct {
 }
 
 type Settings struct {
-	LogLevel      string `short:"l" long:"log-level" description:"logging level" default:"debug" choice:"info" choice:"debug"`
-	WorkDir       string `short:"w" long:"work-dir" description:"work directory" default-mask:"$HOME/.config/Geronimo"`
-	HTTPAddr      string `short:"A" long:"http-address" description:"http address" default:"localhost:8088"`
-	UserEmail     string `short:"u" long:"user-email" description:"user email address"`
-	UserPassword  string `short:"p" long:"user-password" description:"user password"`
+	LogLevel      string
+	WorkDir       string
+	HTTPAddr      string
 	WSAddr        string
 	DBPath        string
 	JWTKeyPath    string
@@ -40,16 +41,13 @@ type Settings struct {
 }
 
 type Core struct {
-	settings         Settings
-	root             *Node
-	nodes            map[uint]*Node
-	clients          map[int64]*Client
-	message          chan *Message
-	db               *gorm.DB
-	registerClient   chan *Client
-	unregisterClient chan *Client
-	jwtKey           []byte
-	dbKey            []byte
+	settings Settings
+	root     *Node
+	nodes    map[uint]*Node
+	message  chan *Message
+	db       *gorm.DB
+	jwtKey   []byte
+	dbKey    []byte
 }
 
 func (s *Settings) Init() {
@@ -81,26 +79,23 @@ func Init(s Settings) (err error) {
 	return
 }
 
-func Serve(s Settings) error {
-	c, err := newCore(s)
+func Serve(s Settings) (err error) {
+	core, err = newCore(s)
 	if err != nil {
 		return err
 	}
 
-	go c.serveHTTP()
+	go core.serveHTTP()
 
-	return c.Run()
+	return core.Run()
 }
 
 func newCore(s Settings) (core *Core, err error) {
 	core = &Core{
-		settings:         s,
-		root:             &Node{DetailType: NodeRoot},
-		nodes:            map[uint]*Node{},
-		clients:          map[int64]*Client{},
-		message:          make(chan *Message),
-		registerClient:   make(chan *Client),
-		unregisterClient: make(chan *Client),
+		settings: s,
+		root:     &Node{DetailType: NodeRoot},
+		nodes:    map[uint]*Node{},
+		message:  make(chan *Message),
 	}
 	core.nodes[0] = core.root
 	// Connect to db
@@ -127,21 +122,21 @@ func (c *Core) Run() (err error) {
 	log.Info("Starting core.")
 	for {
 		select {
-		case cl := <-c.registerClient:
-			c.clients[cl.id] = cl
-			log.Infoln("Registered client:", cl.id)
-		case cl := <-c.unregisterClient:
-			if _, ok := c.clients[cl.id]; ok {
-				delete(c.clients, cl.id)
-				cl.conn.Close()
-				log.Info("Unregistered client: ", cl.id)
-			} else {
-				log.Error("Can't unregister unregistered client: ", cl.id)
-			}
+		// case cl := <-c.registerClient:
+		// 	c.clients[cl.id] = cl
+		// 	log.Infoln("Registered client:", cl.id)
+		// case cl := <-c.unregisterClient:
+		// 	if _, ok := c.clients[cl.id]; ok {
+		// 		delete(c.clients, cl.id)
+		// 		cl.conn.Close()
+		// 		log.Info("Unregistered client: ", cl.id)
+		// 	} else {
+		// 		log.Error("Can't unregister unregistered client: ", cl.id)
+		// 	}
 		case req := <-c.message:
 			if mh, ok := messageHandlers[req.Type]; ok {
 				resp := mh(c, req)
-				req.RespChan <- resp
+				req.respChan <- resp
 			} else {
 				log.Errorln("Reveived unknown message type.")
 			}
@@ -170,6 +165,36 @@ func (c *Core) Run() (err error) {
 			// req.RespChan <- resp
 		}
 	}
+}
+
+func (core *Core) find(parent *Node, path string, user *User) (node *Node) {
+	return core.findNode(parent, strings.Split(path[1:], "/"), user)
+}
+
+func (core *Core) findParent(parent *Node, path string, user *User) (node *Node) {
+	pathSlice := strings.Split(path[1:], "/")
+	return core.findNode(parent, pathSlice[:len(pathSlice)-1], user)
+}
+
+func (core *Core) findNode(parent *Node, path []string, user *User) (node *Node) {
+	node, ok := parent.children[path[0]]
+	if !ok {
+		return
+	}
+	if node.DetailType == NodeUser {
+		if user.Role != "admin" && node.ID != user.NodeID {
+			return nil
+		}
+	}
+	if len(path) > 1 {
+		return core.findNode(node, path[1:], user)
+	}
+	return
+}
+
+func name(path string) string {
+	pathSlice := strings.Split(path[1:], "/")
+	return pathSlice[len(pathSlice)-1]
 }
 
 // func (core *Core) initAccount(acc *Account) (err error) {

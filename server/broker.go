@@ -15,7 +15,6 @@ type Broker struct {
 
 	Name      string
 	Pair      string
-	Status    string
 	MinWait   float64
 	MaxWait   float64
 	HighLimit float64

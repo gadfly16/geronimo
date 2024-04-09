@@ -1,10 +1,7 @@
 package main
 
 import (
-	"os"
-
-	"github.com/gadfly16/geronimo/server"
-	"github.com/jessevdk/go-flags"
+	"github.com/gadfly16/geronimo/cli"
 )
 
 // var debugLevels = map[string]log.Level{
@@ -17,9 +14,9 @@ import (
 // 	"trace": log.TraceLevel,
 // }
 
-var s server.Settings
+// var s server.Settings
 
-var parser = flags.NewParser(&s, flags.Default)
+// var parser = flags.NewParser(&s, flags.Default)
 
 // func init() {
 // 	flag.StringVar(&logLevelName,
@@ -35,13 +32,14 @@ var parser = flags.NewParser(&s, flags.Default)
 // }
 
 func main() {
-	if _, err := parser.Parse(); err != nil {
-		if flagsErr, ok := err.(*flags.Error); ok && flagsErr.Type == flags.ErrHelp {
-			os.Exit(0)
-		} else {
-			os.Exit(1)
-		}
-	}
+	cli.Execute()
+	// if _, err := parser.Parse(); err != nil {
+	// 	if flagsErr, ok := err.(*flags.Error); ok && flagsErr.Type == flags.ErrHelp {
+	// 		os.Exit(0)
+	// 	} else {
+	// 		os.Exit(1)
+	// 	}
+	// }
 
 	// s.WSAddr = "ws://" + s.HTTPAddr + "/socket"
 

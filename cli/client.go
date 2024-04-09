@@ -1,21 +1,24 @@
-package main
+package cli
 
 import (
-	"bufio"
 	"errors"
-	"fmt"
 	"net/http"
 	"os"
-	"strings"
-	"syscall"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gadfly16/geronimo/server"
 	"github.com/go-resty/resty/v2"
-	log "github.com/sirupsen/logrus"
-	"golang.org/x/term"
 )
+
+type actionData struct {
+	cmd    string
+	status string
+	node   server.Node
+	msg    server.Message
+	acc    server.Account
+	bro    server.Broker
+}
 
 type connection struct {
 	claims *server.Claims
@@ -26,26 +29,6 @@ type connection struct {
 type commandHandler func(server.Settings) error
 
 var CommandHandlers = make(map[string]commandHandler)
-
-func getTerminalPassword(prompt string) string {
-	fmt.Print(prompt)
-	pw, err := term.ReadPassword(int(syscall.Stdin))
-	fmt.Println()
-	if err != nil {
-		log.Fatal("Couldn't get password.")
-	}
-	return string(pw)
-}
-
-func getTerminalString(prompt string) string {
-	fmt.Print(prompt)
-	reader := bufio.NewReader(os.Stdin)
-	text, err := reader.ReadString('\n')
-	if err != nil {
-		log.Fatal("Couldn't get input from terminal.")
-	}
-	return strings.TrimSuffix(text, "\n")
-}
 
 func parseClaimsUnverified(cookie string) (claims *server.Claims, err error) {
 	token, _, err := new(jwt.Parser).ParseUnverified(cookie, &server.Claims{})
@@ -62,7 +45,7 @@ func parseClaimsUnverified(cookie string) (claims *server.Claims, err error) {
 func connectServer(s *server.Settings) (conn *connection, err error) {
 	conn = &connection{client: resty.New().SetBaseURL("http://" + s.HTTPAddr)}
 	expirationTime := time.Time{}
-	if s.UserEmail == "" && server.FileExists(s.CLICookiePath) {
+	if userEmail == "" && server.FileExists(s.CLICookiePath) {
 		savedCookie, err := os.ReadFile(s.CLICookiePath)
 		if err != nil {
 			return nil, err
@@ -76,13 +59,13 @@ func connectServer(s *server.Settings) (conn *connection, err error) {
 	}
 	if time.Now().After(expirationTime) {
 		var user server.User
-		if s.UserEmail != "" {
-			user.Email = s.UserEmail
+		if userEmail != "" {
+			user.Email = userEmail
 		} else {
 			user.Email = getTerminalString("Login email: ")
 		}
-		if s.UserPassword != "" {
-			user.Password = s.UserPassword
+		if userPassword != "" {
+			user.Password = userPassword
 		} else {
 			user.Password = getTerminalPassword("Login password: ")
 		}

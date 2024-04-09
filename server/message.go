@@ -1,7 +1,5 @@
 package server
 
-import "encoding/json"
-
 const (
 	MessageOK               = "OK"
 	MessageError            = "Error"
@@ -15,24 +13,32 @@ const (
 	MessageAuthenticateUser = "AuthenticateUser"
 	MessageUser             = "UserWithSecret"
 	MessageCreateUser       = "CreateUser"
+	MessageCreate           = "Create"
 )
 
 type Message struct {
-	Type      string
-	Payload   interface{} `json:"-"`
-	JSPayload json.RawMessage
+	Type    string
+	User    *User
+	Path    string
+	Payload interface{}
 
-	RespChan chan *Message `json:"-"`
+	respChan chan *Message
 }
 
 func (core *Core) send(msgType string, payload interface{}) *Message {
 	msg := &Message{
 		Type:     msgType,
 		Payload:  payload,
-		RespChan: make(chan *Message),
+		respChan: make(chan *Message),
 	}
 	core.message <- msg
-	return <-msg.RespChan
+	return <-msg.respChan
+}
+
+func (msg *Message) toCore() *Message {
+	msg.respChan = make(chan *Message)
+	core.message <- msg
+	return <-msg.respChan
 }
 
 func errorMessage(status int, errMsg string) *Message {
@@ -47,8 +53,8 @@ func (msg *Message) extractError() (int, *APIError) {
 	return e.Status, &APIError{Error: e.Error}
 }
 
-func (c *Core) broadcastMessage(msg *Message) {
-	for _, cl := range c.clients {
-		cl.outgoing <- msg
-	}
-}
+// func (c *Core) broadcastMessage(msg *Message) {
+// 	for _, cl := range c.clients {
+// 		cl.outgoing <- msg
+// 	}
+// }

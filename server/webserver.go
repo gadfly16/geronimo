@@ -34,7 +34,7 @@ func (core *Core) serveHTTP() {
 	r.Static("/static", "./web/static")
 
 	// Websocket connection routes
-	r.GET("/socket", core.wsHandler, core.needUserRole)
+	// r.GET("/socket", core.wsHandler, core.needUserRole)
 
 	// Home page route
 	r.GET("/", func(c *gin.Context) {
