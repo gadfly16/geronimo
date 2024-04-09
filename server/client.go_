@@ -105,7 +105,7 @@ func (cl *Client) writeMessages() {
 func (msg *Message) SendWSMessage(conn *websocket.Conn) (err error) {
 	// Some messages are already in JSON because of deep copying structures
 	if msg.Type != MessageState {
-		msg.JSPayload, err = json.Marshal(msg.Payload)
+		msg.Payload, err = json.Marshal(msg.Payload)
 		if err != nil {
 			return err
 		}

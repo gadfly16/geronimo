@@ -20,12 +20,12 @@ type APIError struct {
 }
 
 func (core *Core) apiRoutes(r *gin.Engine) {
-	api := r.Group("/api", core.needUserRole)
+	api := r.Group("/api", needUserRole)
 	{
-		api.GET(APITree, core.getTree)
-		api.GET(APIDetail+"/*path", core.getDetail)
-		api.POST(APICreate+"/:objtype", core.createAPIHandler)
-		api.POST(APIAccount, core.postAccount)
+		api.GET(APITree, getTree)
+		api.GET(APIDetail+"/*path", getDetail)
+		api.POST(APICreate+"/:objtype", createAPIHandler)
+		api.POST(APIAccount, postAccount)
 	}
 }
 
@@ -33,7 +33,7 @@ func getRequestUser(c *gin.Context) (user *User) {
 	return core.nodes[c.GetUint("userID")].Detail.(*User)
 }
 
-func (core *Core) createAPIHandler(c *gin.Context) {
+func createAPIHandler(c *gin.Context) {
 	// body, _ := io.ReadAll(c.Request.Body)
 	// log.Debug(string(body))
 	user := getRequestUser(c)
@@ -57,10 +57,10 @@ func (core *Core) createAPIHandler(c *gin.Context) {
 	log.Debugf("%+v %+v %+v %+v", objType, msg, msg.Payload, msg.Payload.(*Node).Detail)
 }
 
-func (core *Core) getDetail(c *gin.Context) {
+func getDetail(c *gin.Context) {
 	reqUser := getRequestUser(c)
 	path := c.Param("path")
-	node := core.find(core.root, path, reqUser)
+	node := find(core.root, path, reqUser)
 	if node == nil {
 		c.JSON(http.StatusBadRequest, APIError{"can't find node"})
 		return
@@ -69,7 +69,7 @@ func (core *Core) getDetail(c *gin.Context) {
 	c.JSON(http.StatusOK, node)
 }
 
-func (core *Core) postAccount(c *gin.Context) {
+func postAccount(c *gin.Context) {
 	user := getRequestUser(c)
 	accNode := &Node{
 		Detail: &Account{},
@@ -94,7 +94,7 @@ func (core *Core) postAccount(c *gin.Context) {
 	log.Debugf("Account created: %+v\n", accNode)
 }
 
-func (core *Core) getTree(c *gin.Context) {
+func getTree(c *gin.Context) {
 	user := getRequestUser(c)
 
 	queryUserID, err := strconv.Atoi(c.Query("userid"))

@@ -87,7 +87,7 @@ func Serve(s Settings) (err error) {
 
 	go core.serveHTTP()
 
-	return core.Run()
+	return runCore()
 }
 
 func newCore(s Settings) (core *Core, err error) {
@@ -118,7 +118,7 @@ func newCore(s Settings) (core *Core, err error) {
 	return
 }
 
-func (c *Core) Run() (err error) {
+func runCore() (err error) {
 	log.Info("Starting core.")
 	for {
 		select {
@@ -133,9 +133,9 @@ func (c *Core) Run() (err error) {
 		// 	} else {
 		// 		log.Error("Can't unregister unregistered client: ", cl.id)
 		// 	}
-		case req := <-c.message:
+		case req := <-core.message:
 			if mh, ok := messageHandlers[req.Type]; ok {
-				resp := mh(c, req)
+				resp := mh(req)
 				req.respChan <- resp
 			} else {
 				log.Errorln("Reveived unknown message type.")
@@ -167,16 +167,16 @@ func (c *Core) Run() (err error) {
 	}
 }
 
-func (core *Core) find(parent *Node, path string, user *User) (node *Node) {
-	return core.findNode(parent, strings.Split(path[1:], "/"), user)
+func find(parent *Node, path string, user *User) (node *Node) {
+	return findNode(parent, strings.Split(path[1:], "/"), user)
 }
 
-func (core *Core) findParent(parent *Node, path string, user *User) (node *Node) {
+func findParent(parent *Node, path string, user *User) (node *Node) {
 	pathSlice := strings.Split(path[1:], "/")
-	return core.findNode(parent, pathSlice[:len(pathSlice)-1], user)
+	return findNode(parent, pathSlice[:len(pathSlice)-1], user)
 }
 
-func (core *Core) findNode(parent *Node, path []string, user *User) (node *Node) {
+func findNode(parent *Node, path []string, user *User) (node *Node) {
 	node, ok := parent.children[path[0]]
 	if !ok {
 		return
@@ -187,7 +187,7 @@ func (core *Core) findNode(parent *Node, path []string, user *User) (node *Node)
 		}
 	}
 	if len(path) > 1 {
-		return core.findNode(node, path[1:], user)
+		return findNode(node, path[1:], user)
 	}
 	return
 }

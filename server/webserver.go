@@ -27,8 +27,8 @@ func (core *Core) serveHTTP() {
 	// Authentication routes
 	r.StaticFile(AuthLogin, "./web/login.html")
 	r.StaticFile(AuthSignup, "./web/signup.html")
-	r.POST(AuthLogin, core.login)
-	r.POST(AuthSignup, core.signup)
+	r.POST(AuthLogin, login)
+	r.POST(AuthSignup, signup)
 
 	// Statuc content routes
 	r.Static("/static", "./web/static")
@@ -42,7 +42,7 @@ func (core *Core) serveHTTP() {
 	})
 
 	// Gui
-	r.GET("/gui/*path", core.needUserRoleOrLogin, core.gui)
+	r.GET("/gui/*path", needUserRoleOrLogin, gui)
 
 	// API routes
 	core.apiRoutes(r)
@@ -59,7 +59,7 @@ type LoginResp struct {
 	Message string
 }
 
-func (core *Core) login(c *gin.Context) {
+func login(c *gin.Context) {
 	user := &User{}
 	if err := c.ShouldBindJSON(user); err != nil {
 		c.JSON(http.StatusBadRequest, APIError{Error: err.Error()})
@@ -95,7 +95,7 @@ func (core *Core) login(c *gin.Context) {
 	c.JSON(http.StatusOK, &LoginResp{Success: true, Message: "user logged in"})
 }
 
-func (core *Core) signup(c *gin.Context) {
+func signup(c *gin.Context) {
 	userNode := &Node{
 		Detail: &User{},
 	}
@@ -113,7 +113,7 @@ func (core *Core) signup(c *gin.Context) {
 	c.JSON(200, gin.H{"success": "user created"})
 }
 
-func (core *Core) needUserRole(c *gin.Context) {
+func needUserRole(c *gin.Context) {
 	token, err := c.Cookie("token")
 	if err != nil {
 		c.JSON(401, gin.H{"error": "unauthorized"})
@@ -144,7 +144,7 @@ func (core *Core) needUserRole(c *gin.Context) {
 	c.Set("userID", uint(userID))
 }
 
-func (core *Core) needUserRoleOrLogin(c *gin.Context) {
+func needUserRoleOrLogin(c *gin.Context) {
 	dest := url.Values{}
 	dest.Set("dest", c.Param("path"))
 	loginURL := "/login?" + dest.Encode()
@@ -179,7 +179,7 @@ func (core *Core) needUserRoleOrLogin(c *gin.Context) {
 	c.Set("userID", uint(userID))
 }
 
-func (core *Core) gui(c *gin.Context) {
+func gui(c *gin.Context) {
 	userID := c.GetUint("userID")
 	log.Printf("UserID: %v", userID)
 	log.Printf("Nodes: %#v", core.nodes)

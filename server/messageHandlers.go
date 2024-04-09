@@ -7,7 +7,7 @@ import (
 	"gorm.io/gorm"
 )
 
-type messageHandler func(*Core, *Message) *Message
+type messageHandler func(*Message) *Message
 
 var messageHandlers = map[string]messageHandler{
 	MessageCreateAccount:    createAccountHandler,
@@ -17,7 +17,7 @@ var messageHandlers = map[string]messageHandler{
 	MessageCreate:           createHandler,
 }
 
-func createUserHandler(core *Core, msg *Message) (resp *Message) {
+func createUserHandler(msg *Message) (resp *Message) {
 	node := msg.Payload.(*Node)
 	user := node.Detail.(*User)
 	var userExists bool
@@ -60,7 +60,7 @@ func createUserHandler(core *Core, msg *Message) (resp *Message) {
 	return &Message{Type: MessageOK}
 }
 
-func authenticateUserHandler(core *Core, msg *Message) (resp *Message) {
+func authenticateUserHandler(msg *Message) (resp *Message) {
 	user := msg.Payload.(*User)
 	dbUser := &User{}
 	if err := core.db.Where("email = ?", user.Email).First(&dbUser).Error; err != nil {
@@ -77,7 +77,7 @@ func authenticateUserHandler(core *Core, msg *Message) (resp *Message) {
 	return &Message{Type: MessageUser, Payload: dbUser}
 }
 
-func createAccountHandler(core *Core, msg *Message) (resp *Message) {
+func createAccountHandler(msg *Message) (resp *Message) {
 	var err error
 	node := msg.Payload.(*Node)
 	acc := node.Detail.(*Account)
@@ -127,17 +127,17 @@ func createAccountHandler(core *Core, msg *Message) (resp *Message) {
 	return &Message{Type: MessageOK}
 }
 
-func createHandler(core *Core, msg *Message) (resp *Message) {
+func createHandler(msg *Message) (resp *Message) {
 	var err error
 	node := msg.Payload.(*Node)
 
 	if msg.Path == "" {
 		return errorMessage(http.StatusBadRequest, "can't create node without a path")
 	}
-	if core.find(core.root, msg.Path, msg.User) != nil {
+	if find(core.root, msg.Path, msg.User) != nil {
 		return errorMessage(http.StatusBadRequest, "node already exists")
 	}
-	parent := core.findParent(core.root, msg.Path, msg.User)
+	parent := findParent(core.root, msg.Path, msg.User)
 	if parent == nil {
 		return errorMessage(http.StatusBadRequest, "parent doesn't exists")
 	}
@@ -169,11 +169,11 @@ func createHandler(core *Core, msg *Message) (resp *Message) {
 	return &Message{Type: MessageOK}
 }
 
-func getTreeHandler(c *Core, msg *Message) (resp *Message) {
+func getTreeHandler(msg *Message) (resp *Message) {
 	var err error
 	resp = &Message{Type: MessageState}
 
-	resp.Payload, err = json.Marshal(c.nodes[msg.Payload.(uint)].treeMap())
+	resp.Payload, err = json.Marshal(core.nodes[msg.Payload.(uint)].treeMap())
 	if err != nil {
 		return errorMessage(http.StatusInternalServerError, err.Error())
 	}
