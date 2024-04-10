@@ -25,7 +25,6 @@ func (core *Core) apiRoutes(r *gin.Engine) {
 		api.GET(APITree, getTree)
 		api.GET(APIDetail+"/*path", getDetail)
 		api.POST(APICreate+"/:objtype", createAPIHandler)
-		api.POST(APIAccount, postAccount)
 	}
 }
 
@@ -34,14 +33,14 @@ func getRequestUser(c *gin.Context) (user *User) {
 }
 
 func createAPIHandler(c *gin.Context) {
-	// body, _ := io.ReadAll(c.Request.Body)
-	// log.Debug(string(body))
 	user := getRequestUser(c)
 	objType := c.Param("objtype")
 	node := &Node{}
 	switch objType {
 	case "broker":
 		node.Detail = &Broker{}
+	case "account":
+		node.Detail = &Account{}
 	}
 	msg := &Message{Payload: node}
 	if err := c.BindJSON(msg); err != nil {
@@ -67,31 +66,6 @@ func getDetail(c *gin.Context) {
 	}
 	log.Printf("Path param: %s", path)
 	c.JSON(http.StatusOK, node)
-}
-
-func postAccount(c *gin.Context) {
-	user := getRequestUser(c)
-	accNode := &Node{
-		Detail: &Account{},
-	}
-	var err error
-
-	if err = c.ShouldBindJSON(accNode); err != nil {
-		c.JSON(http.StatusBadRequest, APIError{Error: err.Error()})
-		return
-	}
-
-	if user.Role != "admin" && user.NodeID != accNode.ParentID {
-		c.JSON(http.StatusMethodNotAllowed, APIError{Error: "method not allowed"})
-		return
-	}
-
-	resp := core.send(MessageCreateAccount, accNode)
-	if resp.Type == MessageError {
-		c.JSON(resp.extractError())
-		return
-	}
-	log.Debugf("Account created: %+v\n", accNode)
 }
 
 func getTree(c *gin.Context) {

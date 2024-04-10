@@ -4,7 +4,6 @@ const (
 	MessageOK               = "OK"
 	MessageError            = "Error"
 	MessageClientID         = "ClientID"
-	MessageCreateAccount    = "CreateAccount"
 	MessageAccount          = "Account"
 	MessageCommandResponse  = "CommandResponse"
 	MessageGetState         = "GetState"

@@ -3,7 +3,6 @@ package cli
 import (
 	"errors"
 	"fmt"
-	"strconv"
 
 	"github.com/gadfly16/geronimo/server"
 	"github.com/spf13/cobra"
@@ -28,12 +27,7 @@ var accountCmd = &cobra.Command{
 }
 
 func runAccount(cmd *cobra.Command, args []string) {
-	log.Debug("Executing 'new account' command.")
-
-	act.node.DetailType = server.NodeAccount
-	act.node.Detail = act.acc
-
-	act.acc.Status = server.StatusKinds[act.status]
+	log.Debugln("Executing", act.cmd, "on account object")
 
 	if act.acc.APIPublicKey == "" {
 		act.acc.APIPublicKey = getTerminalPassword(fmt.Sprintf("Enter API public key for account `%s`: ", act.node.Name))
@@ -43,25 +37,22 @@ func runAccount(cmd *cobra.Command, args []string) {
 		act.acc.APIPrivateKey = getTerminalPassword(fmt.Sprintf("Enter API private key for account `%s`: ", act.node.Name))
 	}
 
+	act.acc.Status = server.StatusKinds[act.status]
+	act.node.DetailType = server.NodeAccount
+	act.node.Detail = &act.acc
+	act.msg.Payload = &act.node
+
 	conn, err := connectServer(&s)
 	if err != nil {
 		cliError(err)
 		return
 	}
 
-	if act.node.ParentID == 0 {
-		uid, err := strconv.Atoi(conn.claims.StandardClaims.Subject)
-		if err != nil {
-			cliError(err)
-			return
-		}
-		act.node.ParentID = uint(uid)
-	}
-
+	route := "/api" + server.APICreate + "/account"
 	resp, err := conn.client.R().
-		SetBody(act.node).
+		SetBody(&act.msg).
 		SetError(&server.APIError{}).
-		Post("/api" + server.APIAccount)
+		Post(route)
 	if err != nil {
 		cliError(err)
 		return

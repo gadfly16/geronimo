@@ -35,13 +35,12 @@ var brokerCmd = &cobra.Command{
 
 func runBroker(cmd *cobra.Command, args []string) {
 	log.Debugln("Executing", act.cmd, "on broker object.")
-	act.bro.Status = server.StatusKinds[act.status]
 
+	act.bro.Status = server.StatusKinds[act.status]
 	act.node.DetailType = server.NodeBroker
 	act.node.Detail = &act.bro
 	act.msg.Payload = &act.node
 
-	route := "/api" + server.APICreate + "/broker"
 	conn, err := connectServer(&s)
 	if err != nil {
 		cliError(err)
@@ -50,6 +49,7 @@ func runBroker(cmd *cobra.Command, args []string) {
 
 	log.Debugln(act.msg, act.msg.Payload, act.msg.Payload.(*server.Node).Detail)
 
+	route := "/api" + server.APICreate + "/broker"
 	resp, err := conn.client.R().
 		SetBody(&act.msg).
 		SetError(&server.APIError{}).

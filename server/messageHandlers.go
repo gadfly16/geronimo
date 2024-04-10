@@ -10,7 +10,6 @@ import (
 type messageHandler func(*Message) *Message
 
 var messageHandlers = map[string]messageHandler{
-	MessageCreateAccount:    createAccountHandler,
 	MessageGetState:         getTreeHandler,
 	MessageAuthenticateUser: authenticateUserHandler,
 	MessageCreateUser:       createUserHandler,
@@ -77,56 +76,6 @@ func authenticateUserHandler(msg *Message) (resp *Message) {
 	return &Message{Type: MessageUser, Payload: dbUser}
 }
 
-func createAccountHandler(msg *Message) (resp *Message) {
-	var err error
-	node := msg.Payload.(*Node)
-	acc := node.Detail.(*Account)
-
-	var accExists bool
-	err = core.db.Model(node).
-		Select("count(*)>0").
-		Where("detail_type = ? AND parent_id = ? AND name = ?", node.DetailType, node.ParentID, node.Name).
-		First(&accExists).Error
-	if err != nil {
-		return errorMessage(http.StatusInternalServerError, err.Error())
-	}
-	if accExists {
-		return errorMessage(http.StatusBadRequest, "account already exists")
-	}
-
-	acc.APIPublicKey, err = encryptString(core.dbKey, node.Name, acc.APIPublicKey)
-	if err != nil {
-		return errorMessage(http.StatusInternalServerError, err.Error())
-	}
-	acc.APIPrivateKey, err = encryptString(core.dbKey, node.Name, acc.APIPrivateKey)
-	if err != nil {
-		return errorMessage(http.StatusInternalServerError, err.Error())
-	}
-
-	// Add account to database and core
-	err = core.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(node).Error; err != nil {
-			return err
-		}
-		acc.NodeID = node.ID
-		if err := tx.Create(acc).Error; err != nil {
-			return err
-		}
-		return nil
-	})
-	if err != nil {
-		return errorMessage(http.StatusInternalServerError, err.Error())
-	}
-
-	node.children = make(map[string]*Node)
-	node.parent = core.nodes[node.ParentID]
-	node.parent.children[node.Name] = node
-	node.Detail = acc
-	core.nodes[node.ID] = node
-
-	return &Message{Type: MessageOK}
-}
-
 func createHandler(msg *Message) (resp *Message) {
 	var err error
 	node := msg.Payload.(*Node)
@@ -150,6 +99,20 @@ func createHandler(msg *Message) (resp *Message) {
 		}
 		switch obj := node.Detail.(type) {
 		case *Broker:
+			obj.NodeID = node.ID
+			if err := tx.Create(&obj).Error; err != nil {
+				return err
+			}
+		case *Account:
+			obj.APIPublicKey, err = encryptString(core.dbKey, node.Name, obj.APIPublicKey)
+			if err != nil {
+				return err
+			}
+			obj.APIPrivateKey, err = encryptString(core.dbKey, node.Name, obj.APIPrivateKey)
+			if err != nil {
+				return err
+			}
+
 			obj.NodeID = node.ID
 			if err := tx.Create(&obj).Error; err != nil {
 				return err
