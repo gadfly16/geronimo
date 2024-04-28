@@ -7,6 +7,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/gadfly16/geronimo/server"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -17,8 +18,19 @@ var (
 	runtimeErr bool
 )
 
-func cliError(err error) {
-	log.Error(err.Error())
+type actionData struct {
+	cmd    string
+	status string
+	node   server.Node
+	msg    server.Message
+	acc    server.Account
+	bro    server.Broker
+	group  server.Group
+	pocket server.Pocket
+}
+
+func cliError(errMsg string) {
+	log.Error(errMsg)
 	runtimeErr = true
 }
 

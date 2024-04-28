@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"gorm.io/gorm"
@@ -10,12 +11,22 @@ import (
 type messageHandler func(*Message) *Message
 
 var messageHandlers = map[string]messageHandler{
-	MessageGetState:         getTreeHandler,
+	MessageGetTree:          getTreeHandler,
 	MessageAuthenticateUser: authenticateUserHandler,
 	MessageCreateUser:       createUserHandler,
 	MessageCreate:           createHandler,
+	MessageGetDisplay:       getDisplayHandler,
 }
 
+func getDisplayHandler(msg *Message) (resp *Message) {
+	node := find(core.root, msg.Path, msg.User)
+	if node == nil {
+		return errorMessage(http.StatusBadRequest, "can't find node")
+	}
+	resp = &Message{Type: MessageDetail}
+	resp.Payload = node.display()
+	return
+}
 func createUserHandler(msg *Message) (resp *Message) {
 	node := msg.Payload.(*Node)
 	user := node.Detail.(*User)
@@ -100,6 +111,13 @@ func createHandler(msg *Message) (resp *Message) {
 		switch obj := node.Detail.(type) {
 		case *Broker:
 			obj.NodeID = node.ID
+
+			acc := parent.findUpstreamClass(NodeAccount)
+			if acc == nil {
+				return errors.New("node must have an account upstream")
+			}
+			obj.account = acc.Detail.(*Account)
+
 			if err := tx.Create(&obj).Error; err != nil {
 				return err
 			}
@@ -114,6 +132,23 @@ func createHandler(msg *Message) (resp *Message) {
 			}
 
 			obj.NodeID = node.ID
+			if err := tx.Create(&obj).Error; err != nil {
+				return err
+			}
+		case *Group:
+			obj.NodeID = node.ID
+			if err := tx.Create(&obj).Error; err != nil {
+				return err
+			}
+		case *Pocket:
+			obj.NodeID = node.ID
+
+			acc := parent.findUpstreamClass(NodeAccount)
+			if acc == nil {
+				return errors.New("node must have an account upstream")
+			}
+			obj.account = acc.Detail.(*Account)
+
 			if err := tx.Create(&obj).Error; err != nil {
 				return err
 			}
@@ -134,7 +169,7 @@ func createHandler(msg *Message) (resp *Message) {
 
 func getTreeHandler(msg *Message) (resp *Message) {
 	var err error
-	resp = &Message{Type: MessageState}
+	resp = &Message{Type: MessageTree}
 
 	resp.Payload, err = json.Marshal(core.nodes[msg.Payload.(uint)].treeMap())
 	if err != nil {

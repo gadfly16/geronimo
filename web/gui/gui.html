@@ -7,6 +7,19 @@
   <link href="https://fonts.googleapis.com/css?family=Roboto:regular,bold" rel="stylesheet">
   <link rel="stylesheet" href="/static/gui.css">
   <link rel="icon" href="/static/favicon.svg">
+
+  <!-- <script id="displayTemplate" type="text/x-dot-template"> -->
+    <div class="display">
+      <div class="displayHead">
+        <div class="displayName {{=it.Detail.Type}}">{{=it.Name}}</div>
+      </div>
+      <div class="setting">
+        <form class="settingForm">
+        </form>
+      </div>
+    </div>
+  <!-- </script> -->
+    
 </head>
 
 <body>
@@ -20,18 +33,40 @@
     <ul id="tree"></ul>
   </div>
 
-  <div id="details">
-    Details
+  <div id="displayBox">
+    <div class="display"></div>
   </div>
   
-  <template id="accountTemplate">
-    <div class="account">
-      <div class="title">
-      </div>
-    </div>
-  </template>
-  
+  <script src="/static/gui/doT.min.js"></script>
   <script src="/static/gui/gui.js" type="module"></script>
 </body>
+
+<template id="accountTemplate">
+  <div class="account">
+    <div class="title">
+    </div>
+  </div>
+</template>
+
+<template id="displayTemplate">
+  <div class="display">
+    <div class="displayHead">
+      <div class="displayName"></div>
+      <div class="displayType"></div>
+    </div>
+  </div>
+</template>
+
+<template id="settingsTemplate">
+  <div class="setting">
+    <form class="settingForm">
+    </form>
+  </div>
+</template>
+
+<template id="settingFieldTemplate">
+  <label class="settingLabel"></label>
+  <input class="settingInput">
+</template>
 
 </html>

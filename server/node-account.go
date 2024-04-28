@@ -1,9 +1,21 @@
 package server
 
+import "github.com/gin-gonic/gin"
+
 type Account struct {
 	DetailModel
+	Exchange      string
 	APIPublicKey  string
 	APIPrivateKey string
+}
+
+func (acc *Account) Display() (detail gin.H) {
+	detail = gin.H{}
+	detail["Type"] = "account"
+	detail["Settings"] = gin.H{
+		"Exhange": acc.Exchange,
+	}
+	return
 }
 
 // func (core *Core) saveAccount(aws *AccountWithSecret) error {

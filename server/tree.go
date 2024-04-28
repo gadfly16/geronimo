@@ -12,6 +12,8 @@ const (
 	NodeUser
 	NodeAccount
 	NodeBroker
+	NodeGroup
+	NodePocket
 )
 
 const (
@@ -30,7 +32,7 @@ type Node struct {
 	Name       string `gorm:"UNIQUE_INDEX:unique_name_per_tnode"`
 	ParentID   uint   `gorm:"UNIQUE_INDEX:unique_name_per_tnode"`
 
-	Detail Detail `gorm:"-:all"`
+	Detail Displayer `gorm:"-:all"`
 
 	parent   *Node
 	children map[string]*Node
@@ -38,7 +40,9 @@ type Node struct {
 
 // Details are only created, so the newest detail is always the current one.
 // Because of this references to tree nodes are stored in the detail struct.
-type Detail interface{}
+type Displayer interface {
+	Display() gin.H
+}
 
 type DetailModel struct {
 	ID        uint
@@ -53,6 +57,16 @@ var detailLoaders = map[uint]detailLoader{
 	NodeUser:    loadUserDetail,
 	NodeAccount: loadAccountDetail,
 	NodeBroker:  loadBrokerDetail,
+}
+
+func (node *Node) findUpstreamClass(class uint) *Node {
+	if node.parent == nil {
+		return nil
+	}
+	if node.DetailType == class {
+		return node
+	}
+	return node.parent.findUpstreamClass(class)
 }
 
 func (core *Core) loadChildren(parent *Node) (err error) {
@@ -116,5 +130,12 @@ func (node *Node) treeMap() (tm gin.H) {
 		chs = append(chs, chn.treeMap())
 	}
 	tm["children"] = chs
+	return
+}
+
+func (node *Node) display() (detail gin.H) {
+	detail = gin.H{}
+	detail["Name"] = node.Name
+	detail["Detail"] = node.Detail.Display()
 	return
 }

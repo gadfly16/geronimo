@@ -6,13 +6,15 @@ const (
 	MessageClientID         = "ClientID"
 	MessageAccount          = "Account"
 	MessageCommandResponse  = "CommandResponse"
-	MessageGetState         = "GetState"
-	MessageState            = "State"
+	MessageGetTree          = "GetState"
+	MessageTree             = "State"
 	MessageWebServerError   = "WebServerError"
 	MessageAuthenticateUser = "AuthenticateUser"
 	MessageUser             = "UserWithSecret"
 	MessageCreateUser       = "CreateUser"
 	MessageCreate           = "Create"
+	MessageGetDisplay       = "GetDetail"
+	MessageDetail
 )
 
 type Message struct {

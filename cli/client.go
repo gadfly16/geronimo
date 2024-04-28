@@ -11,15 +11,6 @@ import (
 	"github.com/go-resty/resty/v2"
 )
 
-type actionData struct {
-	cmd    string
-	status string
-	node   server.Node
-	msg    server.Message
-	acc    server.Account
-	bro    server.Broker
-}
-
 type connection struct {
 	claims *server.Claims
 	client *resty.Client

@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/gadfly16/geronimo/server"
@@ -13,8 +12,9 @@ import (
 func init() {
 	addObjectFlags(accountCmd)
 	// accountCmd.PersistentFlags().UintVarP(&act.node.ParentID, "parent-id", "i", 0, "parent ID of the new account")
-	accountCmd.PersistentFlags().StringVarP(&act.acc.APIPublicKey, "public-key", "k", "", "API public key")
-	accountCmd.PersistentFlags().StringVarP(&act.acc.APIPrivateKey, "private-key", "K", "", "API private key")
+	accountCmd.Flags().StringVarP(&act.acc.Exchange, "exchange", "x", "kraken", "Name of the exchange the account is on")
+	accountCmd.Flags().StringVarP(&act.acc.APIPublicKey, "public-key", "k", "", "API public key")
+	accountCmd.Flags().StringVarP(&act.acc.APIPrivateKey, "private-key", "K", "", "API private key")
 	createCmd.AddCommand(accountCmd)
 }
 
@@ -44,7 +44,7 @@ func runAccount(cmd *cobra.Command, args []string) {
 
 	conn, err := connectServer(&s)
 	if err != nil {
-		cliError(err)
+		cliError(err.Error())
 		return
 	}
 
@@ -54,11 +54,11 @@ func runAccount(cmd *cobra.Command, args []string) {
 		SetError(&server.APIError{}).
 		Post(route)
 	if err != nil {
-		cliError(err)
+		cliError(err.Error())
 		return
 	}
 	if resp.StatusCode() >= 400 {
-		cliError(errors.New(resp.Error().(*server.APIError).Error))
+		cliError(resp.Error().(*server.APIError).Error)
 		return
 	}
 }

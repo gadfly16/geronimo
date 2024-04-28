@@ -2,6 +2,7 @@ package server
 
 import (
 	"github.com/dgrijalva/jwt-go"
+	"github.com/gin-gonic/gin"
 )
 
 type User struct {
@@ -18,4 +19,10 @@ const (
 type Claims struct {
 	jwt.StandardClaims
 	Role string
+}
+
+func (user *User) Display() (detail gin.H) {
+	detail = gin.H{}
+	detail["Type"] = "user"
+	return
 }

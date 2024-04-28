@@ -23,15 +23,49 @@ function buildTree(treeNode: any, path: string): any {
   return item
 }
 
-function loadDetail() {
+function loadDisplay() {
   let path = location.href.split("/gui/").at(-1)
-  console.log(path)
-  fetch("/api/detail/" + path)
+  fetch("/api/display/" + path)
     .then((resp) => {
       return resp.json()
     })
     .then((data) => {
-      console.log(data)
+      console.log("Display Data: ", data)
+      let displayElement = ((document.querySelector("#displayTemplate") as HTMLTemplateElement).content.cloneNode(true) as DocumentFragment).querySelector(".display") as HTMLDivElement
+      let displayName = displayElement.querySelector(".displayName")! as HTMLDivElement
+      displayName.textContent = data.Name
+      displayName.classList.add(data.Detail.Type)
+
+      const settings = data.Detail.Settings
+      let settingsElement = (document.querySelector("#settingsTemplate") as HTMLTemplateElement).content.cloneNode(true) as HTMLDivElement
+      const settingFieldTemplate = document.querySelector("#settingFieldTemplate") as HTMLTemplateElement
+      for (const s in settings) {
+        let field = settingFieldTemplate.content.cloneNode(true) as HTMLDivElement
+        let label = field.querySelector(".settingLabel")! as HTMLDivElement
+        let input = field.querySelector(".settingInput")! as HTMLDivElement
+        label.textContent = s
+        switch (typeof settings[s]) {
+          case "string":
+            console.log("String value of ", s, settings[s])
+            input.setAttribute("type", "text")
+            input.setAttribute("value", settings[s])
+            break
+          case "number":
+            console.log("Number value of ", s, settings[s])
+            input.setAttribute("type", "text")
+            input.setAttribute("value", settings[s].toString())
+            break
+          default:
+            alert("Unknown setting type:" + s + " " + settings[s])
+            break
+        }
+        settingsElement.appendChild(field)
+      }
+      displayElement.appendChild(settingsElement)
+
+      const displayBox = document.querySelector("#displayBox") as HTMLDivElement
+      displayBox.removeChild(displayBox.querySelector(".display")!)
+      displayBox.appendChild(displayElement)
     })
     .catch((e) => {
       alert(e) 
@@ -48,7 +82,7 @@ function treeClick(e: Event) {
   let dest = current.origin + "/gui" + path
   if (dest != current.href) {
     window.history.pushState({}, "", dest)
-    loadDetail()
+    loadDisplay()
   }
 }
 
@@ -58,7 +92,6 @@ function getUserTree(userID: number) {
   })).then((resp) => {
       return resp.json()
   }).then((data) => {
-    console.log(data)
     let treeRoot = document.querySelector("#tree")!
     treeRoot.appendChild(buildTree(data, ""))
   }).catch((e) => {
@@ -78,7 +111,12 @@ window.onload = () => {
     Payload: userID
   } 
 
+  getUserTree(userID)
   document.querySelector("#tree")?.addEventListener("click", treeClick)
 
-  getUserTree(userID)
+  window.addEventListener("popstate", (event) => {
+    loadDisplay()
+  })
+
+  loadDisplay()
 }

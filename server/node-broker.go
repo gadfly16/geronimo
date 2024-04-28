@@ -1,6 +1,10 @@
 package server
 
-import "time"
+import (
+	"time"
+
+	"github.com/gin-gonic/gin"
+)
 
 type Checkpoint struct {
 	ID        uint
@@ -11,7 +15,6 @@ type Checkpoint struct {
 
 type Broker struct {
 	DetailModel
-	AccountID uint
 
 	Name      string
 	Pair      string
@@ -25,14 +28,27 @@ type Broker struct {
 	Quote     float64
 	Fee       float64
 
-	lastCheck *Checkpoint
+	account *Account
+	// lastCheck *Checkpoint
+}
+
+func (bro *Broker) Display() (detail gin.H) {
+	detail = gin.H{}
+	detail["Type"] = "broker"
+	detail["Settings"] = gin.H{
+		"Base":      bro.Base,
+		"Quote":     bro.Quote,
+		"HighLimit": bro.HighLimit,
+		"LowLimit":  bro.LowLimit,
+	}
+	return
 }
 
 // "gorm.io/gorm"
 // kws "github.com/aopoltorzhicky/go_kraken/websocket"
 // log "github.com/sirupsen/logrus"
 
-type brokerMsg struct{}
+// type brokerMsg struct{}
 
 // func loadBroker(id int64, db *sql.DB) *broker {
 // 	bro := &broker{}

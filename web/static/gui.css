@@ -41,7 +41,7 @@ body {
     text-overflow: ellipsis;
 }
   
-#details {
+#displayBox {
     background: #ECE4B7;
     grid-column: 2 / 3;
     grid-row: 2 / 3;
@@ -60,21 +60,42 @@ body {
     font-weight: bold;
 }
 
-.account {
-    margin: 1em ;
-    padding: 1em ;
-    background-color: #606060;
-    border: 1px solid #000000 ;
-}
-
-.account .title {
-    font-size: 24px;
-    font-weight: bold;
-    color: #b0b0b0;
-}
-
 data:hover::after {
     content: ' #' attr(value);
     font-size: 0.7em;
 }
-  
+
+.displayHead {
+    border: 1px solid #000000;
+    padding: 0.5em;
+}
+
+.displayName {
+    font-size: 2em;
+    display: block;
+    margin-left: 1em;
+}
+
+.displayName:before {
+    content: '';
+    width: 1em;
+    height: 1em;
+    margin-left: -1em;
+    margin-top: 0.05em;
+    position:absolute;
+}
+
+.user:before {
+    background: url("http://localhost:8088/static/user_icon.svg");
+    background-size:cover;
+}
+
+.account:before {
+    background: url("http://localhost:8088/static/account_icon.svg");
+    background-size:cover;
+}
+
+.broker:before {
+    background: url("http://localhost:8088/static/broker_icon.svg");
+    background-size:cover;
+}

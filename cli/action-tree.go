@@ -2,7 +2,6 @@ package cli
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strconv"
 
@@ -25,14 +24,14 @@ var treeCmd = &cobra.Command{
 func runTree(cmd *cobra.Command, args []string) {
 	conn, err := connectServer(&s)
 	if err != nil {
-		cliError(err)
+		cliError(err.Error())
 		return
 	}
 
 	if act.node.ID == 0 {
 		uid, err := strconv.Atoi(conn.claims.StandardClaims.Subject)
 		if err != nil {
-			cliError(err)
+			cliError(err.Error())
 			return
 		}
 		act.node.ID = uint(uid)
@@ -43,22 +42,22 @@ func runTree(cmd *cobra.Command, args []string) {
 		SetQueryParam("userid", strconv.Itoa(int(act.node.ID))).
 		Get("/api" + server.APITree)
 	if err != nil {
-		cliError(err)
+		cliError(err.Error())
 		return
 	}
 	if resp.StatusCode() >= 400 {
-		cliError(errors.New(resp.Error().(*server.APIError).Error))
+		cliError(resp.Error().(*server.APIError).Error)
 		return
 	}
 
 	state := map[string]any{}
 	if err = json.Unmarshal(resp.Body(), &state); err != nil {
-		cliError(err)
+		cliError(err.Error())
 		return
 	}
 	output, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
-		cliError(err)
+		cliError(err.Error())
 		return
 	}
 	fmt.Println(string(output))

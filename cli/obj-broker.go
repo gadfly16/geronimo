@@ -1,8 +1,6 @@
 package cli
 
 import (
-	"errors"
-
 	"github.com/gadfly16/geronimo/server"
 	"github.com/spf13/cobra"
 
@@ -43,7 +41,7 @@ func runBroker(cmd *cobra.Command, args []string) {
 
 	conn, err := connectServer(&s)
 	if err != nil {
-		cliError(err)
+		cliError(err.Error())
 		return
 	}
 
@@ -55,11 +53,11 @@ func runBroker(cmd *cobra.Command, args []string) {
 		SetError(&server.APIError{}).
 		Post(route)
 	if err != nil {
-		cliError(err)
+		cliError(err.Error())
 		return
 	}
 	if resp.StatusCode() >= 400 {
-		cliError(errors.New(resp.Error().(*server.APIError).Error))
+		cliError(resp.Error().(*server.APIError).Error)
 		return
 	}
 }

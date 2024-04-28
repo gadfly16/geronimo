@@ -10,7 +10,7 @@ import (
 
 const (
 	APITree    = "/tree"
-	APIDetail  = "/detail"
+	APIDisplay = "/display"
 	APIAccount = "/account"
 	APICreate  = "/create"
 )
@@ -23,7 +23,7 @@ func (core *Core) apiRoutes(r *gin.Engine) {
 	api := r.Group("/api", needUserRole)
 	{
 		api.GET(APITree, getTree)
-		api.GET(APIDetail+"/*path", getDetail)
+		api.GET(APIDisplay+"/*path", getDisplayAPIHandler)
 		api.POST(APICreate+"/:objtype", createAPIHandler)
 	}
 }
@@ -41,6 +41,10 @@ func createAPIHandler(c *gin.Context) {
 		node.Detail = &Broker{}
 	case "account":
 		node.Detail = &Account{}
+	case "group":
+		node.Detail = &Group{}
+	case "pocket":
+		node.Detail = &Pocket{}
 	}
 	msg := &Message{Payload: node}
 	if err := c.BindJSON(msg); err != nil {
@@ -56,16 +60,16 @@ func createAPIHandler(c *gin.Context) {
 	log.Debugf("%+v %+v %+v %+v", objType, msg, msg.Payload, msg.Payload.(*Node).Detail)
 }
 
-func getDetail(c *gin.Context) {
-	reqUser := getRequestUser(c)
-	path := c.Param("path")
-	node := find(core.root, path, reqUser)
-	if node == nil {
-		c.JSON(http.StatusBadRequest, APIError{"can't find node"})
+func getDisplayAPIHandler(c *gin.Context) {
+	msg := &Message{Type: MessageGetDisplay}
+	msg.User = getRequestUser(c)
+	msg.Path = c.Param("path")
+	resp := msg.toCore()
+	if resp.Type == MessageError {
+		c.JSON(resp.extractError())
 		return
 	}
-	log.Printf("Path param: %s", path)
-	c.JSON(http.StatusOK, node)
+	c.JSON(http.StatusOK, resp.Payload)
 }
 
 func getTree(c *gin.Context) {
@@ -82,7 +86,7 @@ func getTree(c *gin.Context) {
 		return
 	}
 
-	resp := core.send(MessageGetState, uint(queryUserID))
+	resp := core.send(MessageGetTree, uint(queryUserID))
 	if resp.Type == MessageError {
 		c.JSON(resp.extractError())
 		return

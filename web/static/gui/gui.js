@@ -22,15 +22,47 @@ function buildTree(treeNode, path) {
     }
     return item;
 }
-function loadDetail() {
+function loadDisplay() {
     let path = location.href.split("/gui/").at(-1);
-    console.log(path);
-    fetch("/api/detail/" + path)
+    fetch("/api/display/" + path)
         .then((resp) => {
         return resp.json();
     })
         .then((data) => {
-        console.log(data);
+        console.log("Display Data: ", data);
+        let displayElement = document.querySelector("#displayTemplate").content.cloneNode(true).querySelector(".display");
+        let displayName = displayElement.querySelector(".displayName");
+        displayName.textContent = data.Name;
+        displayName.classList.add(data.Detail.Type);
+        const settings = data.Detail.Settings;
+        let settingsElement = document.querySelector("#settingsTemplate").content.cloneNode(true);
+        const settingFieldTemplate = document.querySelector("#settingFieldTemplate");
+        for (const s in settings) {
+            let field = settingFieldTemplate.content.cloneNode(true);
+            let label = field.querySelector(".settingLabel");
+            let input = field.querySelector(".settingInput");
+            label.textContent = s;
+            switch (typeof settings[s]) {
+                case "string":
+                    console.log("String value of ", s, settings[s]);
+                    input.setAttribute("type", "text");
+                    input.setAttribute("value", settings[s]);
+                    break;
+                case "number":
+                    console.log("Number value of ", s, settings[s]);
+                    input.setAttribute("type", "text");
+                    input.setAttribute("value", settings[s].toString());
+                    break;
+                default:
+                    alert("Unknown setting type:" + s + " " + settings[s]);
+                    break;
+            }
+            settingsElement.appendChild(field);
+        }
+        displayElement.appendChild(settingsElement);
+        const displayBox = document.querySelector("#displayBox");
+        displayBox.removeChild(displayBox.querySelector(".display"));
+        displayBox.appendChild(displayElement);
     })
         .catch((e) => {
         alert(e);
@@ -46,7 +78,7 @@ function treeClick(e) {
     let dest = current.origin + "/gui" + path;
     if (dest != current.href) {
         window.history.pushState({}, "", dest);
-        loadDetail();
+        loadDisplay();
     }
 }
 function getUserTree(userID) {
@@ -55,7 +87,6 @@ function getUserTree(userID) {
     })).then((resp) => {
         return resp.json();
     }).then((data) => {
-        console.log(data);
         let treeRoot = document.querySelector("#tree");
         treeRoot.appendChild(buildTree(data, ""));
     }).catch((e) => {
@@ -72,6 +103,10 @@ window.onload = () => {
         Type: guiMessageType.getUserTree,
         Payload: userID
     };
-    (_a = document.querySelector("#tree")) === null || _a === void 0 ? void 0 : _a.addEventListener("click", treeClick);
     getUserTree(userID);
+    (_a = document.querySelector("#tree")) === null || _a === void 0 ? void 0 : _a.addEventListener("click", treeClick);
+    window.addEventListener("popstate", (event) => {
+        loadDisplay();
+    });
+    loadDisplay();
 };
