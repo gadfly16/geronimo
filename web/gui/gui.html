@@ -5,27 +5,15 @@
   <meta charset="UTF-8">
   <title>Geronimo - {{.Name}}</title>
   <link href="https://fonts.googleapis.com/css?family=Roboto:regular,bold" rel="stylesheet">
-  <link rel="stylesheet" href="/static/gui.css">
-  <link rel="icon" href="/static/favicon.svg">
-
-  <!-- <script id="displayTemplate" type="text/x-dot-template"> -->
-    <div class="display">
-      <div class="displayHead">
-        <div class="displayName {{=it.Detail.Type}}">{{=it.Name}}</div>
-      </div>
-      <div class="setting">
-        <form class="settingForm">
-        </form>
-      </div>
-    </div>
-  <!-- </script> -->
-    
+  <link rel="stylesheet" href="/static/gui/gui.css">
+  <link rel="icon" href="/static/favicon.png">
+  <script src="/static/gui/gui.js" type="module"></script>
 </head>
 
 <body>
   <div id="header">
-    <img id="logo" src="/static/favicon.svg">
-    <div id="name">Geronimo</div>
+    <span id="name">Geronimo</span>
+    <img id="logo" src="/static/favicon.png">
   </div>
 
   <div id="sidebar">
@@ -34,39 +22,8 @@
   </div>
 
   <div id="displayBox">
-    <div class="display"></div>
   </div>
   
-  <script src="/static/gui/doT.min.js"></script>
-  <script src="/static/gui/gui.js" type="module"></script>
 </body>
-
-<template id="accountTemplate">
-  <div class="account">
-    <div class="title">
-    </div>
-  </div>
-</template>
-
-<template id="displayTemplate">
-  <div class="display">
-    <div class="displayHead">
-      <div class="displayName"></div>
-      <div class="displayType"></div>
-    </div>
-  </div>
-</template>
-
-<template id="settingsTemplate">
-  <div class="setting">
-    <form class="settingForm">
-    </form>
-  </div>
-</template>
-
-<template id="settingFieldTemplate">
-  <label class="settingLabel"></label>
-  <input class="settingInput">
-</template>
 
 </html>

@@ -13,4 +13,8 @@ export enum NodeType {
 	User,
 	Account,
 	Broker,
+  Group,
+  Pocket
 }
+
+export let NodeTypeName = ["root", "user", "account", "broker", "group", "pocket"]

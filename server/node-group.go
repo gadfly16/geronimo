@@ -6,8 +6,7 @@ type Group struct {
 	DetailModel
 }
 
-func (group *Group) Display() (detail gin.H) {
-	detail = gin.H{}
-	detail["Type"] = "group"
+func (group *Group) DisplayData() (display gin.H) {
+	display = gin.H{}
 	return
 }

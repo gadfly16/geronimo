@@ -9,12 +9,9 @@ type Account struct {
 	APIPrivateKey string
 }
 
-func (acc *Account) Display() (detail gin.H) {
-	detail = gin.H{}
-	detail["Type"] = "account"
-	detail["Settings"] = gin.H{
-		"Exhange": acc.Exchange,
-	}
+func (acc *Account) DisplayData() (display gin.H) {
+	display = gin.H{}
+	display["Detail"] = acc
 	return
 }
 

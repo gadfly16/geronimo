@@ -21,8 +21,8 @@ type Claims struct {
 	Role string
 }
 
-func (user *User) Display() (detail gin.H) {
+func (user *User) DisplayData() (detail gin.H) {
 	detail = gin.H{}
-	detail["Type"] = "user"
+	detail["Detail"] = user
 	return
 }

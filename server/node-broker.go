@@ -32,15 +32,14 @@ type Broker struct {
 	// lastCheck *Checkpoint
 }
 
-func (bro *Broker) Display() (detail gin.H) {
-	detail = gin.H{}
-	detail["Type"] = "broker"
-	detail["Settings"] = gin.H{
-		"Base":      bro.Base,
-		"Quote":     bro.Quote,
-		"HighLimit": bro.HighLimit,
-		"LowLimit":  bro.LowLimit,
-	}
+type Setting struct {
+	Name  string
+	Value interface{}
+}
+
+func (bro *Broker) DisplayData() (display gin.H) {
+	display = gin.H{}
+	display["Detail"] = bro
 	return
 }
 

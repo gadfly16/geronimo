@@ -41,7 +41,7 @@ type Node struct {
 // Details are only created, so the newest detail is always the current one.
 // Because of this references to tree nodes are stored in the detail struct.
 type Displayer interface {
-	Display() gin.H
+	DisplayData() gin.H
 }
 
 type DetailModel struct {
@@ -133,9 +133,12 @@ func (node *Node) treeMap() (tm gin.H) {
 	return
 }
 
-func (node *Node) display() (detail gin.H) {
-	detail = gin.H{}
-	detail["Name"] = node.Name
-	detail["Detail"] = node.Detail.Display()
+func (node *Node) display() (display gin.H) {
+	display = gin.H{}
+	display["Name"] = node.Name
+	display["DetailType"] = node.DetailType
+	for k, v := range node.Detail.DisplayData() {
+		display[k] = v
+	}
 	return
 }

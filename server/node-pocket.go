@@ -9,9 +9,8 @@ type Pocket struct {
 	account *Account
 }
 
-func (pocket *Pocket) Display() (detail gin.H) {
-	detail = gin.H{}
-	detail["Type"] = "pocket"
-	detail["Holdings"] = pocket.Holdings
+func (pocket *Pocket) DisplayData() (display gin.H) {
+	display = gin.H{}
+	display["Holdings"] = pocket.Holdings
 	return
 }
