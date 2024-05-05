@@ -23,7 +23,7 @@ func (core *Core) apiRoutes(r *gin.Engine) {
 	api := r.Group("/api", needUserRole)
 	{
 		api.GET(APITree, getTree)
-		api.GET(APIDisplay+"/*path", getDisplayAPIHandler)
+		api.GET(APIDisplay, getDisplayAPIHandler)
 		api.POST(APICreate+"/:objtype", createAPIHandler)
 	}
 }
@@ -63,7 +63,7 @@ func createAPIHandler(c *gin.Context) {
 func getDisplayAPIHandler(c *gin.Context) {
 	msg := &Message{Type: MessageGetDisplay}
 	msg.User = getRequestUser(c)
-	msg.Path = c.Param("path")
+	msg.Payload, _ = c.GetQueryArray("select")
 	resp := msg.toCore()
 	if resp.Type == MessageError {
 		c.JSON(resp.extractError())

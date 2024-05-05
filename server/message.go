@@ -14,7 +14,7 @@ const (
 	MessageCreateUser       = "CreateUser"
 	MessageCreate           = "Create"
 	MessageGetDisplay       = "GetDetail"
-	MessageDetail
+	MessageDisplay
 )
 
 type Message struct {

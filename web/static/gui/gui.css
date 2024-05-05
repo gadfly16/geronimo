@@ -22,7 +22,7 @@ body {
     padding-left: 1em;
  }
 
- #logo {
+#logo {
     margin: 0.75em;
     height: 5em;
     /* float: right; */
@@ -64,6 +64,10 @@ body {
 data:hover::after {
     content: ' #' attr(value);
     font-size: 0.7em;
+}
+
+.display {
+    margin-bottom: 0.75em;
 }
 
 .displayHead {

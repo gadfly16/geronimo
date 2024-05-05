@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"gorm.io/gorm"
 )
@@ -19,12 +20,21 @@ var messageHandlers = map[string]messageHandler{
 }
 
 func getDisplayHandler(msg *Message) (resp *Message) {
-	node := find(core.root, msg.Path, msg.User)
-	if node == nil {
-		return errorMessage(http.StatusBadRequest, "can't find node")
+	resp = &Message{Type: MessageDisplay}
+	selection := msg.Payload.([]string)
+	selectedNodes := []interface{}{}
+	for _, idstr := range selection {
+		id, err := strconv.Atoi(idstr)
+		if err != nil {
+			return errorMessage(http.StatusBadRequest, "invalid node id in selection")
+		}
+		n, ok := core.nodes[uint(id)]
+		if !ok {
+			return errorMessage(http.StatusBadRequest, "can't find node")
+		}
+		selectedNodes = append(selectedNodes, n.display())
 	}
-	resp = &Message{Type: MessageDetail}
-	resp.Payload = node.display()
+	resp.Payload = selectedNodes
 	return
 }
 func createUserHandler(msg *Message) (resp *Message) {
