@@ -13,7 +13,8 @@ type User struct {
 }
 
 const (
-	RoleUser = "user"
+	RoleUser  = "user"
+	RoleAdmin = "admin"
 )
 
 type Claims struct {

@@ -76,7 +76,47 @@ class Tree {
             e.preventDefault();
         }
         let nid = target.getAttribute("data-id");
-        let current = new URL(location.href);
+        let loc = new URL(location.href);
+        let selection = loc.searchParams.getAll("select");
+        if (e.shiftKey) {
+            if (selection.includes(nid)) {
+                loc.searchParams.delete("select", nid);
+                // target.classList.remove("selected")
+            }
+            else {
+                loc.searchParams.append("select", nid);
+            }
+        }
+        else {
+            if (selection.includes(nid) && selection.length == 1) {
+                return;
+            }
+            else {
+                loc.searchParams.delete("select");
+                loc.searchParams.append("select", nid);
+            }
+        }
+        window.history.pushState({}, "", loc);
+        display.update();
+    }
+    updateSelection() {
+        let selElems = this.htmlRoot.querySelectorAll(".selected");
+        let loc = new URL(location.href);
+        let selection = loc.searchParams.getAll("select");
+        for (let elem of selElems) {
+            let nid = elem.getAttribute("selected");
+            if (!selection.includes(nid)) {
+                elem.classList.remove("selected");
+            }
+        }
+        for (let nid of selection) {
+            let elem = this.htmlRoot.querySelector(`[data-id="${nid}"`);
+            if (elem) {
+                if (!elem.classList.contains("selected")) {
+                    elem.classList.add("selected");
+                }
+            }
+        }
     }
 }
 class Display {
@@ -90,9 +130,11 @@ class Display {
             return resp.json();
         })
             .then((displayDataList) => {
-            console.log("Display Data: ", displayDataList);
+            if (displayDataList.Error)
+                throw new Error(displayDataList.Error);
             this.DisplayList = [];
             for (let dd of displayDataList) {
+                console.log(dd);
                 switch (dd.DetailType) {
                     case NodeType.Broker:
                         this.DisplayList.push(new BrokerDisplay(dd));
@@ -106,12 +148,14 @@ class Display {
                 }
             }
             this.draw();
+            tree.updateSelection();
         })
             .catch((e) => {
-            alert(e + e.lineNumber);
+            alert(e + " at line: " + e.lineNumber);
         });
     }
     draw() {
+        this.displayBox.textContent = "";
         for (let disp of this.DisplayList) {
             this.displayBox.appendChild(disp.render());
         }
@@ -276,8 +320,6 @@ function displayTemplate(dd) {
 window.onload = () => {
     let userID = parseInt(document.getElementById("user-id").getAttribute("value"));
     console.log("UserID: ", userID);
-    let location = window.location.pathname;
-    console.log("Location: ", location);
     let gm = {
         Type: guiMessageType.getUserTree,
         Payload: userID
@@ -288,5 +330,11 @@ window.onload = () => {
     window.addEventListener("popstate", (event) => {
         display.update();
     });
+    let loc = new URL(location.href);
+    let selection = loc.searchParams.getAll("select");
+    if (!selection.length) {
+        loc.searchParams.append("select", userID.toString());
+        window.history.pushState({}, "", loc);
+    }
     display.update();
 };

@@ -21,7 +21,7 @@ function login(e: SubmitEvent) {
         }
     }).then((data) => {
         const destParam = new URLSearchParams(new URL(location.href).search)
-        window.location.replace(destParam.has("dest") ? "/gui" + destParam.get("dest") : "/gui/home")
+        window.location.replace(destParam.has("dest") ? "/gui" + destParam.get("dest") : "/gui")
     }).catch((e) => { alert(e) });
     return false;
 }

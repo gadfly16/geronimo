@@ -28,9 +28,9 @@ func getDisplayHandler(msg *Message) (resp *Message) {
 		if err != nil {
 			return errorMessage(http.StatusBadRequest, "invalid node id in selection")
 		}
-		n, ok := core.nodes[uint(id)]
-		if !ok {
-			return errorMessage(http.StatusBadRequest, "can't find node")
+		n, err := core.getNode(uint(id), msg.User)
+		if err != nil {
+			return errorMessage(http.StatusBadRequest, err.Error())
 		}
 		selectedNodes = append(selectedNodes, n.display())
 	}

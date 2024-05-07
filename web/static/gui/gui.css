@@ -42,7 +42,7 @@ body {
     white-space: nowrap;
     overflow: hidden;
 }
-  
+
 #sidebar ul {
     padding-left: 1em;
 }
@@ -53,7 +53,11 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
 }
-  
+
+#tree .selected {
+    color: #3d6566;
+}
+
 #displayBox {
     background: #ECE4B7;
     grid-column: 2 / 3;

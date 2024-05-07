@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -57,6 +58,18 @@ var detailLoaders = map[uint]detailLoader{
 	NodeUser:    loadUserDetail,
 	NodeAccount: loadAccountDetail,
 	NodeBroker:  loadBrokerDetail,
+}
+
+func (core *Core) getNode(id uint, user *User) (*Node, error) {
+	userNode := core.nodes[user.NodeID]
+	node, ok := core.nodes[id]
+	if !ok {
+		return nil, errors.New("node doesn't exists")
+	}
+	if user.Role != RoleAdmin && node.findUpstreamClass(NodeUser) != userNode {
+		return nil, errors.New("node doesn't belong to user")
+	}
+	return node, nil
 }
 
 func (node *Node) findUpstreamClass(class uint) *Node {
