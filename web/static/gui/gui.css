@@ -139,15 +139,17 @@ data:hover::after {
     padding-bottom: .21em;
 }    
 
+.different .parameterFormHeadBox {
+    background-color: #8ecfa7;
+}
+
 .parameterFormSubmit {
+    display: none;
     align-self: right;
     width: auto;
     font-size: 0.7em;
-    /* height: 100%; */
     color: #1f971f;
     text-decoration: underline;
-    /* background: #276b27; */
-    /* border: 1px solid #677e80; */
 }
 
 .inputBox {
@@ -158,6 +160,10 @@ data:hover::after {
     margin-bottom: 0em;
     margin-right: 0em;
     margin-left: 0.8em;
+}
+
+.inputBox.different {
+    background-color: #a8ebc4;
 }
 
 input {

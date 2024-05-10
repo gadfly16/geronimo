@@ -52,6 +52,7 @@ class Node {
 class Tree {
     constructor() {
         this.root = new Node();
+        this.nodes = { 0: this.root };
         this.htmlRoot = document.querySelector("#tree");
         this.htmlRoot.addEventListener("click", this.click);
     }
@@ -225,17 +226,27 @@ class AccountDisplay extends NodeDisplay {
 class ParameterForm {
     constructor() {
         this.ParameterList = [];
+        this.formElem = null;
+        this.submitButton = null;
     }
     add(parmDict, parmList = []) {
         if (!parmList.length) {
             parmList = Object.keys(parmDict);
         }
         parmList.forEach(k => {
-            this.ParameterList.push(new Parameter(k, parmDict[k]));
+            this.ParameterList.push(new Parameter(k, parmDict[k], this));
         });
     }
+    submitClick() {
+        var _a;
+        console.log("Submit click: ", this.ParameterList);
+        (_a = this.formElem) === null || _a === void 0 ? void 0 : _a.submit();
+    }
+    submit(event) {
+        const data = new FormData(event.target);
+    }
     render() {
-        let elem = $(`
+        this.formElem = $(`
       <form class="parameterForm">
         <div class="parameterFormHeadBox">
             <div class="parameterFormTitle">Parameters:</div>
@@ -243,34 +254,65 @@ class ParameterForm {
         </div>        
       </form>
     `);
+        this.submitButton = this.formElem.querySelector(".parameterFormSubmit");
+        this.submitButton.addEventListener("click", this.submitClick.bind(this));
         for (let parm of this.ParameterList) {
-            elem.appendChild(parm.render());
+            this.formElem.appendChild(parm.render());
         }
-        return elem;
+        return this.formElem;
+    }
+    checkDifferences() {
+        var _a, _b;
+        for (const parm of this.ParameterList) {
+            console.log(parm.isDifferent);
+            if (parm.isDifferent) {
+                (_a = this.formElem) === null || _a === void 0 ? void 0 : _a.classList.add("different");
+                this.submitButton.style.display = "inline";
+                return;
+            }
+        }
+        (_b = this.formElem) === null || _b === void 0 ? void 0 : _b.classList.remove("different");
+        this.submitButton.style.display = "none";
     }
 }
 class Parameter {
-    constructor(name, value) {
-        this.Name = "";
-        this.Value = 0;
-        this.InputType = "";
-        this.Name = name;
-        this.Value = value;
-        this.InputType = typeof this.Value == "string" ? "text" : "number";
+    constructor(name, value, parmForm) {
+        this.elem = null;
+        this.name = name;
+        this.value = value;
+        this.origValue = value;
+        this.inputType = typeof this.value == "string" ? "text" : "number";
+        this.parmForm = parmForm;
+        this.isDifferent = false;
     }
     render() {
-        let elem = $(`
+        var _a;
+        this.elem = $(`
       <div class="inputBox">
-        <label for="${this.Name} class="settingLabel">${this.Name}</label>
+        <label for="${this.name} class="settingLabel">${this.name}</label>
         <input
-          name="${this.Name}"
+          name="${this.name}"
           class="settingInput"
-          type="${this.InputType}"
-          value="${this.Value}"
+          type="${this.inputType}"
+          value="${this.value}"
         />
       </div>
     `);
-        return elem;
+        (_a = this.elem.querySelector("input")) === null || _a === void 0 ? void 0 : _a.addEventListener("change", this.valueChange.bind(this));
+        return this.elem;
+    }
+    valueChange(event) {
+        var _a, _b;
+        const target = event.target;
+        this.value = target.value;
+        this.isDifferent = (this.value != this.origValue);
+        if (this.isDifferent) {
+            (_a = this.elem) === null || _a === void 0 ? void 0 : _a.classList.add("different");
+        }
+        else {
+            (_b = this.elem) === null || _b === void 0 ? void 0 : _b.classList.remove("different");
+        }
+        this.parmForm.checkDifferences();
     }
 }
 class InfoList {
@@ -308,7 +350,7 @@ class Info {
         let elem = $(`
       <div class="infoBox">
         <span class="infoName">${this.Name}:</span>
-        <span class="infoValue">${this.Value}</span>
+        <span class="infoValue"><b>${this.Value}</b></span>
       </div>
     `);
         return elem;

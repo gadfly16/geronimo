@@ -57,9 +57,11 @@ class Node {
 class Tree {
   root: Node
   htmlRoot: HTMLElement
+  nodes: {}
 
   constructor() {
     this.root = new Node()
+    this.nodes = {0: this.root}
     this.htmlRoot = document.querySelector("#tree")!
     this.htmlRoot.addEventListener("click", this.click)
   }
@@ -239,56 +241,102 @@ class AccountDisplay extends NodeDisplay{
 
 class ParameterForm {
   ParameterList: Parameter[] = []
+  formElem: HTMLFormElement | null = null
+  submitButton: HTMLElement | null = null
 
   add(parmDict: any, parmList: string[] = []) {
     if (!parmList.length) {
       parmList = Object.keys(parmDict)
     }
     parmList.forEach(k => {
-      this.ParameterList.push(new Parameter(k, parmDict[k]))
+      this.ParameterList.push(new Parameter(k, parmDict[k], this))
     })
   }
 
+  submitClick() {
+    console.log("Submit click: ", this.ParameterList)
+    this.formElem?.submit()
+  }
+
+  submit(event: SubmitEvent) {
+    const data = new FormData(event.target as HTMLFormElement)
+  }
+
   render():HTMLElement {
-    let elem = $(`
+    this.formElem = $(`
       <form class="parameterForm">
         <div class="parameterFormHeadBox">
             <div class="parameterFormTitle">Parameters:</div>
             <div class="parameterFormSubmit">Submit</div>
         </div>        
       </form>
-    `)
+    `) as HTMLFormElement
+    this.submitButton = this.formElem.querySelector(".parameterFormSubmit")!
+    this.submitButton.addEventListener("click", this.submitClick.bind(this))
     for (let parm of this.ParameterList) {
-      elem.appendChild(parm.render())
+      this.formElem.appendChild(parm.render())
     }
-    return elem
+    return this.formElem
+  }
+
+  checkDifferences() {
+    for (const parm of this.ParameterList) {
+      console.log(parm.isDifferent)
+      if (parm.isDifferent) {
+        this.formElem?.classList.add("different")
+        this.submitButton!.style.display = "inline"
+        return
+      }
+    }
+    this.formElem?.classList.remove("different")
+    this.submitButton!.style.display = "none"
   }
 }
 
 class Parameter {
-  Name = ""
-  Value: number|string = 0
-  InputType = ""
+  name: string
+  value: number|string
+  origValue: number|string
+  inputType: string
+  parmForm: ParameterForm
+  isDifferent: boolean
+  elem: HTMLElement | null = null
 
-  constructor(name: string, value: number|string) {
-    this.Name = name
-    this.Value = value
-    this.InputType = typeof this.Value == "string" ? "text" : "number"
+  constructor(name: string, value: number|string, parmForm: ParameterForm) {
+    this.name = name
+    this.value = value
+    this.origValue = value
+    this.inputType = typeof this.value == "string" ? "text" : "number"
+    this.parmForm = parmForm
+    this.isDifferent = false
   }
 
   render():HTMLElement {
-    let elem = $(`
+    this.elem = $(`
       <div class="inputBox">
-        <label for="${this.Name} class="settingLabel">${this.Name}</label>
+        <label for="${this.name} class="settingLabel">${this.name}</label>
         <input
-          name="${this.Name}"
+          name="${this.name}"
           class="settingInput"
-          type="${this.InputType}"
-          value="${this.Value}"
+          type="${this.inputType}"
+          value="${this.value}"
         />
       </div>
     `)
-    return elem
+    this.elem.querySelector("input")?.addEventListener("change", this.valueChange.bind(this))
+    return this.elem
+  }
+
+  valueChange(event: Event) {
+    const target = event.target as HTMLInputElement
+    this.value = target.value
+    this.isDifferent = (this.value != this.origValue)
+    if (this.isDifferent) {
+      this.elem?.classList.add("different")
+    } else {
+      this.elem?.classList.remove("different")
+    }
+    this.parmForm.checkDifferences()
   }
 }
 
@@ -330,7 +378,7 @@ class Info {
     let elem = $(`
       <div class="infoBox">
         <span class="infoName">${this.Name}:</span>
-        <span class="infoValue">${this.Value}</span>
+        <span class="infoValue"><b>${this.Value}</b></span>
       </div>
     `)
     return elem
