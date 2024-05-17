@@ -60,6 +60,16 @@ var detailLoaders = map[uint]detailLoader{
 	NodeBroker:  loadBrokerDetail,
 }
 
+func (node *Node) path() string {
+	path := "/" + node.Name
+	parent := node.parent
+	for parent.DetailType != NodeRoot {
+		path = "/" + parent.Name + path
+		parent = parent.parent
+	}
+	return path
+}
+
 func (core *Core) getNode(id uint, user *User) (*Node, error) {
 	userNode := core.nodes[user.NodeID]
 	node, ok := core.nodes[id]
@@ -150,6 +160,8 @@ func (node *Node) display() (display gin.H) {
 	display = gin.H{}
 	display["Name"] = node.Name
 	display["DetailType"] = node.DetailType
+	display["ID"] = node.ID
+	display["Path"] = node.path()
 	for k, v := range node.Detail.DisplayData() {
 		display[k] = v
 	}

@@ -13,6 +13,7 @@ const (
 	APIDisplay = "/display"
 	APIAccount = "/account"
 	APICreate  = "/create"
+	APIUpdate  = "/update"
 )
 
 type APIError struct {
@@ -25,11 +26,43 @@ func (core *Core) apiRoutes(r *gin.Engine) {
 		api.GET(APITree, getTree)
 		api.GET(APIDisplay, getDisplayAPIHandler)
 		api.POST(APICreate+"/:objtype", createAPIHandler)
+		api.POST(APIUpdate+"/:objtype", updateAPIHandler)
 	}
 }
 
 func getRequestUser(c *gin.Context) (user *User) {
 	return core.nodes[c.GetUint("userID")].Detail.(*User)
+}
+
+func updateAPIHandler(c *gin.Context) {
+	user := getRequestUser(c)
+	objType := c.Param("objtype")
+	msg := &Message{}
+	switch objType {
+	case "broker":
+		msg.Payload = &Broker{}
+	case "account":
+		msg.Payload = &Account{}
+	case "group":
+		msg.Payload = &Group{}
+	case "pocket":
+		msg.Payload = &Pocket{}
+	default:
+		c.JSON(http.StatusBadRequest, APIError{Error: "unknown object type: " + objType})
+		return
+	}
+	if err := c.BindJSON(msg); err != nil {
+		c.JSON(http.StatusBadRequest, APIError{Error: err.Error()})
+		return
+	}
+	msg.User = user
+	msg.Type = MessageUpdate
+	resp := msg.toCore()
+	if resp.Type == MessageError {
+		c.JSON(resp.extractError())
+		return
+	}
+	// log.Debugf("%+v %+v %+v %+v", objType, msg, msg.Payload, msg.Payload.(*Node).Detail)
 }
 
 func createAPIHandler(c *gin.Context) {
@@ -45,6 +78,9 @@ func createAPIHandler(c *gin.Context) {
 		node.Detail = &Group{}
 	case "pocket":
 		node.Detail = &Pocket{}
+	default:
+		c.JSON(http.StatusBadRequest, APIError{Error: "unknown object type: " + objType})
+		return
 	}
 	msg := &Message{Payload: node}
 	if err := c.BindJSON(msg); err != nil {

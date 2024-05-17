@@ -16,6 +16,7 @@ var messageHandlers = map[string]messageHandler{
 	MessageAuthenticateUser: authenticateUserHandler,
 	MessageCreateUser:       createUserHandler,
 	MessageCreate:           createHandler,
+	MessageUpdate:           updateHandler,
 	MessageGetDisplay:       getDisplayHandler,
 }
 
@@ -37,6 +38,7 @@ func getDisplayHandler(msg *Message) (resp *Message) {
 	resp.Payload = selectedNodes
 	return
 }
+
 func createUserHandler(msg *Message) (resp *Message) {
 	node := msg.Payload.(*Node)
 	user := node.Detail.(*User)
@@ -174,6 +176,57 @@ func createHandler(msg *Message) (resp *Message) {
 	node.parent.children[node.Name] = node
 	core.nodes[node.ID] = node
 
+	return &Message{Type: MessageOK}
+}
+
+func updateHandler(msg *Message) (resp *Message) {
+	var err error
+	if msg.Path == "" {
+		return errorMessage(http.StatusBadRequest, "can't update node without a path")
+	}
+	node := find(core.root, msg.Path, msg.User)
+	if node == nil {
+		return errorMessage(http.StatusBadRequest, "node doesn't exists")
+	}
+	err = core.db.Transaction(func(tx *gorm.DB) error {
+		switch obj := msg.Payload.(type) {
+		case *Broker:
+			obj.NodeID = node.ID
+			obj.account = node.Detail.(*Broker).account
+			if err := tx.Create(&obj).Error; err != nil {
+				return err
+			}
+		case *Account:
+			obj.APIPublicKey, err = encryptString(core.dbKey, node.Name, obj.APIPublicKey)
+			if err != nil {
+				return err
+			}
+			obj.APIPrivateKey, err = encryptString(core.dbKey, node.Name, obj.APIPrivateKey)
+			if err != nil {
+				return err
+			}
+			obj.NodeID = node.ID
+			if err := tx.Create(&obj).Error; err != nil {
+				return err
+			}
+		case *Group:
+			obj.NodeID = node.ID
+			if err := tx.Create(&obj).Error; err != nil {
+				return err
+			}
+		case *Pocket:
+			obj.NodeID = node.ID
+			if err := tx.Create(&obj).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return errorMessage(http.StatusInternalServerError, err.Error())
+	}
+
+	node.Detail = msg.Payload.(Displayer)
 	return &Message{Type: MessageOK}
 }
 

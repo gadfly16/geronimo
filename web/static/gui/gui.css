@@ -125,6 +125,10 @@ data:hover::after {
     padding-bottom: 1em;
 }
 
+.parameterForm:invalid {
+    background-color: #e0c3bf;
+}
+
 .parameterFormHeadBox {
     /* height: 1.6em; */
     display: flex;
@@ -139,17 +143,31 @@ data:hover::after {
     padding-bottom: .21em;
 }    
 
+.parameterForm:invalid .parameterFormHeadBox {
+    background-color: #ff8c8c;
+}
+
 .different .parameterFormHeadBox {
     background-color: #8ecfa7;
 }
 
 .parameterFormSubmit {
+    background: none;
+    border: none;
     display: none;
     align-self: right;
     width: auto;
     font-size: 0.7em;
     color: #1f971f;
     text-decoration: underline;
+}
+
+.parameterForm:not(:invalid):has(.different) .parameterFormSubmit {
+    display: inline;
+}
+
+.parameterForm:invalid .parameterFormSubmit {
+    display: none;
 }
 
 .inputBox {
@@ -162,7 +180,11 @@ data:hover::after {
     margin-left: 0.8em;
 }
 
-.inputBox.different {
+.inputBox:has(:invalid) {
+    background-color: #eba8a8;
+}
+
+.inputBox.different:not(:has(:invalid)) {
     background-color: #a8ebc4;
 }
 
@@ -178,6 +200,11 @@ input {
     margin-bottom: 1em;
     margin-left: 0.15em;
     margin-right: 1.25em; */
+}
+
+input:invalid {
+    color: #970a0a ;
+    /* border-bottom: 2px solid red ; */
 }
 
 .infoListHead {

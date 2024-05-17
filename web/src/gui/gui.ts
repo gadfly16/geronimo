@@ -2,7 +2,7 @@ import {GuiMessage, guiMessageType, NodeType, NodeTypeName} from "../shared/gui_
 
 // UI Globals
 let tree: Tree
-let display: Display
+let display: DisplayBox
 
 // This is not jQuery, but a helper function to turn a html string into a HTMLElement
 let _dollarRegexp = /^\s+|\s+$|(?<=\>)\s+(?=\<)/gm
@@ -31,7 +31,6 @@ class Node {
         this.children.push(new Node(e, this.ID))
       });
     }
-    // console.log("Node object: ", this)
   }
 
   render(): HTMLElement {
@@ -91,7 +90,7 @@ class Tree {
     let nid = target.getAttribute("data-id")!
     let loc = new URL(location.href)
     let selection = loc.searchParams.getAll("select")
-    if (e.shiftKey) {
+    if (e.ctrlKey) {
       if (selection.includes(nid)) {
         loc.searchParams.delete("select", nid)
         // target.classList.remove("selected")
@@ -131,7 +130,7 @@ class Tree {
   }
 }
 
-class Display {
+class DisplayBox {
   DisplayList: NodeDisplay[] = []
   displayBox = document.getElementById("displayBox") as HTMLDivElement
 
@@ -144,7 +143,6 @@ class Display {
       if (displayDataList.Error) throw new Error(displayDataList.Error)
       this.DisplayList = []
       for (let dd of displayDataList) {
-        console.log(dd)
         switch (dd.DetailType) {
           case NodeType.Broker:
             this.DisplayList.push(new BrokerDisplay(dd))
@@ -174,21 +172,24 @@ class Display {
 }
 
 class NodeDisplay {
-  Name: string = ""
-  DetailType: number = 0
-  path: string = ""
-  Parameters: ParameterForm | null = null
-  Infos: InfoList | null = null
+  name: string
+  detailType: number
+  id: number
+  path: string
+  parameters: ParameterForm | null = null
+  infos: InfoList | null = null
   
   constructor(displayData: any) {
-    this.Name = displayData.Name
-    this.DetailType = displayData.DetailType
+    this.name = displayData.Name
+    this.detailType = displayData.DetailType
+    this.id = displayData.ID
+    this.path = displayData.Path
   }
 
   render():HTMLElement {
     let disp = this.renderHead()
-    if (this.Parameters) disp.appendChild(this.Parameters.render())
-    if (this.Infos) disp.appendChild(this.Infos.render())
+    if (this.parameters) disp.appendChild(this.parameters.render())
+    if (this.infos) disp.appendChild(this.infos.render())
     return disp
   }
 
@@ -196,7 +197,7 @@ class NodeDisplay {
     let disp = $(`
       <div class="display">
         <div class="displayHead">
-          <div class="displayName ${NodeTypeName[this.DetailType]}">${this.Name}</div>
+          <div class="displayName ${NodeTypeName[this.detailType]}">${this.name}</div>
           <div class="displayPath">${this.path}</div>
         </div>
       </div>
@@ -210,8 +211,8 @@ class UserDisplay extends NodeDisplay{
     super(displayData)
     let parmDict = displayData.Detail
     parmDict["Last Modified"] = parmDict.CreatedAt
-    this.Infos = new InfoList
-    this.Infos.add(parmDict, ["Last Modified"])
+    this.infos = new InfoList
+    this.infos.add(parmDict, ["Last Modified"])
   }
 }
 
@@ -220,10 +221,10 @@ class BrokerDisplay extends NodeDisplay{
     super(displayData)
     let parmDict = displayData.Detail
     parmDict["Last Modified"] = parmDict.CreatedAt
-    this.Parameters = new ParameterForm
-    this.Parameters.add(parmDict, ["Pair", "Base", "Quote", "LowLimit", "HighLimit", "Delta", "MinWait", "MaxWait", "Offset"])
-    this.Infos = new InfoList
-    this.Infos.add(parmDict, ["Fee", "Last Modified"])
+    this.parameters = new ParameterForm(this)
+    this.parameters.add(parmDict, ["Pair", "Base", "Quote", "LowLimit", "HighLimit", "Delta", "MinWait", "MaxWait", "Offset"])
+    this.infos = new InfoList
+    this.infos.add(parmDict, ["Fee", "Last Modified"])
   }
 }
 
@@ -232,10 +233,10 @@ class AccountDisplay extends NodeDisplay{
     super(displayData)
     let parmDict = displayData.Detail
     parmDict["Last Modified"] = parmDict.CreatedAt
-    this.Parameters = new ParameterForm
-    this.Parameters.add(parmDict, ["Exchange"])
-    this.Infos = new InfoList
-    this.Infos.add(parmDict, ["Last Modified"])
+    this.parameters = new ParameterForm(this)
+    this.parameters.add(parmDict, ["Exchange"])
+    this.infos = new InfoList
+    this.infos.add(parmDict, ["Last Modified"])
   }
 }
 
@@ -243,6 +244,11 @@ class ParameterForm {
   ParameterList: Parameter[] = []
   formElem: HTMLFormElement | null = null
   submitButton: HTMLElement | null = null
+  nodeDisplay: NodeDisplay
+
+  constructor(nodeDisplay: NodeDisplay) {
+    this.nodeDisplay = nodeDisplay
+  }
 
   add(parmDict: any, parmList: string[] = []) {
     if (!parmList.length) {
@@ -253,13 +259,36 @@ class ParameterForm {
     })
   }
 
-  submitClick() {
-    console.log("Submit click: ", this.ParameterList)
-    this.formElem?.submit()
-  }
-
   submit(event: SubmitEvent) {
+    event.preventDefault()
     const data = new FormData(event.target as HTMLFormElement)
+
+    const detail: {[k: string]: any} = {}
+    for (const parm of this.ParameterList) {
+      const value = data.get(parm.name)
+      detail[parm.name] = parm.inputType == "number" ? Number(value) : value
+    }
+
+    const apiUpdatePath = `/api/update/${NodeTypeName[this.nodeDisplay.detailType]}`
+    console.log(apiUpdatePath)
+    const msg = {
+      Type: "Update",
+      Path: this.nodeDisplay.path,
+      Payload: detail
+    }
+    console.log(msg)
+    fetch(apiUpdatePath, {
+      method: 'post',
+      body: JSON.stringify(msg),
+      mode: 'same-origin',
+    }).then((response) => {
+      if (response.ok) {
+        console.log(response)
+      } else {
+        throw 'failed'
+      }
+    }).catch((e) => { alert(e) })
+    return false
   }
 
   render():HTMLElement {
@@ -267,12 +296,12 @@ class ParameterForm {
       <form class="parameterForm">
         <div class="parameterFormHeadBox">
             <div class="parameterFormTitle">Parameters:</div>
-            <div class="parameterFormSubmit">Submit</div>
+            <button class="parameterFormSubmit">Submit Parameters</button>
         </div>        
       </form>
     `) as HTMLFormElement
+    this.formElem.addEventListener("submit", this.submit.bind(this))
     this.submitButton = this.formElem.querySelector(".parameterFormSubmit")!
-    this.submitButton.addEventListener("click", this.submitClick.bind(this))
     for (let parm of this.ParameterList) {
       this.formElem.appendChild(parm.render())
     }
@@ -281,15 +310,12 @@ class ParameterForm {
 
   checkDifferences() {
     for (const parm of this.ParameterList) {
-      console.log(parm.isDifferent)
       if (parm.isDifferent) {
         this.formElem?.classList.add("different")
-        this.submitButton!.style.display = "inline"
         return
       }
     }
     this.formElem?.classList.remove("different")
-    this.submitButton!.style.display = "none"
   }
 }
 
@@ -319,6 +345,7 @@ class Parameter {
           name="${this.name}"
           class="settingInput"
           type="${this.inputType}"
+          ${this.inputType == "number" ? `step="any"` : ``}
           value="${this.value}"
         />
       </div>
@@ -401,7 +428,7 @@ window.onload = () => {
   tree = new Tree()
   tree.fetch(userID)
 
-  display = new Display()
+  display = new DisplayBox()
 
   window.addEventListener("popstate", (event) => {
     display.update()

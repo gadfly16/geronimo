@@ -13,8 +13,9 @@ const (
 	MessageUser             = "UserWithSecret"
 	MessageCreateUser       = "CreateUser"
 	MessageCreate           = "Create"
+	MessageUpdate           = "Update"
 	MessageGetDisplay       = "GetDetail"
-	MessageDisplay
+	MessageDisplay          = "Display"
 )
 
 type Message struct {

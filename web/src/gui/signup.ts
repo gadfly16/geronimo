@@ -28,6 +28,6 @@ function signup(e: SubmitEvent) {
         }
     }).then((data) => {
         window.location.replace("login")
-    }).catch((e) => { alert(e) });
-    return false;
+    }).catch((e) => { alert(e) })
+    return false
 }
