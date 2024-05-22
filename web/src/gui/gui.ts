@@ -1,8 +1,7 @@
 import {GuiMessage, guiMessageType, NodeType, NodeTypeName} from "../shared/gui_types.js"
 
 // UI Globals
-let tree: Tree
-let display: DisplayBox
+let gui: GUI
 
 // This is not jQuery, but a helper function to turn a html string into a HTMLElement
 let _dollarRegexp = /^\s+|\s+$|(?<=\>)\s+(?=\<)/gm
@@ -13,11 +12,95 @@ function $(html: string): HTMLElement {
   return result as HTMLElement;
 }
 
+class GUI {
+  tree: Node | null = null
+  htmlTreeView: HTMLElement
+  htmlDisplayView: HTMLElement
+  selection = new Map<number, Node>()
+  nodes = new Map<string,Node>()
+
+  constructor(rootNodeID: number) {
+    this.htmlTreeView = document.querySelector("#tree-view")!
+    this.htmlDisplayView = document.querySelector("#display-view")!
+    this.loadTree(rootNodeID)
+    this.htmlTreeView.addEventListener("click", this.treeClick.bind(this))
+  }
+
+  addNode(node: Node) {
+    this.nodes.set(node.ID.toString(), node)
+  }
+
+  loadTree(nodeID: number) {
+    fetch("/api/tree?" + new URLSearchParams({
+      userid: nodeID.toString()
+    })).then((resp) => {
+        return resp.json()
+    }).then((treeData) => {
+      this.tree = new Node(treeData)
+      this.htmlTreeView.appendChild(this.tree.renderTree())
+      this.updateSelection()
+    }).catch((e) => {
+      alert(e)
+    })
+  }
+
+  treeClick(e: MouseEvent) {
+    let target = e.target as HTMLElement
+    if ((e as MouseEvent).offsetX > target.offsetHeight) {
+      e.preventDefault()
+    }
+    let nid = target.getAttribute("data-id")!
+    let loc = new URL(location.href)
+    let selection = loc.searchParams.getAll("select")
+    if (e.ctrlKey) {
+      if (selection.includes(nid)) {
+        loc.searchParams.delete("select", nid)
+      } else {
+        loc.searchParams.append("select", nid)
+      }
+    } else {
+      if (selection.includes(nid) && selection.length == 1) {
+        return
+      } else {
+        loc.searchParams.delete("select")
+        loc.searchParams.append("select", nid)
+      }
+    }
+    window.history.pushState({}, "", loc)
+    this.updateSelection()
+  }
+
+  updateSelection() {
+    let newSelection = new URL(location.href).searchParams.getAll("select")
+    this.selection.forEach((node, id) => {
+      if (!newSelection.includes(node.ID.toString())) {
+        this.selection.delete(id)
+        node.deselect()
+      }
+    })
+    for (let nid of newSelection) {
+      const id = parseInt(nid)
+      if (!Number.isNaN(id)) {
+        if (!(this.selection.has(id))) {
+          let node = this.nodes.get(nid)
+          if (node != undefined) {
+            this.selection.set(id, node)
+            node.select()
+          }
+        }
+      }
+    }
+  }
+}
+
 class Node {
   ID: number = 0
   Name: string = ""
   DetailType: number = 0
   ParentID: number = 0
+  htmlTreeElem: HTMLElement | null = null
+  htmlDisplayElem: HTMLElement | null = null
+  display: NodeDisplay | null = null
 
   children: Node[] = []
 
@@ -31,9 +114,10 @@ class Node {
         this.children.push(new Node(e, this.ID))
       });
     }
+    gui.addNode(this)
   }
 
-  render(): HTMLElement {
+  renderTree(): HTMLElement {
     let e:HTMLElement
     if (this.children.length) {
       e = $(`
@@ -44,91 +128,70 @@ class Node {
       `)
       let ule = e.querySelector("ul")!
       for (let n of this.children) {
-        ule.appendChild(n.render())
+        ule.appendChild(n.renderTree())
       }
     } else {
-      e = $(` <li data-id="${this.ID}">${this.Name}</li> `)
+      e = $(`
+        <div>
+          <li data-id="${this.ID}">${this.Name}</li>
+        </div>
+      `)
     }
+    this.htmlTreeElem = e
     return e
   }
-}
 
-class Tree {
-  root: Node
-  htmlRoot: HTMLElement
-  nodes: {}
-
-  constructor() {
-    this.root = new Node()
-    this.nodes = {0: this.root}
-    this.htmlRoot = document.querySelector("#tree")!
-    this.htmlRoot.addEventListener("click", this.click)
-  }
-
-  update(treeData: any) {
-    this.root = new Node(treeData)
-    this.htmlRoot.appendChild(this.root.render())
-  }
-
-  fetch(nodeID: number) {
-    fetch("/api/tree?" + new URLSearchParams({
-      userid: nodeID.toString()
-    })).then((resp) => {
-        return resp.json()
-    }).then((treeData) => {
-      this.update(treeData)
-    }).catch((e) => {
-      alert(e) 
+  select() {
+    this.htmlTreeElem!.classList.add("selected")
+    fetch(`/api/display?select=${this.ID.toString()}`)
+    .then((resp) => {
+      return resp.json()
+    })
+    .then((displayDataList) => {
+      if (displayDataList.error) throw new Error(displayDataList.error)
+      for (let dd of displayDataList) {
+        switch (dd.DetailType) {
+          case NodeType.Broker:
+            this.display = new BrokerDisplay(dd)
+            break
+          case NodeType.Account:
+            this.display = new AccountDisplay(dd)
+            break
+          case NodeType.User:
+            this.display = new UserDisplay(dd)
+            break
+        }
+      }
+      gui.htmlDisplayView.appendChild(this.display!.render())
+    })
+    .catch((e: Error) => {
+      if (e.message == "unauthorized") {
+        window.location.replace("/login" + new URL(location.href).search)
+      }
+      alert(e + " at line: " + (e as any).lineNumber) 
     })
   }
 
-  click(e: MouseEvent) {
-    let target = e.target as HTMLElement
-    if ((e as MouseEvent).offsetX > target.offsetHeight) {
-      e.preventDefault()
-    }
-    let nid = target.getAttribute("data-id")!
-    let loc = new URL(location.href)
-    let selection = loc.searchParams.getAll("select")
-    if (e.ctrlKey) {
-      if (selection.includes(nid)) {
-        loc.searchParams.delete("select", nid)
-        // target.classList.remove("selected")
-      } else {
-        loc.searchParams.append("select", nid)
-      }
-    } else {
-      if (selection.includes(nid) && selection.length == 1) {
-        return
-      } else {
-        loc.searchParams.delete("select")
-        loc.searchParams.append("select", nid)
-      }
-    }
-    window.history.pushState({}, "", loc)
-    display.update()
-  }
-
-  updateSelection() {
-    let selElems = this.htmlRoot.querySelectorAll(".selected") as NodeListOf<HTMLElement>
-    let loc = new URL(location.href)
-    let selection = loc.searchParams.getAll("select")
-    for (let elem of selElems) {
-      let nid = elem.getAttribute("selected")!
-      if (!selection.includes(nid)) {
-        elem.classList.remove("selected")
-      }
-    }
-    for (let nid of selection) {
-      let elem = this.htmlRoot.querySelector(`[data-id="${nid}"`)
-      if (elem) {
-        if (!elem.classList.contains("selected")) {
-          elem.classList.add("selected")
-        }
-      }
-    }
+  deselect() {
+    this.htmlTreeElem!.classList.remove("selected")
+    gui.htmlDisplayView.removeChild(this.display!.htmlDisplay!)
+    this.display = null
   }
 }
+
+// class Tree {
+//   root: Node
+//   htmlRoot: HTMLElement
+//   nodes: {}
+
+//   constructor() {
+//     this.root = new Node()
+//     this.nodes = {0: this.root}
+//     this.htmlRoot = document.querySelector("#tree")!
+//     this.htmlRoot.addEventListener("click", this.click)
+//   }
+
+// }
 
 class DisplayBox {
   DisplayList: NodeDisplay[] = []
@@ -140,7 +203,7 @@ class DisplayBox {
       return resp.json()
     })
     .then((displayDataList) => {
-      if (displayDataList.Error) throw new Error(displayDataList.Error)
+      if (displayDataList.error) throw new Error(displayDataList.error)
       this.DisplayList = []
       for (let dd of displayDataList) {
         switch (dd.DetailType) {
@@ -156,10 +219,13 @@ class DisplayBox {
         }
       }
       this.draw()
-      tree.updateSelection()
+      // tree.updateSelection()
     })
-    .catch((e) => {
-      alert(e + " at line: " + e.lineNumber) 
+    .catch((e: Error) => {
+      if (e.message == "unauthorized") {
+        window.location.replace("/login" + new URL(location.href).search)
+      }
+      alert(e + " at line: " + (e as any).lineNumber) 
     })
   }
 
@@ -178,6 +244,7 @@ class NodeDisplay {
   path: string
   parameters: ParameterForm | null = null
   infos: InfoList | null = null
+  htmlDisplay: HTMLElement | null = null
   
   constructor(displayData: any) {
     this.name = displayData.Name
@@ -190,11 +257,12 @@ class NodeDisplay {
     let disp = this.renderHead()
     if (this.parameters) disp.appendChild(this.parameters.render())
     if (this.infos) disp.appendChild(this.infos.render())
+    this.htmlDisplay = disp
     return disp
   }
 
   renderHead():HTMLElement {
-    let disp = $(`
+    let dispHead = $(`
       <div class="display">
         <div class="displayHead">
           <div class="displayName ${NodeTypeName[this.detailType]}">${this.name}</div>
@@ -202,7 +270,7 @@ class NodeDisplay {
         </div>
       </div>
     `)
-    return disp
+    return dispHead
   }
 }
 
@@ -425,20 +493,18 @@ window.onload = () => {
     Payload: userID
   } 
 
-  tree = new Tree()
-  tree.fetch(userID)
-
-  display = new DisplayBox()
-
-  window.addEventListener("popstate", (event) => {
-    display.update()
-  })
-
+  // Select user node in URL if nothing else is selected
   let loc = new URL(location.href)
   let selection = loc.searchParams.getAll("select")
   if (!selection.length) {
     loc.searchParams.append("select", userID.toString())
     window.history.pushState({}, "", loc)
   }
-  display.update()
+
+  gui = new GUI(userID)
+
+  // Update display if location URL changes
+  window.addEventListener("popstate", (event) => {
+    gui.updateSelection()
+  })
 }

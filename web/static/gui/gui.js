@@ -1,7 +1,6 @@
 import { guiMessageType, NodeType, NodeTypeName } from "../shared/gui_types.js";
 // UI Globals
-let tree;
-let display;
+let gui;
 // This is not jQuery, but a helper function to turn a html string into a HTMLElement
 let _dollarRegexp = /^\s+|\s+$|(?<=\>)\s+(?=\<)/gm;
 function $(html) {
@@ -10,67 +9,33 @@ function $(html) {
     const result = template.content.firstElementChild;
     return result;
 }
-class Node {
-    constructor(nodeData = null, parentID = 0) {
-        this.ID = 0;
-        this.Name = "";
-        this.DetailType = 0;
-        this.ParentID = 0;
-        this.children = [];
-        if (nodeData == null)
-            return;
-        this.ID = nodeData.ID;
-        this.Name = nodeData.Name;
-        this.DetailType = nodeData.DetailType;
-        if ("children" in nodeData) {
-            nodeData.children.forEach((e) => {
-                this.children.push(new Node(e, this.ID));
-            });
-        }
+class GUI {
+    constructor(rootNodeID) {
+        this.tree = null;
+        this.selection = new Map();
+        this.nodes = new Map();
+        this.htmlTreeView = document.querySelector("#tree-view");
+        this.htmlDisplayView = document.querySelector("#display-view");
+        this.loadTree(rootNodeID);
+        this.htmlTreeView.addEventListener("click", this.treeClick.bind(this));
     }
-    render() {
-        let e;
-        if (this.children.length) {
-            e = $(`
-        <details open="true">
-          <summary data-id="${this.ID}">${this.Name}</summary>
-          <ul></ul>
-        </details>
-      `);
-            let ule = e.querySelector("ul");
-            for (let n of this.children) {
-                ule.appendChild(n.render());
-            }
-        }
-        else {
-            e = $(` <li data-id="${this.ID}">${this.Name}</li> `);
-        }
-        return e;
+    addNode(node) {
+        this.nodes.set(node.ID.toString(), node);
     }
-}
-class Tree {
-    constructor() {
-        this.root = new Node();
-        this.nodes = { 0: this.root };
-        this.htmlRoot = document.querySelector("#tree");
-        this.htmlRoot.addEventListener("click", this.click);
-    }
-    update(treeData) {
-        this.root = new Node(treeData);
-        this.htmlRoot.appendChild(this.root.render());
-    }
-    fetch(nodeID) {
+    loadTree(nodeID) {
         fetch("/api/tree?" + new URLSearchParams({
             userid: nodeID.toString()
         })).then((resp) => {
             return resp.json();
         }).then((treeData) => {
-            this.update(treeData);
+            this.tree = new Node(treeData);
+            this.htmlTreeView.appendChild(this.tree.renderTree());
+            this.updateSelection();
         }).catch((e) => {
             alert(e);
         });
     }
-    click(e) {
+    treeClick(e) {
         let target = e.target;
         if (e.offsetX > target.offsetHeight) {
             e.preventDefault();
@@ -81,7 +46,6 @@ class Tree {
         if (e.ctrlKey) {
             if (selection.includes(nid)) {
                 loc.searchParams.delete("select", nid);
-                // target.classList.remove("selected")
             }
             else {
                 loc.searchParams.append("select", nid);
@@ -97,28 +61,124 @@ class Tree {
             }
         }
         window.history.pushState({}, "", loc);
-        display.update();
+        this.updateSelection();
     }
     updateSelection() {
-        let selElems = this.htmlRoot.querySelectorAll(".selected");
-        let loc = new URL(location.href);
-        let selection = loc.searchParams.getAll("select");
-        for (let elem of selElems) {
-            let nid = elem.getAttribute("selected");
-            if (!selection.includes(nid)) {
-                elem.classList.remove("selected");
+        let newSelection = new URL(location.href).searchParams.getAll("select");
+        this.selection.forEach((node, id) => {
+            if (!newSelection.includes(node.ID.toString())) {
+                this.selection.delete(id);
+                node.deselect();
             }
-        }
-        for (let nid of selection) {
-            let elem = this.htmlRoot.querySelector(`[data-id="${nid}"`);
-            if (elem) {
-                if (!elem.classList.contains("selected")) {
-                    elem.classList.add("selected");
+        });
+        for (let nid of newSelection) {
+            const id = parseInt(nid);
+            if (!Number.isNaN(id)) {
+                if (!(this.selection.has(id))) {
+                    let node = this.nodes.get(nid);
+                    if (node != undefined) {
+                        this.selection.set(id, node);
+                        node.select();
+                    }
                 }
             }
         }
     }
 }
+class Node {
+    constructor(nodeData = null, parentID = 0) {
+        this.ID = 0;
+        this.Name = "";
+        this.DetailType = 0;
+        this.ParentID = 0;
+        this.htmlTreeElem = null;
+        this.htmlDisplayElem = null;
+        this.display = null;
+        this.children = [];
+        if (nodeData == null)
+            return;
+        this.ID = nodeData.ID;
+        this.Name = nodeData.Name;
+        this.DetailType = nodeData.DetailType;
+        if ("children" in nodeData) {
+            nodeData.children.forEach((e) => {
+                this.children.push(new Node(e, this.ID));
+            });
+        }
+        gui.addNode(this);
+    }
+    renderTree() {
+        let e;
+        if (this.children.length) {
+            e = $(`
+        <details open="true">
+          <summary data-id="${this.ID}">${this.Name}</summary>
+          <ul></ul>
+        </details>
+      `);
+            let ule = e.querySelector("ul");
+            for (let n of this.children) {
+                ule.appendChild(n.renderTree());
+            }
+        }
+        else {
+            e = $(`
+        <div>
+          <li data-id="${this.ID}">${this.Name}</li>
+        </div>
+      `);
+        }
+        this.htmlTreeElem = e;
+        return e;
+    }
+    select() {
+        this.htmlTreeElem.classList.add("selected");
+        fetch(`/api/display?select=${this.ID.toString()}`)
+            .then((resp) => {
+            return resp.json();
+        })
+            .then((displayDataList) => {
+            if (displayDataList.error)
+                throw new Error(displayDataList.error);
+            for (let dd of displayDataList) {
+                switch (dd.DetailType) {
+                    case NodeType.Broker:
+                        this.display = new BrokerDisplay(dd);
+                        break;
+                    case NodeType.Account:
+                        this.display = new AccountDisplay(dd);
+                        break;
+                    case NodeType.User:
+                        this.display = new UserDisplay(dd);
+                        break;
+                }
+            }
+            gui.htmlDisplayView.appendChild(this.display.render());
+        })
+            .catch((e) => {
+            if (e.message == "unauthorized") {
+                window.location.replace("/login" + new URL(location.href).search);
+            }
+            alert(e + " at line: " + e.lineNumber);
+        });
+    }
+    deselect() {
+        this.htmlTreeElem.classList.remove("selected");
+        gui.htmlDisplayView.removeChild(this.display.htmlDisplay);
+        this.display = null;
+    }
+}
+// class Tree {
+//   root: Node
+//   htmlRoot: HTMLElement
+//   nodes: {}
+//   constructor() {
+//     this.root = new Node()
+//     this.nodes = {0: this.root}
+//     this.htmlRoot = document.querySelector("#tree")!
+//     this.htmlRoot.addEventListener("click", this.click)
+//   }
+// }
 class DisplayBox {
     constructor() {
         this.DisplayList = [];
@@ -130,8 +190,8 @@ class DisplayBox {
             return resp.json();
         })
             .then((displayDataList) => {
-            if (displayDataList.Error)
-                throw new Error(displayDataList.Error);
+            if (displayDataList.error)
+                throw new Error(displayDataList.error);
             this.DisplayList = [];
             for (let dd of displayDataList) {
                 switch (dd.DetailType) {
@@ -147,9 +207,12 @@ class DisplayBox {
                 }
             }
             this.draw();
-            tree.updateSelection();
+            // tree.updateSelection()
         })
             .catch((e) => {
+            if (e.message == "unauthorized") {
+                window.location.replace("/login" + new URL(location.href).search);
+            }
             alert(e + " at line: " + e.lineNumber);
         });
     }
@@ -164,6 +227,7 @@ class NodeDisplay {
     constructor(displayData) {
         this.parameters = null;
         this.infos = null;
+        this.htmlDisplay = null;
         this.name = displayData.Name;
         this.detailType = displayData.DetailType;
         this.id = displayData.ID;
@@ -175,10 +239,11 @@ class NodeDisplay {
             disp.appendChild(this.parameters.render());
         if (this.infos)
             disp.appendChild(this.infos.render());
+        this.htmlDisplay = disp;
         return disp;
     }
     renderHead() {
-        let disp = $(`
+        let dispHead = $(`
       <div class="display">
         <div class="displayHead">
           <div class="displayName ${NodeTypeName[this.detailType]}">${this.name}</div>
@@ -186,7 +251,7 @@ class NodeDisplay {
         </div>
       </div>
     `);
-        return disp;
+        return dispHead;
     }
 }
 class UserDisplay extends NodeDisplay {
@@ -384,17 +449,16 @@ window.onload = () => {
         Type: guiMessageType.getUserTree,
         Payload: userID
     };
-    tree = new Tree();
-    tree.fetch(userID);
-    display = new DisplayBox();
-    window.addEventListener("popstate", (event) => {
-        display.update();
-    });
+    // Select user node in URL if nothing else is selected
     let loc = new URL(location.href);
     let selection = loc.searchParams.getAll("select");
     if (!selection.length) {
         loc.searchParams.append("select", userID.toString());
         window.history.pushState({}, "", loc);
     }
-    display.update();
+    gui = new GUI(userID);
+    // Update display if location URL changes
+    window.addEventListener("popstate", (event) => {
+        gui.updateSelection();
+    });
 };

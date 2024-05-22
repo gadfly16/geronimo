@@ -21,8 +21,7 @@ function login(e) {
             throw 'unauthorized';
         }
     }).then((data) => {
-        const destParam = new URLSearchParams(new URL(location.href).search);
-        window.location.replace(destParam.has("dest") ? "/gui" + destParam.get("dest") : "/gui");
+        window.location.replace("/gui" + new URL(location.href).search);
     }).catch((e) => { alert(e); });
     return false;
 }

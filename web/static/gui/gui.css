@@ -54,11 +54,12 @@ body {
     text-overflow: ellipsis;
 }
 
-#tree .selected {
+#tree-view .selected>li,
+#tree-view .selected>summary {
     color: #3d6566;
 }
 
-#displayBox {
+#display-view {
     background: #ECE4B7;
     grid-column: 2 / 3;
     grid-row: 2 / 3;
