@@ -3,10 +3,12 @@ export interface GuiMessage {
     Payload: any
   }
 
-export let guiMessageType = {
-    getUserTree: "getUserTree",
-    userTree: "userTree"
-}
+export let WSMsg = {
+    Credentials: "Credentials",
+    Subscribe: "Subscribe",
+    Unsubscribe: "Unsubscribe",
+    Update: "Update",
+  }
 
 export enum NodeType {
 	Root = 0,

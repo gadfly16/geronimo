@@ -58,6 +58,14 @@ func generateSecret(l int) ([]byte, error) {
 	return s, nil
 }
 
+func generateOTP() string {
+	otp, _ := generateSecret(16)
+	for i, b := range otp {
+		otp[i] = b%94 + 33
+	}
+	return string(otp)
+}
+
 func createSecret(path string) error {
 	if FileExists(path) {
 		return errors.New("key file already exists: " + path)

@@ -1,3 +1,2 @@
-startup.sh
-state.db
 geronimo
+**/tsconfig.tsbuildinfo

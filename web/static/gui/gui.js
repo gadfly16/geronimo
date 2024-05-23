@@ -1,4 +1,4 @@
-import { guiMessageType, NodeType, NodeTypeName } from "../shared/gui_types.js";
+import { WSMsg, NodeType, NodeTypeName } from "../shared/gui_types.js";
 // UI Globals
 let gui;
 // This is not jQuery, but a helper function to turn a html string into a HTMLElement
@@ -12,12 +12,44 @@ function $(html) {
 class GUI {
     constructor(rootNodeID) {
         this.tree = null;
-        this.selection = new Map();
         this.nodes = new Map();
+        this.selection = new Map();
+        this.guiID = 0;
+        this.guiOTP = "";
         this.htmlTreeView = document.querySelector("#tree-view");
         this.htmlDisplayView = document.querySelector("#display-view");
         this.loadTree(rootNodeID);
         this.htmlTreeView.addEventListener("click", this.treeClick.bind(this));
+        this.socket = new WebSocket("/socket");
+        this.socket.onmessage = this.socketMessageHandler.bind(this);
+    }
+    socketMessageHandler(event) {
+        const msg = JSON.parse(event.data);
+        switch (msg.Type) {
+            case WSMsg.Credentials:
+                this.guiID = msg.GUIID;
+                this.guiOTP = msg.OTP;
+                this.socket.send(JSON.stringify(msg));
+                break;
+            case WSMsg.Update:
+                console.log(`Update needed for node ${msg.NodeID}`);
+        }
+    }
+    subscribe(id) {
+        this.socket.send(JSON.stringify({
+            Type: WSMsg.Subscribe,
+            GUIID: this.guiID,
+            OTP: this.guiOTP,
+            NodeID: id,
+        }));
+    }
+    unsubscribe(id) {
+        this.socket.send(JSON.stringify({
+            Type: WSMsg.Unsubscribe,
+            GUIID: this.guiID,
+            OTP: this.guiOTP,
+            NodeID: id,
+        }));
     }
     addNode(node) {
         this.nodes.set(node.ID.toString(), node);
@@ -154,6 +186,7 @@ class Node {
                 }
             }
             gui.htmlDisplayView.appendChild(this.display.render());
+            gui.subscribe(this.ID);
         })
             .catch((e) => {
             if (e.message == "unauthorized") {
@@ -166,61 +199,7 @@ class Node {
         this.htmlTreeElem.classList.remove("selected");
         gui.htmlDisplayView.removeChild(this.display.htmlDisplay);
         this.display = null;
-    }
-}
-// class Tree {
-//   root: Node
-//   htmlRoot: HTMLElement
-//   nodes: {}
-//   constructor() {
-//     this.root = new Node()
-//     this.nodes = {0: this.root}
-//     this.htmlRoot = document.querySelector("#tree")!
-//     this.htmlRoot.addEventListener("click", this.click)
-//   }
-// }
-class DisplayBox {
-    constructor() {
-        this.DisplayList = [];
-        this.displayBox = document.getElementById("displayBox");
-    }
-    update() {
-        fetch("/api/display" + new URL(location.href).search)
-            .then((resp) => {
-            return resp.json();
-        })
-            .then((displayDataList) => {
-            if (displayDataList.error)
-                throw new Error(displayDataList.error);
-            this.DisplayList = [];
-            for (let dd of displayDataList) {
-                switch (dd.DetailType) {
-                    case NodeType.Broker:
-                        this.DisplayList.push(new BrokerDisplay(dd));
-                        break;
-                    case NodeType.Account:
-                        this.DisplayList.push(new AccountDisplay(dd));
-                        break;
-                    case NodeType.User:
-                        this.DisplayList.push(new UserDisplay(dd));
-                        break;
-                }
-            }
-            this.draw();
-            // tree.updateSelection()
-        })
-            .catch((e) => {
-            if (e.message == "unauthorized") {
-                window.location.replace("/login" + new URL(location.href).search);
-            }
-            alert(e + " at line: " + e.lineNumber);
-        });
-    }
-    draw() {
-        this.displayBox.textContent = "";
-        for (let disp of this.DisplayList) {
-            this.displayBox.appendChild(disp.render());
-        }
+        gui.unsubscribe(this.ID);
     }
 }
 class NodeDisplay {
@@ -445,10 +424,6 @@ function displayTemplate(dd) {
 window.onload = () => {
     let userID = parseInt(document.getElementById("user-id").getAttribute("value"));
     console.log("UserID: ", userID);
-    let gm = {
-        Type: guiMessageType.getUserTree,
-        Payload: userID
-    };
     // Select user node in URL if nothing else is selected
     let loc = new URL(location.href);
     let selection = loc.searchParams.getAll("select");

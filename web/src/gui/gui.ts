@@ -1,4 +1,4 @@
-import {GuiMessage, guiMessageType, NodeType, NodeTypeName} from "../shared/gui_types.js"
+import {GuiMessage, WSMsg, NodeType, NodeTypeName} from "../shared/gui_types.js"
 
 // UI Globals
 let gui: GUI
@@ -14,16 +14,58 @@ function $(html: string): HTMLElement {
 
 class GUI {
   tree: Node | null = null
+  nodes = new Map<string,Node>()
+
   htmlTreeView: HTMLElement
   htmlDisplayView: HTMLElement
   selection = new Map<number, Node>()
-  nodes = new Map<string,Node>()
+
+  socket: WebSocket
+  guiID: number = 0
+  guiOTP: string = ""
 
   constructor(rootNodeID: number) {
     this.htmlTreeView = document.querySelector("#tree-view")!
     this.htmlDisplayView = document.querySelector("#display-view")!
     this.loadTree(rootNodeID)
     this.htmlTreeView.addEventListener("click", this.treeClick.bind(this))
+    this.socket = new WebSocket("/socket")
+    this.socket.onmessage = this.socketMessageHandler.bind(this)
+  }
+
+  socketMessageHandler(event: MessageEvent) {
+    const msg = JSON.parse(event.data)
+    switch (msg.Type) {
+      case WSMsg.Credentials:
+        this.guiID = msg.GUIID
+        this.guiOTP = msg.OTP
+        this.socket.send(JSON.stringify(msg))
+        break
+      case WSMsg.Update:
+        console.log(`Update needed for node ${msg.NodeID}`)
+    }
+  }
+
+  subscribe(id: number) {
+    this.socket.send(
+      JSON.stringify({
+        Type: WSMsg.Subscribe,
+        GUIID: this.guiID,
+        OTP: this.guiOTP,
+        NodeID: id,
+      })
+    )
+  }
+
+  unsubscribe(id: number) {
+    this.socket.send(
+      JSON.stringify({
+        Type: WSMsg.Unsubscribe,
+        GUIID: this.guiID,
+        OTP: this.guiOTP,
+        NodeID: id,
+      })
+    )
   }
 
   addNode(node: Node) {
@@ -163,6 +205,7 @@ class Node {
         }
       }
       gui.htmlDisplayView.appendChild(this.display!.render())
+      gui.subscribe(this.ID)
     })
     .catch((e: Error) => {
       if (e.message == "unauthorized") {
@@ -176,64 +219,7 @@ class Node {
     this.htmlTreeElem!.classList.remove("selected")
     gui.htmlDisplayView.removeChild(this.display!.htmlDisplay!)
     this.display = null
-  }
-}
-
-// class Tree {
-//   root: Node
-//   htmlRoot: HTMLElement
-//   nodes: {}
-
-//   constructor() {
-//     this.root = new Node()
-//     this.nodes = {0: this.root}
-//     this.htmlRoot = document.querySelector("#tree")!
-//     this.htmlRoot.addEventListener("click", this.click)
-//   }
-
-// }
-
-class DisplayBox {
-  DisplayList: NodeDisplay[] = []
-  displayBox = document.getElementById("displayBox") as HTMLDivElement
-
-  update() {
-    fetch("/api/display" + new URL(location.href).search)
-    .then((resp) => {
-      return resp.json()
-    })
-    .then((displayDataList) => {
-      if (displayDataList.error) throw new Error(displayDataList.error)
-      this.DisplayList = []
-      for (let dd of displayDataList) {
-        switch (dd.DetailType) {
-          case NodeType.Broker:
-            this.DisplayList.push(new BrokerDisplay(dd))
-            break
-          case NodeType.Account:
-            this.DisplayList.push(new AccountDisplay(dd))
-            break
-          case NodeType.User:
-            this.DisplayList.push(new UserDisplay(dd))
-            break
-        }
-      }
-      this.draw()
-      // tree.updateSelection()
-    })
-    .catch((e: Error) => {
-      if (e.message == "unauthorized") {
-        window.location.replace("/login" + new URL(location.href).search)
-      }
-      alert(e + " at line: " + (e as any).lineNumber) 
-    })
-  }
-
-  draw() {
-    this.displayBox.textContent = ""
-    for (let disp of this.DisplayList) {
-      this.displayBox.appendChild(disp.render())
-    } 
+    gui.unsubscribe(this.ID)
   }
 }
 
@@ -487,11 +473,6 @@ function displayTemplate(dd: any): string {
 window.onload = () => { 
   let userID = parseInt(document.getElementById("user-id")!.getAttribute("value")!)
   console.log("UserID: ", userID)
-
-  let gm: GuiMessage = {
-    Type: guiMessageType.getUserTree,
-    Payload: userID
-  } 
 
   // Select user node in URL if nothing else is selected
   let loc = new URL(location.href)

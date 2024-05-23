@@ -227,6 +227,7 @@ func updateHandler(msg *Message) (resp *Message) {
 	}
 
 	node.Detail = msg.Payload.(Displayer)
+	core.sendUpdates(node.ID)
 	return &Message{Type: MessageOK}
 }
 

@@ -2,6 +2,7 @@ package server
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -70,13 +71,13 @@ func (node *Node) path() string {
 	return path
 }
 
-func (core *Core) getNode(id uint, user *User) (*Node, error) {
-	userNode := core.nodes[user.NodeID]
+func (core *Core) getNode(id uint, user *Node) (*Node, error) {
+	userDetail := user.Detail.(*User)
 	node, ok := core.nodes[id]
 	if !ok {
 		return nil, errors.New("node doesn't exists")
 	}
-	if user.Role != RoleAdmin && node.findUpstreamClass(NodeUser) != userNode {
+	if userDetail.Role != RoleAdmin && node.findUpstreamClass(NodeUser) != user {
 		return nil, errors.New("node doesn't belong to user")
 	}
 	return node, nil
@@ -166,4 +167,36 @@ func (node *Node) display() (display gin.H) {
 		display[k] = v
 	}
 	return
+}
+
+func find(parent *Node, path string, user *Node) (node *Node) {
+	return findNode(parent, strings.Split(path[1:], "/"), user)
+}
+
+func findParent(parent *Node, path string, user *Node) (node *Node) {
+	pathSlice := strings.Split(path[1:], "/")
+	return findNode(parent, pathSlice[:len(pathSlice)-1], user)
+}
+
+func findNode(parent *Node, path []string, user *Node) (node *Node) {
+	userDetail := user.Detail.(*User)
+	node, ok := parent.children[path[0]]
+	if !ok {
+		return
+	}
+	if node.DetailType == NodeUser {
+		if userDetail.Role != "admin" && node.ID != userDetail.NodeID {
+			return nil
+		}
+	}
+	if len(path) > 1 {
+		return findNode(node, path[1:], user)
+	}
+	return
+}
+
+// Returns the name of the node from its path
+func name(path string) string {
+	pathSlice := strings.Split(path[1:], "/")
+	return pathSlice[len(pathSlice)-1]
 }

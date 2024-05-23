@@ -1,26 +1,26 @@
 package server
 
 const (
-	MessageOK               = "OK"
-	MessageError            = "Error"
-	MessageClientID         = "ClientID"
-	MessageAccount          = "Account"
-	MessageCommandResponse  = "CommandResponse"
-	MessageGetTree          = "GetState"
-	MessageTree             = "State"
-	MessageWebServerError   = "WebServerError"
-	MessageAuthenticateUser = "AuthenticateUser"
-	MessageUser             = "UserWithSecret"
-	MessageCreateUser       = "CreateUser"
-	MessageCreate           = "Create"
-	MessageUpdate           = "Update"
-	MessageGetDisplay       = "GetDetail"
-	MessageDisplay          = "Display"
+	MessageOK                   = "OK"
+	MessageError                = "Error"
+	MessageGUIClientCredentials = "GUIClientCredentials"
+	MessageAccount              = "Account"
+	MessageCommandResponse      = "CommandResponse"
+	MessageGetTree              = "GetState"
+	MessageTree                 = "State"
+	MessageWebServerError       = "WebServerError"
+	MessageAuthenticateUser     = "AuthenticateUser"
+	MessageUser                 = "UserWithSecret"
+	MessageCreateUser           = "CreateUser"
+	MessageCreate               = "Create"
+	MessageUpdate               = "Update"
+	MessageGetDisplay           = "GetDetail"
+	MessageDisplay              = "Display"
 )
 
 type Message struct {
 	Type    string
-	User    *User
+	User    *Node
 	Path    string
 	Payload interface{}
 

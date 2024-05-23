@@ -2,7 +2,6 @@ package server
 
 import (
 	"os"
-	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/driver/sqlite"
@@ -41,13 +40,15 @@ type Settings struct {
 }
 
 type Core struct {
-	settings Settings
-	root     *Node
-	nodes    map[uint]*Node
-	message  chan *Message
-	db       *gorm.DB
-	jwtKey   []byte
-	dbKey    []byte
+	settings      Settings
+	root          *Node
+	nodes         map[uint]*Node
+	guis          map[int64]*guiClient
+	subscriptions map[uint]map[*guiClient]bool
+	message       chan *Message
+	db            *gorm.DB
+	jwtKey        []byte
+	dbKey         []byte
 }
 
 func (s *Settings) Init() {
@@ -92,10 +93,12 @@ func Serve(s Settings) (err error) {
 
 func newCore(s Settings) (core *Core, err error) {
 	core = &Core{
-		settings: s,
-		root:     &Node{DetailType: NodeRoot},
-		nodes:    map[uint]*Node{},
-		message:  make(chan *Message),
+		settings:      s,
+		root:          &Node{DetailType: NodeRoot},
+		nodes:         map[uint]*Node{},
+		guis:          map[int64]*guiClient{},
+		subscriptions: map[uint]map[*guiClient]bool{},
+		message:       make(chan *Message),
 	}
 	core.nodes[0] = core.root
 	// Connect to db
@@ -118,21 +121,32 @@ func newCore(s Settings) (core *Core, err error) {
 	return
 }
 
+func (core *Core) subscribe(nodeid uint, gui *guiClient) {
+	if _, ok := core.subscriptions[nodeid]; !ok {
+		core.subscriptions[nodeid] = make(map[*guiClient]bool)
+	}
+	core.subscriptions[nodeid][gui] = true
+}
+
+func (core *Core) unsubscribe(nodeid uint, gui *guiClient) {
+	delete(core.subscriptions[nodeid], gui)
+	if len(core.subscriptions[nodeid]) == 0 {
+		delete(core.subscriptions, nodeid)
+	}
+}
+
+func (core *Core) sendUpdates(nodeid uint) {
+	if guis, ok := core.subscriptions[nodeid]; ok {
+		for gui := range guis {
+			gui.sendUpdate(nodeid)
+		}
+	}
+}
+
 func runCore() (err error) {
 	log.Info("Starting core.")
 	for {
 		select {
-		// case cl := <-c.registerClient:
-		// 	c.clients[cl.id] = cl
-		// 	log.Infoln("Registered client:", cl.id)
-		// case cl := <-c.unregisterClient:
-		// 	if _, ok := c.clients[cl.id]; ok {
-		// 		delete(c.clients, cl.id)
-		// 		cl.conn.Close()
-		// 		log.Info("Unregistered client: ", cl.id)
-		// 	} else {
-		// 		log.Error("Can't unregister unregistered client: ", cl.id)
-		// 	}
 		case req := <-core.message:
 			if mh, ok := messageHandlers[req.Type]; ok {
 				resp := mh(req)
@@ -165,36 +179,6 @@ func runCore() (err error) {
 			// req.RespChan <- resp
 		}
 	}
-}
-
-func find(parent *Node, path string, user *User) (node *Node) {
-	return findNode(parent, strings.Split(path[1:], "/"), user)
-}
-
-func findParent(parent *Node, path string, user *User) (node *Node) {
-	pathSlice := strings.Split(path[1:], "/")
-	return findNode(parent, pathSlice[:len(pathSlice)-1], user)
-}
-
-func findNode(parent *Node, path []string, user *User) (node *Node) {
-	node, ok := parent.children[path[0]]
-	if !ok {
-		return
-	}
-	if node.DetailType == NodeUser {
-		if user.Role != "admin" && node.ID != user.NodeID {
-			return nil
-		}
-	}
-	if len(path) > 1 {
-		return findNode(node, path[1:], user)
-	}
-	return
-}
-
-func name(path string) string {
-	pathSlice := strings.Split(path[1:], "/")
-	return pathSlice[len(pathSlice)-1]
 }
 
 // func (core *Core) initAccount(acc *Account) (err error) {

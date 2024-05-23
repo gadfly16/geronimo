@@ -30,8 +30,8 @@ func (core *Core) apiRoutes(r *gin.Engine) {
 	}
 }
 
-func getRequestUser(c *gin.Context) (user *User) {
-	return core.nodes[c.GetUint("userID")].Detail.(*User)
+func getRequestUser(c *gin.Context) (user *Node) {
+	return core.nodes[c.GetUint("userID")]
 }
 
 func updateAPIHandler(c *gin.Context) {
@@ -110,6 +110,7 @@ func getDisplayAPIHandler(c *gin.Context) {
 
 func getTree(c *gin.Context) {
 	user := getRequestUser(c)
+	userDetail := user.Detail.(*User)
 
 	queryUserID, err := strconv.Atoi(c.Query("userid"))
 	if err != nil {
@@ -117,7 +118,7 @@ func getTree(c *gin.Context) {
 		return
 	}
 
-	if user.Role != "admin" && int(user.NodeID) != queryUserID {
+	if userDetail.Role != "admin" && int(userDetail.NodeID) != queryUserID {
 		c.JSON(http.StatusMethodNotAllowed, APIError{Error: "method not allowed"})
 		return
 	}
