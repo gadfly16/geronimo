@@ -116,7 +116,7 @@ func (core *Core) loadChildren(parent *Node) (err error) {
 
 func loadUserDetail(core *Core, node *Node) (err error) {
 	user := &User{}
-	if err = core.db.Omit("password").Where("node_id = ?", node.ID).First(user).Error; err != nil {
+	if err = core.db.Omit("password").Where("node_id = ?", node.ID).Order("created_at desc").Take(user).Error; err != nil {
 		return
 	}
 	node.Detail = user
@@ -125,7 +125,7 @@ func loadUserDetail(core *Core, node *Node) (err error) {
 
 func loadAccountDetail(core *Core, node *Node) (err error) {
 	acc := &Account{}
-	if err = core.db.Omit("api_public_key", "api_private_key").Where("node_id = ?", node.ID).First(acc).Error; err != nil {
+	if err = core.db.Omit("api_public_key", "api_private_key").Where("node_id = ?", node.ID).Order("created_at desc").Take(acc).Error; err != nil {
 		return
 	}
 	node.Detail = acc
@@ -134,7 +134,7 @@ func loadAccountDetail(core *Core, node *Node) (err error) {
 
 func loadBrokerDetail(core *Core, node *Node) (err error) {
 	bro := &Broker{}
-	if err = core.db.Where("node_id = ?", node.ID).First(bro).Error; err != nil {
+	if err = core.db.Where("node_id = ?", node.ID).Order("created_at desc").Take(bro).Error; err != nil {
 		return
 	}
 	node.Detail = bro

@@ -1,5 +1,12 @@
 import {GuiMessage, WSMsg, NodeType, NodeTypeName} from "../shared/gui_types.js"
 
+interface socketMessage {
+  Type: string,
+  OTP: string,
+  GUIID: number,
+  NodeID: number,
+}
+
 // UI Globals
 let gui: GUI
 
@@ -34,7 +41,7 @@ class GUI {
   }
 
   socketMessageHandler(event: MessageEvent) {
-    const msg = JSON.parse(event.data)
+    const msg = JSON.parse(event.data) as socketMessage
     switch (msg.Type) {
       case WSMsg.Credentials:
         this.guiID = msg.GUIID
@@ -42,7 +49,13 @@ class GUI {
         this.socket.send(JSON.stringify(msg))
         break
       case WSMsg.Update:
-        console.log(`Update needed for node ${msg.NodeID}`)
+        console.log(`Update needed for node id: ${msg.NodeID}`)
+        let node = this.nodes.get(msg.NodeID.toString())
+        if (node) {
+          node.updateDisplay()
+        } else {
+          console.log(`Update requested for unknown node id: ${msg.NodeID}`)
+        }
     }
   }
 
@@ -183,6 +196,26 @@ class Node {
     return e
   }
 
+  updateDisplay() {
+    console.log(`Updating node ${this.ID}.`)
+    fetch(`/api/display?select=${this.ID.toString()}`)
+    .then((resp) => {
+      return resp.json()
+    })
+    .then((displayDataList) => {
+      if (displayDataList.error) throw new Error(displayDataList.error)
+      for (let dd of displayDataList) {
+        this.display?.update(dd)
+      }
+    })
+    .catch((e: Error) => {
+      if (e.message == "unauthorized") {
+        window.location.replace("/login" + new URL(location.href).search)
+      }
+      alert(e + " at line: " + (e as any).lineNumber) 
+    })
+  }
+  
   select() {
     this.htmlTreeElem!.classList.add("selected")
     fetch(`/api/display?select=${this.ID.toString()}`)
@@ -228,7 +261,7 @@ class NodeDisplay {
   detailType: number
   id: number
   path: string
-  parameters: ParameterForm | null = null
+  parms: ParameterForm | null = null
   infos: InfoList | null = null
   htmlDisplay: HTMLElement | null = null
   
@@ -241,7 +274,7 @@ class NodeDisplay {
 
   render():HTMLElement {
     let disp = this.renderHead()
-    if (this.parameters) disp.appendChild(this.parameters.render())
+    if (this.parms) disp.appendChild(this.parms.render())
     if (this.infos) disp.appendChild(this.infos.render())
     this.htmlDisplay = disp
     return disp
@@ -258,68 +291,79 @@ class NodeDisplay {
     `)
     return dispHead
   }
+
+  update(displayData: any) {
+    let parmDict = displayData.Detail
+    parmDict["Last Modified"] = parmDict.CreatedAt
+    if (this.infos) {
+      this.infos.update(parmDict)
+    }
+    if (this.parms) {
+      this.parms.update(parmDict)
+    }
+  }
 }
 
 class UserDisplay extends NodeDisplay{
+  infoNames = ["Last Modified"]
+
   constructor(displayData: any) {
     super(displayData)
     let parmDict = displayData.Detail
     parmDict["Last Modified"] = parmDict.CreatedAt
-    this.infos = new InfoList
-    this.infos.add(parmDict, ["Last Modified"])
+    this.infos = new InfoList(parmDict, this.infoNames)
   }
 }
 
 class BrokerDisplay extends NodeDisplay{
+  parmNames = ["Pair", "Base", "Quote", "LowLimit", "HighLimit", "Delta", "MinWait", "MaxWait", "Offset"]
+  infoNames = ["Fee", "Last Modified"]
+
   constructor(displayData: any) {
     super(displayData)
     let parmDict = displayData.Detail
     parmDict["Last Modified"] = parmDict.CreatedAt
-    this.parameters = new ParameterForm(this)
-    this.parameters.add(parmDict, ["Pair", "Base", "Quote", "LowLimit", "HighLimit", "Delta", "MinWait", "MaxWait", "Offset"])
-    this.infos = new InfoList
-    this.infos.add(parmDict, ["Fee", "Last Modified"])
+    this.parms = new ParameterForm(this, parmDict, this.parmNames)
+    this.infos = new InfoList(parmDict, this.infoNames)
   }
 }
 
 class AccountDisplay extends NodeDisplay{
+  parmNames = ["Exchange"]
+  infoNames = ["Last Modified"]
+
   constructor(displayData: any) {
     super(displayData)
     let parmDict = displayData.Detail
     parmDict["Last Modified"] = parmDict.CreatedAt
-    this.parameters = new ParameterForm(this)
-    this.parameters.add(parmDict, ["Exchange"])
-    this.infos = new InfoList
-    this.infos.add(parmDict, ["Last Modified"])
+    this.parms = new ParameterForm(this, parmDict, this.parmNames)
+    this.infos = new InfoList(parmDict, this.infoNames)
   }
 }
 
 class ParameterForm {
-  ParameterList: Parameter[] = []
-  formElem: HTMLFormElement | null = null
+  parms = new Map<string, Parameter>()
+  htmlParmForm: HTMLFormElement | null = null
   submitButton: HTMLElement | null = null
   nodeDisplay: NodeDisplay
 
-  constructor(nodeDisplay: NodeDisplay) {
+  constructor(nodeDisplay: NodeDisplay, parmDict: any, parmNames: string[] = []) {
     this.nodeDisplay = nodeDisplay
-  }
-
-  add(parmDict: any, parmList: string[] = []) {
-    if (!parmList.length) {
-      parmList = Object.keys(parmDict)
+    if (!parmNames.length) {
+      parmNames = Object.keys(parmDict)
     }
-    parmList.forEach(k => {
-      this.ParameterList.push(new Parameter(k, parmDict[k], this))
-    })
+    for (const parmName of parmNames) {
+      this.parms.set(parmName, new Parameter(parmName, parmDict[parmName], this))
+    }
   }
 
   submit(event: SubmitEvent) {
     event.preventDefault()
-    const data = new FormData(event.target as HTMLFormElement)
+    const formData = new FormData(event.target as HTMLFormElement)
 
     const detail: {[k: string]: any} = {}
-    for (const parm of this.ParameterList) {
-      const value = data.get(parm.name)
+    for (const [name, parm] of this.parms) {
+      const value = formData.get(parm.name)
       detail[parm.name] = parm.inputType == "number" ? Number(value) : value
     }
 
@@ -335,18 +379,26 @@ class ParameterForm {
       method: 'post',
       body: JSON.stringify(msg),
       mode: 'same-origin',
-    }).then((response) => {
+    })
+    .then((response) => {
       if (response.ok) {
-        console.log(response)
+        const diffs = this.htmlParmForm!.querySelectorAll(".changed")
+        for (const delem of diffs) {
+          delem.classList.remove("changed")
+        }
+        this.htmlParmForm?.classList.remove("changed")
       } else {
         throw 'failed'
       }
-    }).catch((e) => { alert(e) })
+    })
+    .catch((e) => {
+      alert(e)
+    })
     return false
   }
 
   render():HTMLElement {
-    this.formElem = $(`
+    this.htmlParmForm = $(`
       <form class="parameterForm">
         <div class="parameterFormHeadBox">
             <div class="parameterFormTitle">Parameters:</div>
@@ -354,22 +406,29 @@ class ParameterForm {
         </div>        
       </form>
     `) as HTMLFormElement
-    this.formElem.addEventListener("submit", this.submit.bind(this))
-    this.submitButton = this.formElem.querySelector(".parameterFormSubmit")!
-    for (let parm of this.ParameterList) {
-      this.formElem.appendChild(parm.render())
+    this.htmlParmForm.addEventListener("submit", this.submit.bind(this))
+    this.submitButton = this.htmlParmForm.querySelector(".parameterFormSubmit")!
+    for (const [name, parm] of this.parms) {
+      this.htmlParmForm.appendChild(parm.render())
     }
-    return this.formElem
+    return this.htmlParmForm
+  }
+
+  update(parmDict: any) {
+    for (const [name, parm] of this.parms) {
+      const newValue = parmDict[name]
+      parm.update(newValue)
+    }
   }
 
   checkDifferences() {
-    for (const parm of this.ParameterList) {
-      if (parm.isDifferent) {
-        this.formElem?.classList.add("different")
+    for (const [name, parm] of this.parms) {
+      if (parm.changed) {
+        this.htmlParmForm?.classList.add("changed")
         return
       }
     }
-    this.formElem?.classList.remove("different")
+    this.htmlParmForm?.classList.remove("changed")
   }
 }
 
@@ -379,8 +438,8 @@ class Parameter {
   origValue: number|string
   inputType: string
   parmForm: ParameterForm
-  isDifferent: boolean
-  elem: HTMLElement | null = null
+  changed: boolean
+  htmlParm: HTMLElement | null = null
 
   constructor(name: string, value: number|string, parmForm: ParameterForm) {
     this.name = name
@@ -388,13 +447,13 @@ class Parameter {
     this.origValue = value
     this.inputType = typeof this.value == "string" ? "text" : "number"
     this.parmForm = parmForm
-    this.isDifferent = false
+    this.changed = false
   }
 
   render():HTMLElement {
-    this.elem = $(`
-      <div class="inputBox">
-        <label for="${this.name} class="settingLabel">${this.name}</label>
+    this.htmlParm = $(`
+      <div class="parmBox">
+        <label for="${this.name}" class="settingLabel">${this.name}</label>
         <input
           name="${this.name}"
           class="settingInput"
@@ -404,33 +463,49 @@ class Parameter {
         />
       </div>
     `)
-    this.elem.querySelector("input")?.addEventListener("change", this.valueChange.bind(this))
-    return this.elem
+    this.htmlParm.querySelector("input")?.addEventListener("change", this.valueChange.bind(this))
+    return this.htmlParm
+  }
+
+  update(newValue: number|string) {
+    if (this.value != newValue) {
+      this.value = newValue
+      const htmlInput = this.htmlParm?.querySelector("input")! 
+      htmlInput.setAttribute("value", `${newValue}`)
+      this.htmlParm?.classList.add("changeAlert")
+    }
   }
 
   valueChange(event: Event) {
     const target = event.target as HTMLInputElement
     this.value = target.value
-    this.isDifferent = (this.value != this.origValue)
-    if (this.isDifferent) {
-      this.elem?.classList.add("different")
+    this.changed = (this.value != this.origValue)
+    if (this.changed) {
+      this.htmlParm?.classList.add("changed")
     } else {
-      this.elem?.classList.remove("different")
+      this.htmlParm?.classList.remove("changed")
     }
     this.parmForm.checkDifferences()
   }
 }
 
 class InfoList {
-  InfoList: Info[] = []
+  infos = new Map<string, Info>()
 
-  add(parmDict: any, parmList: string[] = []) {
+  constructor(parmDict: any, parmList: string[] = []) {
     if (!parmList.length) {
       parmList = Object.keys(parmDict)
     }
-    parmList.forEach(k => {
-      this.InfoList.push(new Info(k, parmDict[k]))
-    })
+    for (const name of parmList) {
+      this.infos.set(name, new Info(name, parmDict[name]))
+    }
+  }
+
+  update (parmDict: any) {
+    for (const [name, info] of this.infos) {
+      const newValue = parmDict[name]
+      info.update(newValue)
+    }
   }
 
   render():HTMLElement {
@@ -439,7 +514,8 @@ class InfoList {
         <div class="infoListHead">Info:</div>
       </div>
     `)
-    for (let info of this.InfoList) {
+    console.log(this.infos)
+    for (const [name, info] of this.infos) {
       elem.appendChild(info.render())
     }
     return elem
@@ -447,23 +523,33 @@ class InfoList {
 }
 
 class Info {
-  Name = ""
-  Value: number|string = 0
+  name = ""
+  value: number|string = 0
+  htmlInfo: HTMLElement|null = null
 
   constructor(name: string, value: number|string) {
-    this.Name = name
-    this.Value = value
+    this.name = name
+    this.value = value
   }
 
   render():HTMLElement {
-    let elem = $(`
+    this.htmlInfo = $(`
       <div class="infoBox">
-        <span class="infoName">${this.Name}:</span>
-        <span class="infoValue"><b>${this.Value}</b></span>
+        <span class="infoName">${this.name}: </span>
+        <span class="infoValue">${this.value}</span>
       </div>
     `)
-    return elem
+    return this.htmlInfo
   }
+
+  update(newValue: number|string) {
+    if (this.value != newValue) {
+      this.value = newValue
+      const htmlValue = this.htmlInfo!.querySelector(".infoValue")! 
+      htmlValue.textContent = `${newValue}`
+      this.htmlInfo?.classList.add("changeAlert")
+    }
+  } 
 }
 
 function displayTemplate(dd: any): string {

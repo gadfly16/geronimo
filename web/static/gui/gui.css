@@ -148,7 +148,7 @@ data:hover::after {
     background-color: #ff8c8c;
 }
 
-.different .parameterFormHeadBox {
+.changed .parameterFormHeadBox {
     background-color: #8ecfa7;
 }
 
@@ -163,7 +163,7 @@ data:hover::after {
     text-decoration: underline;
 }
 
-.parameterForm:not(:invalid):has(.different) .parameterFormSubmit {
+.parameterForm:not(:invalid):has(.changed) .parameterFormSubmit {
     display: inline;
 }
 
@@ -171,7 +171,21 @@ data:hover::after {
     display: none;
 }
 
-.inputBox {
+.changeAlert {
+    animation: 2s 1 forwards redBorderFadeout ; 
+}
+
+@keyframes redBorderFadeout {
+    from {
+        border: 0.15em solid rgba(175, 10, 10, 1);
+    }    
+    to {
+        border: 0.15em solid rgba(175, 10, 10, 0);
+    }    
+}
+
+.parmBox {
+    border: 0.15em solid rgba(175, 10, 10, 0);
     background-color: #b6e4e6;
     display: inline-block;
     padding: 0.3em;
@@ -181,11 +195,11 @@ data:hover::after {
     margin-left: 0.8em;
 }
 
-.inputBox:has(:invalid) {
+.parmBox:has(:invalid) {
     background-color: #eba8a8;
 }
 
-.inputBox.different:not(:has(:invalid)) {
+.parmBox.changed:not(:has(:invalid)) {
     background-color: #a8ebc4;
 }
 
@@ -226,6 +240,7 @@ input:invalid {
 }
 
 .infoBox {
+    border: 0.15em solid rgba(175, 10, 10, 0);
     background-color: #b6e4e6;
     /* border: 1px solid #677e80; */
     display: inline-block;
@@ -234,4 +249,8 @@ input:invalid {
     margin-bottom: 0.5em;
     margin-right: 0em;
     margin-left: 0.8em;
+}
+
+.infoValue {
+    font-weight: bold;
 }
