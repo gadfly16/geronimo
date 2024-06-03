@@ -24,7 +24,7 @@ func (core *Core) apiRoutes(r *gin.Engine) {
 	api := r.Group("/api", needUserRole)
 	{
 		api.GET(APITree, getTree)
-		api.GET(APIDisplay, getDisplayAPIHandler)
+		api.GET(APIDisplay+"/:id", getDisplayAPIHandler)
 		api.POST(APICreate+"/:objtype", createAPIHandler)
 		api.POST(APIUpdate+"/:objtype", updateAPIHandler)
 	}
@@ -99,7 +99,7 @@ func createAPIHandler(c *gin.Context) {
 func getDisplayAPIHandler(c *gin.Context) {
 	msg := &Message{Type: MessageGetDisplay}
 	msg.User = getRequestUser(c)
-	msg.Payload, _ = c.GetQueryArray("select")
+	msg.Payload = c.Param("id")
 	resp := msg.toCore()
 	if resp.Type == MessageError {
 		c.JSON(resp.extractError())

@@ -9,8 +9,12 @@ type Pocket struct {
 	account *Account
 }
 
-func (pocket *Pocket) DisplayData() (display gin.H) {
+func (pocket *Pocket) displayData() (display gin.H) {
 	display = gin.H{}
 	display["Holdings"] = pocket.Holdings
 	return
+}
+
+func (pocket *Pocket) run() error {
+	return nil
 }

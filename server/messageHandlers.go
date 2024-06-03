@@ -22,20 +22,15 @@ var messageHandlers = map[string]messageHandler{
 
 func getDisplayHandler(msg *Message) (resp *Message) {
 	resp = &Message{Type: MessageDisplay}
-	selection := msg.Payload.([]string)
-	selectedNodes := []interface{}{}
-	for _, idstr := range selection {
-		id, err := strconv.Atoi(idstr)
-		if err != nil {
-			return errorMessage(http.StatusBadRequest, "invalid node id in selection")
-		}
-		n, err := core.getNode(uint(id), msg.User)
-		if err != nil {
-			return errorMessage(http.StatusBadRequest, err.Error())
-		}
-		selectedNodes = append(selectedNodes, n.display())
+	id, err := strconv.Atoi(msg.Payload.(string))
+	if err != nil {
+		return errorMessage(http.StatusBadRequest, "invalid node id in selection")
 	}
-	resp.Payload = selectedNodes
+	n, err := core.getNode(uint(id), msg.User)
+	if err != nil {
+		return errorMessage(http.StatusBadRequest, err.Error())
+	}
+	resp.Payload = n.display()
 	return
 }
 
@@ -226,7 +221,7 @@ func updateHandler(msg *Message) (resp *Message) {
 		return errorMessage(http.StatusInternalServerError, err.Error())
 	}
 
-	node.Detail = msg.Payload.(Displayer)
+	node.Detail = msg.Payload.(Detailer)
 	core.sendUpdates(node.ID)
 	return &Message{Type: MessageOK}
 }

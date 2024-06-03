@@ -34,18 +34,19 @@ type Node struct {
 	Name       string `gorm:"UNIQUE_INDEX:unique_name_per_tnode"`
 	ParentID   uint   `gorm:"UNIQUE_INDEX:unique_name_per_tnode"`
 
-	Detail Displayer `gorm:"-:all"`
+	Detail Detailer `gorm:"-:all"`
 
 	parent   *Node
 	children map[string]*Node
 }
 
-// Details are only created, so the newest detail is always the current one.
-// Because of this references to tree nodes are stored in the detail struct.
-type Displayer interface {
-	DisplayData() gin.H
+type Detailer interface {
+	displayData() gin.H
+	run() error
 }
 
+// Details are inmutable, the newest detail is always the current one.
+// Because of this references to tree nodes are stored in the detail struct.
 type DetailModel struct {
 	ID        uint
 	NodeID    uint
@@ -53,7 +54,7 @@ type DetailModel struct {
 	Status    uint
 }
 
-type detailLoader func(*Core, *Node) error
+type detailLoader func(*Node) error
 
 var detailLoaders = map[uint]detailLoader{
 	NodeUser:    loadUserDetail,
@@ -93,28 +94,42 @@ func (node *Node) findUpstreamClass(class uint) *Node {
 	return node.parent.findUpstreamClass(class)
 }
 
-func (core *Core) loadChildren(parent *Node) (err error) {
-	parent.children = make(map[string]*Node)
-	chs := []*Node{}
-	if err = core.db.Where("parent_id = ?", parent.ID).Find(&chs).Error; err != nil {
+func (node *Node) run() (err error) {
+	err = node.Detail.run()
+	if err != nil {
 		return
 	}
-
-	for _, child := range chs {
-		parent.children[child.Name] = child
-		core.nodes[child.ID] = child
-		child.parent = parent
-		if err = detailLoaders[child.DetailType](core, child); err != nil {
-			return
-		}
-		if err = core.loadChildren(child); err != nil {
+	for _, ch := range node.children {
+		err = ch.run()
+		if err != nil {
 			return
 		}
 	}
 	return
 }
 
-func loadUserDetail(core *Core, node *Node) (err error) {
+func (node *Node) loadChildren() (err error) {
+	node.children = make(map[string]*Node)
+	chs := []*Node{}
+	if err = core.db.Where("parent_id = ?", node.ID).Find(&chs).Error; err != nil {
+		return
+	}
+
+	for _, child := range chs {
+		node.children[child.Name] = child
+		core.nodes[child.ID] = child
+		child.parent = node
+		if err = detailLoaders[child.DetailType](child); err != nil {
+			return
+		}
+		if err = child.loadChildren(); err != nil {
+			return
+		}
+	}
+	return
+}
+
+func loadUserDetail(node *Node) (err error) {
 	user := &User{}
 	if err = core.db.Omit("password").Where("node_id = ?", node.ID).Order("created_at desc").Take(user).Error; err != nil {
 		return
@@ -123,7 +138,7 @@ func loadUserDetail(core *Core, node *Node) (err error) {
 	return
 }
 
-func loadAccountDetail(core *Core, node *Node) (err error) {
+func loadAccountDetail(node *Node) (err error) {
 	acc := &Account{}
 	if err = core.db.Omit("api_public_key", "api_private_key").Where("node_id = ?", node.ID).Order("created_at desc").Take(acc).Error; err != nil {
 		return
@@ -132,7 +147,7 @@ func loadAccountDetail(core *Core, node *Node) (err error) {
 	return
 }
 
-func loadBrokerDetail(core *Core, node *Node) (err error) {
+func loadBrokerDetail(node *Node) (err error) {
 	bro := &Broker{}
 	if err = core.db.Where("node_id = ?", node.ID).Order("created_at desc").Take(bro).Error; err != nil {
 		return
@@ -163,7 +178,7 @@ func (node *Node) display() (display gin.H) {
 	display["DetailType"] = node.DetailType
 	display["ID"] = node.ID
 	display["Path"] = node.path()
-	for k, v := range node.Detail.DisplayData() {
+	for k, v := range node.Detail.displayData() {
 		display[k] = v
 	}
 	return

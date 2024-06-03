@@ -198,15 +198,13 @@ class Node {
 
   updateDisplay() {
     console.log(`Updating node ${this.ID}.`)
-    fetch(`/api/display?select=${this.ID.toString()}`)
+    fetch(`/api/display/${this.ID.toString()}`)
     .then((resp) => {
       return resp.json()
     })
-    .then((displayDataList) => {
-      if (displayDataList.error) throw new Error(displayDataList.error)
-      for (let dd of displayDataList) {
-        this.display?.update(dd)
-      }
+    .then((displayData) => {
+      if (displayData.error) throw new Error(displayData.error)
+      this.display?.update(displayData)
     })
     .catch((e: Error) => {
       if (e.message == "unauthorized") {
@@ -218,25 +216,23 @@ class Node {
   
   select() {
     this.htmlTreeElem!.classList.add("selected")
-    fetch(`/api/display?select=${this.ID.toString()}`)
+    fetch(`/api/display/${this.ID.toString()}`)
     .then((resp) => {
       return resp.json()
     })
-    .then((displayDataList) => {
-      if (displayDataList.error) throw new Error(displayDataList.error)
-      for (let dd of displayDataList) {
-        switch (dd.DetailType) {
+    .then((displayData) => {
+      if (displayData.error) throw new Error(displayData.error)
+        switch (displayData.DetailType) {
           case NodeType.Broker:
-            this.display = new BrokerDisplay(dd)
+            this.display = new BrokerDisplay(displayData)
             break
           case NodeType.Account:
-            this.display = new AccountDisplay(dd)
+            this.display = new AccountDisplay(displayData)
             break
           case NodeType.User:
-            this.display = new UserDisplay(dd)
+            this.display = new UserDisplay(displayData)
             break
         }
-      }
       gui.htmlDisplayView.appendChild(this.display!.render())
       gui.subscribe(this.ID)
     })

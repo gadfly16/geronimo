@@ -7,4 +7,6 @@ func init() {
 type kraken struct {
 }
 
-func (ex *kraken) Connect() {}
+func (ex *kraken) Connect() Exchange {
+	return nil
+}

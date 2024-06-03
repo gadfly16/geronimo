@@ -1,6 +1,9 @@
 package server
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
+)
 
 type Account struct {
 	DetailModel
@@ -9,10 +12,15 @@ type Account struct {
 	APIPrivateKey string
 }
 
-func (acc *Account) DisplayData() (display gin.H) {
+func (account *Account) displayData() (display gin.H) {
 	display = gin.H{}
-	display["Detail"] = acc
+	display["Detail"] = account
 	return
+}
+
+func (account *Account) run() error {
+	log.Debug("Running account: ", core.nodes[account.NodeID].Name)
+	return nil
 }
 
 // func (core *Core) saveAccount(aws *AccountWithSecret) error {

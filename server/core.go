@@ -81,7 +81,7 @@ func Init(s Settings) (err error) {
 }
 
 func Serve(s Settings) (err error) {
-	core, err = newCore(s)
+	err = initCore(s)
 	if err != nil {
 		return err
 	}
@@ -91,10 +91,10 @@ func Serve(s Settings) (err error) {
 	return runCore()
 }
 
-func newCore(s Settings) (core *Core, err error) {
+func initCore(s Settings) (err error) {
 	core = &Core{
 		settings:      s,
-		root:          &Node{DetailType: NodeRoot},
+		root:          &Node{DetailType: NodeRoot, Detail: &Root{}},
 		nodes:         map[uint]*Node{},
 		guis:          map[int64]*guiClient{},
 		subscriptions: map[uint]map[*guiClient]bool{},
@@ -107,10 +107,6 @@ func newCore(s Settings) (core *Core, err error) {
 		return
 	}
 
-	if err = core.loadChildren(core.root); err != nil {
-		return
-	}
-
 	// Load secrets
 	if core.jwtKey, err = os.ReadFile(s.JWTKeyPath); err != nil {
 		return
@@ -118,7 +114,11 @@ func newCore(s Settings) (core *Core, err error) {
 	if core.dbKey, err = os.ReadFile(s.DBKeyPath); err != nil {
 		return
 	}
-	return
+
+	if err = core.root.loadChildren(); err != nil {
+		return
+	}
+	return core.root.run()
 }
 
 func (core *Core) subscribe(nodeid uint, gui *guiClient) {
@@ -144,53 +144,14 @@ func (core *Core) sendUpdates(nodeid uint) {
 }
 
 func runCore() (err error) {
-	log.Info("Starting core.")
-	for {
-		select {
-		case req := <-core.message:
-			if mh, ok := messageHandlers[req.Type]; ok {
-				resp := mh(req)
-				req.respChan <- resp
-			} else {
-				log.Errorln("Reveived unknown message type.")
-			}
-			// resp := &Message{Type: mt.Done, ReqID: req.ID}
-			// switch req.Type {
-			// case mt.CreateAccount:
-			// 	acc := req.Payload.(Account)
-			// 	err = acc.Save(c.db)
-			// 	if err != nil {
-			// 		resp.Type = mt.Error
-			// 	}
-			// case mt.FullStateRequest:
-			// 	resp.Type = mt.FullState
-			// 	resp.JSPayload, err = json.Marshal(c.accounts)
-			// 	if err != nil {
-			// 		resp.Type = mt.Error
-			// 	}
-			// case mt.WebServerError:
-			// 	return req.Payload.(error)
-			// default:
-			// 	log.Errorln("Unknown core request type.")
-			// }
-			// if resp.Type == mt.Error {
-			// 	resp.Payload = err.Error()
-			// }
-			// req.RespChan <- resp
+	log.Info("Core starts handling messages.")
+	for req := range core.message {
+		if mh, ok := messageHandlers[req.Type]; ok {
+			resp := mh(req)
+			req.respChan <- resp
+		} else {
+			log.Errorln("Received unknown message type.")
 		}
 	}
+	return
 }
-
-// func (core *Core) initAccount(acc *Account) (err error) {
-// 	acc.ueApiPublicKey, err = decryptString(core.dbKey, acc.Name, acc.ApiPublicKey)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	acc.ueApiPrivateKey, err = decryptString(core.dbKey, acc.Name, acc.ApiPrivateKey)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	acc.ApiPublicKey = ""
-// 	acc.ApiPrivateKey = ""
-// 	return
-// }

@@ -172,17 +172,15 @@ class Node {
     }
     updateDisplay() {
         console.log(`Updating node ${this.ID}.`);
-        fetch(`/api/display?select=${this.ID.toString()}`)
+        fetch(`/api/display/${this.ID.toString()}`)
             .then((resp) => {
             return resp.json();
         })
-            .then((displayDataList) => {
+            .then((displayData) => {
             var _a;
-            if (displayDataList.error)
-                throw new Error(displayDataList.error);
-            for (let dd of displayDataList) {
-                (_a = this.display) === null || _a === void 0 ? void 0 : _a.update(dd);
-            }
+            if (displayData.error)
+                throw new Error(displayData.error);
+            (_a = this.display) === null || _a === void 0 ? void 0 : _a.update(displayData);
         })
             .catch((e) => {
             if (e.message == "unauthorized") {
@@ -193,25 +191,23 @@ class Node {
     }
     select() {
         this.htmlTreeElem.classList.add("selected");
-        fetch(`/api/display?select=${this.ID.toString()}`)
+        fetch(`/api/display/${this.ID.toString()}`)
             .then((resp) => {
             return resp.json();
         })
-            .then((displayDataList) => {
-            if (displayDataList.error)
-                throw new Error(displayDataList.error);
-            for (let dd of displayDataList) {
-                switch (dd.DetailType) {
-                    case NodeType.Broker:
-                        this.display = new BrokerDisplay(dd);
-                        break;
-                    case NodeType.Account:
-                        this.display = new AccountDisplay(dd);
-                        break;
-                    case NodeType.User:
-                        this.display = new UserDisplay(dd);
-                        break;
-                }
+            .then((displayData) => {
+            if (displayData.error)
+                throw new Error(displayData.error);
+            switch (displayData.DetailType) {
+                case NodeType.Broker:
+                    this.display = new BrokerDisplay(displayData);
+                    break;
+                case NodeType.Account:
+                    this.display = new AccountDisplay(displayData);
+                    break;
+                case NodeType.User:
+                    this.display = new UserDisplay(displayData);
+                    break;
             }
             gui.htmlDisplayView.appendChild(this.display.render());
             gui.subscribe(this.ID);

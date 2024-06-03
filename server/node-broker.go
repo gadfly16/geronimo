@@ -37,10 +37,14 @@ type Setting struct {
 	Value interface{}
 }
 
-func (bro *Broker) DisplayData() (display gin.H) {
+func (bro *Broker) displayData() (display gin.H) {
 	display = gin.H{}
 	display["Detail"] = bro
 	return
+}
+
+func (broker *Broker) run() error {
+	return nil
 }
 
 // "gorm.io/gorm"
