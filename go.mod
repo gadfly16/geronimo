@@ -48,4 +48,5 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.17 // indirect
 	github.com/spf13/cobra v1.8.0
 	golang.org/x/sys v0.18.0 // indirect
+	nhooyr.io/websocket v1.8.11
 )

@@ -107,7 +107,6 @@ eventLoop:
 			log.Error("wrong GUI client credentials")
 			continue eventLoop
 		}
-		log.Debugf("Received: %+v", msg)
 		switch msg.Type {
 		case WSMsg_Subscribe:
 			node, err := core.getNode(msg.NodeID, gcl.user)

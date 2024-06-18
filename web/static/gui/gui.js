@@ -397,7 +397,7 @@ class Parameter {
         var _a;
         this.htmlParm = $(`
       <div class="parmBox">
-        <label for="${this.name}" class="settingLabel">${this.name}</label>
+        <label for="${this.name}" class="settingLabel">${this.name} </label>
         <input
           name="${this.name}"
           class="settingInput"

@@ -3,6 +3,9 @@ package server
 import (
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
+
+	exch "github.com/gadfly16/geronimo/exchanges"
+	"github.com/gadfly16/geronimo/exchanges/all"
 )
 
 type Account struct {
@@ -10,6 +13,8 @@ type Account struct {
 	Exchange      string
 	APIPublicKey  string
 	APIPrivateKey string
+
+	conn *exch.Conn
 }
 
 func (account *Account) displayData() (display gin.H) {
@@ -18,9 +23,40 @@ func (account *Account) displayData() (display gin.H) {
 	return
 }
 
-func (account *Account) run() error {
-	log.Debug("Running account: ", core.nodes[account.NodeID].Name)
+func (acc *Account) run() error {
+	log.Debug("Running account: ", core.nodes[acc.NodeID].Name)
+	name := core.nodes[acc.NodeID].Name
+
+	var keyAcc Account
+	err := core.db.Select("api_public_key", "api_private_key").First(&keyAcc, acc.ID).Error
+	if err != nil {
+		log.Errorf("couldn't read keys for account %v", name)
+	}
+	pubkey, err := decryptString(core.dbKey, name, keyAcc.APIPublicKey)
+	if err != nil {
+		log.Errorf("couldn't dectript public key for account %v", name)
+	}
+	privkey, err := decryptString(core.dbKey, name, keyAcc.APIPrivateKey)
+	if err != nil {
+		log.Errorf("couldn't dectript pprivate key for account %v", name)
+	}
+
+	acc.conn = all.Connect[acc.Exchange](pubkey, privkey)
+	go acc.manage()
+
 	return nil
+}
+
+func (acc *Account) manage() {
+	name := core.nodes[acc.NodeID].Name
+
+	acc.conn.In <- &exch.Msg{
+		Kind: exch.MsgSubscribeBalance,
+	}
+
+	for msg := range acc.conn.Out {
+		log.Debugf("account manager for %v received: %+v", name, msg)
+	}
 }
 
 // func (core *Core) saveAccount(aws *AccountWithSecret) error {
