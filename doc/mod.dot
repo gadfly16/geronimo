@@ -1,0 +1,73 @@
+strict digraph {
+  node [shape=box,style="rounded,filled"]
+  start=0
+  splines=ortho
+  "github.com/gadfly16/geronimo/cli" [fontcolor="0.000 0.000 1.000",fillcolor="0.737 0.779 1.000"]
+  "github.com/gadfly16/geronimo/msg" [fontcolor="0.000 0.000 1.000",fillcolor="0.737 0.779 1.000"]
+  "github.com/gadfly16/geronimo/node/all" [fontcolor="0.000 0.000 1.000",fillcolor="0.737 0.779 1.000"]
+  "github.com/gadfly16/geronimo/node/root" [fontcolor="0.000 0.000 1.000",fillcolor="0.737 0.779 1.000"]
+  "github.com/gadfly16/geronimo/node" [fontcolor="0.000 0.000 1.000",fillcolor="0.737 0.779 1.000"]
+  "github.com/gadfly16/geronimo" [fontcolor="0.000 0.000 1.000",fillcolor="0.737 0.779 1.000"]
+  "github.com/jinzhu/inflection" [fontcolor="0.000 0.000 0.000",fillcolor="0.549 0.835 1.000"]
+  "github.com/jinzhu/now" [fontcolor="0.000 0.000 1.000",fillcolor="0.012 0.996 1.000"]
+  "github.com/mattn/go-sqlite3" [fontcolor="0.000 0.000 1.000",fillcolor="0.067 0.980 1.000"]
+  "github.com/spf13/cobra" [fontcolor="0.000 0.000 0.000",fillcolor="0.988 0.704 1.000"]
+  "github.com/spf13/pflag" [fontcolor="0.000 0.000 0.000",fillcolor="0.549 0.835 1.000"]
+  "golang.org/x/crypto/bcrypt" [fontcolor="0.000 0.000 1.000",fillcolor="0.055 0.984 1.000"]
+  "golang.org/x/crypto/blowfish" [fontcolor="0.000 0.000 1.000",fillcolor="0.055 0.984 1.000"]
+  "golang.org/x/crypto/pbkdf2" [fontcolor="0.000 0.000 1.000",fillcolor="0.055 0.984 1.000"]
+  "golang.org/x/crypto/scrypt" [fontcolor="0.000 0.000 1.000",fillcolor="0.055 0.984 1.000"]
+  "gorm.io/driver/sqlite" [fontcolor="0.000 0.000 1.000",fillcolor="0.082 0.975 1.000"]
+  "gorm.io/gorm/callbacks" [fontcolor="0.000 0.000 1.000",fillcolor="0.757 0.773 1.000"]
+  "gorm.io/gorm/clause" [fontcolor="0.000 0.000 1.000",fillcolor="0.757 0.773 1.000"]
+  "gorm.io/gorm/logger" [fontcolor="0.000 0.000 1.000",fillcolor="0.757 0.773 1.000"]
+  "gorm.io/gorm/migrator" [fontcolor="0.000 0.000 1.000",fillcolor="0.757 0.773 1.000"]
+  "gorm.io/gorm/schema" [fontcolor="0.000 0.000 1.000",fillcolor="0.757 0.773 1.000"]
+  "gorm.io/gorm/utils" [fontcolor="0.000 0.000 1.000",fillcolor="0.757 0.773 1.000"]
+  "gorm.io/gorm" [fontcolor="0.000 0.000 1.000",fillcolor="0.757 0.773 1.000"]
+  "github.com/gadfly16/geronimo" -> "github.com/gadfly16/geronimo/cli"
+  "github.com/gadfly16/geronimo/cli" -> "github.com/gadfly16/geronimo/node" [minlen=3]
+  "github.com/gadfly16/geronimo/cli" -> "github.com/gadfly16/geronimo/node/all"
+  "github.com/gadfly16/geronimo/cli" -> "github.com/gadfly16/geronimo/node/root" [minlen=2]
+  "github.com/gadfly16/geronimo/cli" -> "github.com/spf13/cobra"
+  "github.com/gadfly16/geronimo/cli" -> "gorm.io/driver/sqlite" [minlen=4]
+  "github.com/gadfly16/geronimo/cli" -> "gorm.io/gorm" [minlen=5]
+  "github.com/gadfly16/geronimo/node" -> "github.com/gadfly16/geronimo/msg"
+  "github.com/gadfly16/geronimo/node" -> "golang.org/x/crypto/bcrypt"
+  "github.com/gadfly16/geronimo/node" -> "golang.org/x/crypto/scrypt"
+  "github.com/gadfly16/geronimo/node" -> "gorm.io/driver/sqlite"
+  "github.com/gadfly16/geronimo/node" -> "gorm.io/gorm" [minlen=3]
+  "github.com/gadfly16/geronimo/node/all" -> "github.com/gadfly16/geronimo/node/root"
+  "github.com/gadfly16/geronimo/node/root" -> "github.com/gadfly16/geronimo/msg" [minlen=2]
+  "github.com/gadfly16/geronimo/node/root" -> "github.com/gadfly16/geronimo/node"
+  "github.com/gadfly16/geronimo/node/root" -> "gorm.io/gorm" [minlen=4]
+  "github.com/spf13/cobra" -> "github.com/spf13/pflag"
+  "golang.org/x/crypto/bcrypt" -> "golang.org/x/crypto/blowfish"
+  "golang.org/x/crypto/scrypt" -> "golang.org/x/crypto/pbkdf2"
+  "gorm.io/driver/sqlite" -> "github.com/mattn/go-sqlite3"
+  "gorm.io/driver/sqlite" -> "gorm.io/gorm" [minlen=2]
+  "gorm.io/driver/sqlite" -> "gorm.io/gorm/callbacks"
+  "gorm.io/driver/sqlite" -> "gorm.io/gorm/clause" [minlen=3]
+  "gorm.io/driver/sqlite" -> "gorm.io/gorm/logger" [minlen=3]
+  "gorm.io/driver/sqlite" -> "gorm.io/gorm/migrator"
+  "gorm.io/driver/sqlite" -> "gorm.io/gorm/schema" [minlen=2]
+  "gorm.io/gorm" -> "github.com/jinzhu/now" [minlen=2]
+  "gorm.io/gorm" -> "gorm.io/gorm/clause" [minlen=2]
+  "gorm.io/gorm" -> "gorm.io/gorm/logger" [minlen=2]
+  "gorm.io/gorm" -> "gorm.io/gorm/schema"
+  "gorm.io/gorm" -> "gorm.io/gorm/utils" [minlen=2]
+  "gorm.io/gorm/callbacks" -> "gorm.io/gorm"
+  "gorm.io/gorm/callbacks" -> "gorm.io/gorm/clause" [minlen=3]
+  "gorm.io/gorm/callbacks" -> "gorm.io/gorm/schema" [minlen=2]
+  "gorm.io/gorm/callbacks" -> "gorm.io/gorm/utils" [minlen=3]
+  "gorm.io/gorm/logger" -> "gorm.io/gorm/utils"
+  "gorm.io/gorm/migrator" -> "gorm.io/gorm"
+  "gorm.io/gorm/migrator" -> "gorm.io/gorm/clause" [minlen=3]
+  "gorm.io/gorm/migrator" -> "gorm.io/gorm/logger" [minlen=3]
+  "gorm.io/gorm/migrator" -> "gorm.io/gorm/schema" [minlen=2]
+  "gorm.io/gorm/schema" -> "github.com/jinzhu/inflection"
+  "gorm.io/gorm/schema" -> "github.com/jinzhu/now"
+  "gorm.io/gorm/schema" -> "gorm.io/gorm/clause"
+  "gorm.io/gorm/schema" -> "gorm.io/gorm/logger"
+  "gorm.io/gorm/schema" -> "gorm.io/gorm/utils" [minlen=2]
+}
