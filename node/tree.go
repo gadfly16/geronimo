@@ -1,18 +1,32 @@
 package node
 
 import (
+	"log/slog"
+	"sync"
+
 	"github.com/gadfly16/geronimo/msg"
 )
 
-var t Tree
-
-type Tree struct {
-	nodes map[int]msg.Pipe
-	root  msg.Pipe
+var Tree = nodeTree{
+	Nodes: make(map[int]msg.Pipe),
 }
 
-func InitTree(m msg.Pipe) {
-	t.nodes = make(map[int]msg.Pipe)
-	t.nodes[0] = m
-	t.root = m
+type nodeTree struct {
+	NodeLock sync.RWMutex
+	Nodes    map[int]msg.Pipe
+	Root     msg.Pipe
+}
+
+func (t *nodeTree) Load(sdb string) (err error) {
+	ConnectDB(sdb)
+	rootHead := &Head{}
+	if err = Db.First(rootHead, 1).Error; err != nil {
+		return
+	}
+	Tree.Root, err = rootHead.Load()
+	if err != nil {
+		return
+	}
+	slog.Info("Node tree initialized.", "nnodes", len(Tree.Nodes))
+	return
 }

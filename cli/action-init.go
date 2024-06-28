@@ -9,8 +9,6 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/gadfly16/geronimo/node"
-	"github.com/gadfly16/geronimo/node/all"
-	"github.com/gadfly16/geronimo/node/root"
 )
 
 func init() {
@@ -23,21 +21,21 @@ var initCmd = &cobra.Command{
 	Long: `The 'init' command initializes all required files in the 
 			working directory for the application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if err := InitDb(rp.DbPath); err != nil {
+		if err := InitDb(sdb); err != nil {
 			slog.Error("Failed to create db. Exiting.", "error", err.Error())
 			return
 		}
-		if err := node.ConnectDB(rp.DbPath); err != nil {
+		if err := node.ConnectDB(sdb); err != nil {
 			slog.Error("Failed to connect to db. Exiting.", "error", err.Error())
 			return
 		}
 
-		r := &root.RootNode{
-			Head: node.Head{
+		r := &node.RootNode{
+			Head: &node.Head{
 				Name: "Root",
 				Kind: node.RootKind,
 			},
-			Parms: rp,
+			Parms: &rp,
 		}
 		if err := r.Create(); err != nil {
 			slog.Error("Failed to create root node. Exiting.", "error", err.Error())
@@ -61,7 +59,7 @@ func InitDb(path string) error {
 
 	db.AutoMigrate(
 		&node.Head{},
-		all.RootParms,
+		node.RootParms{},
 	)
 
 	slog.Info("database created", "path", path)

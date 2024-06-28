@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en" >
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Geronimo - {{.Name}}</title>
+  <link href="https://fonts.googleapis.com/css?family=Roboto:regular,bold" rel="stylesheet">
+  <link rel="stylesheet" href="/static/gui/gui.css">
+  <link rel="icon" href="/static/favicon.png">
+  <script src="/static/gui/gui.js" type="module"></script>
+</head>
+
+<body>
+  <div id="header">
+    <span id="name">Geronimo</span>
+    <img id="logo" src="/static/favicon.png">
+  </div>
+
+  <div id="sidebar">
+    <div id="user-email"><data id="user-id" value="{{.ID}}">{{.Email}}</data></div>
+    <ul id="tree-view"></ul>
+  </div>
+
+  <div id="display-view">
+  </div>
+  
+</body>
+
+</html>
