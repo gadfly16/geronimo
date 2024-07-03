@@ -1,5 +1,11 @@
 package node
 
+import (
+	"time"
+
+	"github.com/gadfly16/geronimo/msg"
+)
+
 type Param struct{}
 
 // type Credit struct {
@@ -11,7 +17,7 @@ type Node interface {
 	run()
 	load(*Head) (Node, error)
 	// Save() (error)
-	Create() error
+	create() (msg.Pipe, error)
 }
 
 type Group struct {
@@ -21,6 +27,12 @@ type Group struct {
 type Account struct {
 	Head
 	Exchange string
+}
+
+type parmModel struct {
+	ID        int `gorm:"primarykey"`
+	CreatedAt time.Time
+	NodeID    int
 }
 
 // func (n *Head) load() error {

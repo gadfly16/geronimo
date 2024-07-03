@@ -17,6 +17,14 @@ var Kinds = map[Kind]Node{
 	RootKind: &RootNode{},
 }
 
+var commonMsgHandlers map[msg.Kind]func(*Head, *msg.Msg) *msg.Msg
+
+func init() {
+	commonMsgHandlers = map[msg.Kind]func(*Head, *msg.Msg) *msg.Msg{
+		msg.CreateKind: createHandler,
+	}
+}
+
 type Kind = int
 
 type Head struct {
@@ -32,20 +40,9 @@ type Head struct {
 
 	parent   msg.Pipe
 	children map[string]msg.Pipe
-
-	// cache struct {
-	// 	valid bool
-	// }
 }
 
-// var Loaders = map[Kind]func(*Head) Node{
-// 	RootKind: root.Loader,
-// }
-
 func (h *Head) Load() (in msg.Pipe, err error) {
-	// if err = Db.First(h, h.ID).Error; err != nil {
-	// 	return
-	// }
 	h.In = make(msg.Pipe)
 	n, err := Kinds[h.Kind].load(h)
 	if err != nil {
@@ -65,12 +62,6 @@ func (h *Head) Load() (in msg.Pipe, err error) {
 		}
 		h.children[ch.Name] = chin
 		ch.parent = h.In
-		// if err = detailLoaders[ch.DetailType](ch); err != nil {
-		// 	return
-		// }
-		// if err = ch.loadChildren(); err != nil {
-		// 	return
-		// }
 	}
 
 	Tree.NodeLock.Lock()
@@ -80,4 +71,43 @@ func (h *Head) Load() (in msg.Pipe, err error) {
 	go n.run()
 
 	return h.In, err
+}
+
+func (h *Head) register() {
+	h.children = make(map[string]msg.Pipe)
+	h.In = make(msg.Pipe)
+	Tree.NodeLock.Lock()
+	Tree.Nodes[h.ID] = h.In
+	Tree.NodeLock.Unlock()
+}
+
+func (h *Head) commonMsg(m *msg.Msg) (r *msg.Msg) {
+	f, ok := commonMsgHandlers[m.Kind]
+	if !ok {
+		return nil
+	}
+	return f(h, m)
+}
+
+func createHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
+	var ch msg.Pipe
+	var chName string
+	var err error
+	switch pl := m.Payload.(type) {
+	case *GroupNode:
+		chName = pl.Head.Name
+		ch, err = pl.create()
+		if err != nil {
+			return msg.NewError(err)
+		}
+	}
+	h.children[chName] = ch
+	return msg.OK
+}
+
+func (h *Head) stopChildren() {
+	for _, ch := range h.children {
+		close(ch)
+	}
+	Tree.Root <- msg.OK
 }

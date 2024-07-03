@@ -77,20 +77,20 @@ func service() http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
-	// r.Use(middleware.Logger)
 	r.Use(reqLogger)
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("sup"))
+		http.Redirect(w, r, r.URL.Host+"/gui", http.StatusMovedPermanently)
 	})
 
 	r.Get("/gui", guiHandler())
+	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("web/public/static"))))
 
 	return r
 }
 
 func guiHandler() http.HandlerFunc {
-	tmplGUI, err := template.ParseFiles("./web/public/gui.html")
+	tmplGUI, err := template.ParseFiles("./web/public/tmpl/gui.html")
 	if err != nil {
 		panic("couldn't load gui template")
 	}
@@ -111,8 +111,9 @@ func guiHandler() http.HandlerFunc {
 
 func reqLogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		slog.Info("HTTP Request:", "URL", r.URL)
-		next.ServeHTTP(w, r)
-		slog.Info("Finished HTTP Request:", "URL", r.URL)
+		// slog.Info("HTTP Request:", "URL", r.URL)
+		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+		next.ServeHTTP(ww, r)
+		slog.Info("HTTP Request:", "status", ww.Status(), "URL", r.URL)
 	})
 }

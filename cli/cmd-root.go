@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"runtime/pprof"
 
 	"github.com/gadfly16/geronimo/node"
 	"github.com/spf13/cobra"
@@ -14,21 +15,23 @@ var (
 	sdb          string
 	userEmail    string
 	userPassword string
+	prof_cpu     bool
+	prof_mem     bool
 
 	runtimeErr bool
+
+	cpuProf *os.File
+	// memProf *os.File
 )
 
 func init() {
-	// err := node.ConnectDB()
-	// r := node.LoadRootParms()
-	// if r != nil {
-	// 	rp = r
-	// }
 	rootCmd.PersistentFlags().StringVarP(&rp.LogLevel, "log-level", "L", "debug", "logging level")
 	rootCmd.PersistentFlags().StringVarP(&sdb, "state-db", "S", os.Getenv("HOME")+"/.config/Nerd/state.db", "state database path")
 	rootCmd.PersistentFlags().StringVarP(&rp.HTTPAddr, "http-address", "A", "localhost:8088", "server HTTP address")
 	rootCmd.PersistentFlags().StringVarP(&userEmail, "user-email", "U", "", "login email address")
 	rootCmd.PersistentFlags().StringVarP(&userPassword, "user-password", "P", "", "login password")
+	rootCmd.PersistentFlags().BoolVarP(&prof_cpu, "prof-cpu", "", false, "CPU pprof file")
+	rootCmd.PersistentFlags().BoolVarP(&prof_mem, "prof-mem", "", false, "memory pprof file")
 }
 
 var rootCmd = &cobra.Command{
@@ -36,7 +39,25 @@ var rootCmd = &cobra.Command{
 	Short: "Geronimo is an crypto investment platform",
 	Long:  `Geronimo is a web application to track, manage and automate crypto investments.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		slog.Debug("Inside root command's persistent pre run.")
+		slog.Info("Inside root command's persistent pre run.")
+		if prof_cpu {
+			var err error
+			cpuProf, err = os.Create("cpu.prof")
+			if err != nil {
+				slog.Error("Could not create CPU profile. Exiting!", "error", err)
+				return
+			}
+			if err := pprof.StartCPUProfile(cpuProf); err != nil {
+				slog.Error("Could not start CPU profile. Exiting!", "error", err)
+			}
+		}
+	},
+	PersistentPostRun: func(cmd *cobra.Command, args []string) {
+		pprof.StopCPUProfile()
+		cpuProf.Close()
+	},
+	Run: func(cmd *cobra.Command, args []string) {
+		slog.Info("Running root command.")
 	},
 }
 

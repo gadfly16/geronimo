@@ -8,6 +8,7 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
+	"github.com/gadfly16/geronimo/msg"
 	"github.com/gadfly16/geronimo/node"
 )
 
@@ -37,10 +38,23 @@ var initCmd = &cobra.Command{
 			},
 			Parms: &rp,
 		}
-		if err := r.Create(); err != nil {
+		if err := r.Init(); err != nil {
 			slog.Error("Failed to create root node. Exiting.", "error", err.Error())
 			return
 		}
+		resp := (&msg.Msg{
+			Kind: msg.CreateKind,
+			Payload: &node.GroupNode{
+				Head: &node.Head{
+					Name: "Users",
+					Kind: node.GroupKind,
+				},
+			},
+		}).Ask(node.Tree.Root)
+		if resp.Kind == msg.ErrorKind {
+			slog.Error("User group creation failed. Exiting!", "error", resp.Error())
+		}
+		(&msg.Msg{Kind: msg.StopRootKind}).Ask(node.Tree.Root)
 		slog.Info("Geronimo initialized.")
 	},
 }
@@ -49,8 +63,6 @@ func InitDb(path string) error {
 	if node.FileExists(path) {
 		return errors.New("database already exists")
 	}
-
-	slog.Info("Creating settings database.", "path", path)
 
 	db, err := gorm.Open(sqlite.Open(path), &gorm.Config{})
 	if err != nil {
@@ -62,6 +74,6 @@ func InitDb(path string) error {
 		node.RootParms{},
 	)
 
-	slog.Info("database created", "path", path)
+	slog.Info("State database created.", "path", path)
 	return nil
 }
