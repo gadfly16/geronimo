@@ -13,7 +13,12 @@ import (
 	"github.com/gadfly16/geronimo/node"
 )
 
+var (
+	logLevelName string
+)
+
 func init() {
+	initCmd.PersistentFlags().StringVarP(&logLevelName, "log-level", "L", "debug", "logging level")
 	rootCmd.AddCommand(initCmd)
 }
 
@@ -66,6 +71,9 @@ var initCmd = &cobra.Command{
 		slog.Info("Waiting for goroutines to start. TODO")
 		time.Sleep(time.Millisecond * 100)
 		(&msg.Msg{Kind: msg.StopKind}).Ask(node.Tree.Root)
+		if err := node.CloseDB(); err != nil {
+			slog.Error("State db connection close failed.", "error", err)
+		}
 		slog.Info("Geronimo initialized.")
 	},
 }

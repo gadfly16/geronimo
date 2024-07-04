@@ -12,7 +12,6 @@ import (
 
 var (
 	rp           node.RootParms
-	logLevelName string
 	sdb          string
 	userEmail    string
 	userPassword string
