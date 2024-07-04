@@ -20,7 +20,6 @@ var serveCmd = &cobra.Command{
 		if err := server.Serve(sdb); err != nil {
 			slog.Error("Serving failed. Exiting.", "error", err.Error())
 			runtimeErr = true
-			// panic("Intentional panic for debugging.")
 		}
 	},
 }

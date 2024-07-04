@@ -8,7 +8,7 @@ import (
 )
 
 type RootParms struct {
-	parmModel
+	ParmModel
 	LogLevel int
 	HTTPAddr string
 	DbKey    string
@@ -56,7 +56,7 @@ func (t *RootNode) load(h *Head) (n Node, err error) {
 		Head:  h,
 		Parms: &RootParms{},
 	}
-	if err = Db.Where("node_id = ?", h.ID).Order("created_at desc").Take(rn.Parms).Error; err != nil {
+	if err = Db.Where("head_id = ?", h.ID).Order("created_at desc").Take(rn.Parms).Error; err != nil {
 		return
 	}
 	rn.setLogLevel()
@@ -68,7 +68,7 @@ func (n *RootNode) create() (in msg.Pipe, err error) {
 		if err := tx.Create(&n.Head).Error; err != nil {
 			return err
 		}
-		n.Parms.NodeID = n.Head.ID
+		n.Parms.HeadID = n.Head.ID
 		if err := tx.Create(&n.Parms).Error; err != nil {
 			return err
 		}

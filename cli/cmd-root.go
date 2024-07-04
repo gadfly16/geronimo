@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"runtime"
 	"runtime/pprof"
 
 	"github.com/gadfly16/geronimo/node"
@@ -59,6 +60,7 @@ var rootCmd = &cobra.Command{
 			pprof.StopCPUProfile()
 			cpuProf.Close()
 		}
+		slog.Info("Goroutinge count on exit.", "numGoroutine", runtime.NumGoroutine())
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		slog.Info("Running root command.")

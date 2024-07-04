@@ -8,16 +8,6 @@ import (
 	"gorm.io/gorm"
 )
 
-const (
-	RootKind = iota
-	GroupKind
-	NodeAccount
-)
-
-var Kinds = map[Kind]Node{
-	RootKind: &RootNode{},
-}
-
 var commonMsgHandlers map[msg.Kind]func(*Head, *msg.Msg) *msg.Msg
 
 func init() {
@@ -44,8 +34,9 @@ type Head struct {
 	children map[string]msg.Pipe
 }
 
-func (h *Head) Load() (in msg.Pipe, err error) {
+func (h *Head) load() (in msg.Pipe, err error) {
 	h.In = make(msg.Pipe)
+	h.children = make(map[string]msg.Pipe)
 	n, err := Kinds[h.Kind].load(h)
 	if err != nil {
 		return
@@ -58,7 +49,7 @@ func (h *Head) Load() (in msg.Pipe, err error) {
 	for _, ch := range chs {
 		ch.parent = h.In
 		var chin msg.Pipe
-		chin, err = ch.Load()
+		chin, err = ch.load()
 		if err != nil {
 			return
 		}
@@ -98,6 +89,7 @@ func createHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
 	switch pl := m.Payload.(type) {
 	case *GroupNode:
 		chName = pl.Head.Name
+		pl.Head.ParentID = h.ID
 		ch, err = pl.create()
 		if err != nil {
 			return msg.NewError(err)

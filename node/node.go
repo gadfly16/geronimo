@@ -6,6 +6,16 @@ import (
 	"github.com/gadfly16/geronimo/msg"
 )
 
+const (
+	RootKind = iota
+	GroupKind
+)
+
+var Kinds = map[Kind]Node{
+	RootKind:  &RootNode{},
+	GroupKind: &GroupNode{},
+}
+
 type Param struct{}
 
 // type Credit struct {
@@ -29,10 +39,10 @@ type Account struct {
 	Exchange string
 }
 
-type parmModel struct {
+type ParmModel struct {
 	ID        int `gorm:"primarykey"`
 	CreatedAt time.Time
-	NodeID    int
+	HeadID    int
 }
 
 // func (n *Head) load() error {

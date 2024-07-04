@@ -23,7 +23,7 @@ func (t *nodeTree) Load(sdb string) (err error) {
 	if err = Db.First(rootHead, 1).Error; err != nil {
 		return
 	}
-	Tree.Root, err = rootHead.Load()
+	Tree.Root, err = rootHead.load()
 	if err != nil {
 		return
 	}
