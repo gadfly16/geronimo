@@ -22,22 +22,22 @@ type RootNode struct {
 var rootMsgHandlers = map[msg.Kind]func(Node, *msg.Msg) *msg.Msg{
 	msg.UpdateKind:   rootUpdateHandler,
 	msg.GetParmsKind: rootGetParmsHandler,
-	msg.StopRootKind: rootStopTreeHandler,
 }
 
 func (n *RootNode) run() {
 	slog.Info("Running Root node.", "name", n.Head.Name, "logLevel", n.Parms.LogLevel)
+	var r *msg.Msg
 	for q := range n.In {
 		slog.Info("Message received.", "node", n.Name, "kind", q.KindName())
-		r := n.Head.commonMsg(q)
+		r = n.Head.commonMsg(q)
 		if r == nil {
 			r = rootMsgHandlers[q.Kind](n, q)
 		}
 		r.Answer(q)
-		if r.Kind == msg.StopRootKind {
+		slog.Info("Message answered.", "node", n.Name, "kind", r.KindName())
+		if r.Kind == msg.StoppedKind {
 			break
 		}
-		slog.Info("Message answered.", "node", n.Name, "query", q.KindName(), "resp", r.KindName())
 	}
 	slog.Info("Stopped Root node.")
 }

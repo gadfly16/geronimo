@@ -1,6 +1,7 @@
 package node
 
 import (
+	"log/slog"
 	"time"
 
 	"github.com/gadfly16/geronimo/msg"
@@ -22,6 +23,7 @@ var commonMsgHandlers map[msg.Kind]func(*Head, *msg.Msg) *msg.Msg
 func init() {
 	commonMsgHandlers = map[msg.Kind]func(*Head, *msg.Msg) *msg.Msg{
 		msg.CreateKind: createHandler,
+		msg.StopKind:   stopHandler,
 	}
 }
 
@@ -105,9 +107,18 @@ func createHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
 	return msg.OK
 }
 
-func (h *Head) stopChildren() {
+func stopHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
+	slog.Info("Stopping children.", "name", h.Name)
+	h.askChildren(&msg.Msg{Kind: msg.StopKind})
+	return &msg.Msg{Kind: msg.StoppedKind}
+}
+
+func (h *Head) askChildren(m *msg.Msg) {
+	m.Resp = make(msg.Pipe)
 	for _, ch := range h.children {
-		close(ch)
+		ch <- m
 	}
-	Tree.Root <- msg.OK
+	for range len(h.children) {
+		<-m.Resp
+	}
 }

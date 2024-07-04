@@ -3,6 +3,7 @@ package cli
 import (
 	"errors"
 	"log/slog"
+	"time"
 
 	"github.com/spf13/cobra"
 	"gorm.io/driver/sqlite"
@@ -54,7 +55,9 @@ var initCmd = &cobra.Command{
 		if resp.Kind == msg.ErrorKind {
 			slog.Error("User group creation failed. Exiting!", "error", resp.Error())
 		}
-		(&msg.Msg{Kind: msg.StopRootKind}).Ask(node.Tree.Root)
+		slog.Info("Waiting for goroutines to start. TODO")
+		time.Sleep(time.Millisecond * 100)
+		(&msg.Msg{Kind: msg.StopKind}).Ask(node.Tree.Root)
 		slog.Info("Geronimo initialized.")
 	},
 }

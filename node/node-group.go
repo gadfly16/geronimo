@@ -28,15 +28,17 @@ func (t *GroupNode) load(h *Head) (n Node, err error) {
 func (n *GroupNode) run() {
 	slog.Info("Running Group node.", "name", n.Head.Name)
 	for m := range n.Head.In {
-		slog.Info("Message received.", "node", n.Head.Name, "MsgKind", m.Kind)
+		slog.Info("Message received.", "node", n.Head.Name, "kind", m.KindName())
 		r := n.Head.commonMsg(m)
 		if r == nil {
 			r = groupMsgHandlers[m.Kind](n, m)
 		}
 		r.Answer(m)
-		slog.Info("Message answered.", "node", n.Head.Name, "MsgKind", m.Kind)
+		slog.Info("Message answered.", "node", n.Head.Name, "kind", r.KindName())
+		if r.Kind == msg.StoppedKind {
+			break
+		}
 	}
-	n.Head.stopChildren()
 	slog.Info("Stopped Group node.", "name", n.Head.Name)
 }
 

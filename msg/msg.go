@@ -3,7 +3,8 @@ package msg
 const (
 	OKKind = iota
 	ErrorKind
-	StopRootKind
+	StopKind
+	StoppedKind
 	UpdateKind
 	ParmsKind
 	GetParmsKind
@@ -13,7 +14,8 @@ const (
 var kindNames = map[Kind]string{
 	OKKind:       "OK",
 	ErrorKind:    "Error",
-	StopRootKind: "StopTree",
+	StopKind:     "Stop",
+	StoppedKind:  "Stopped",
 	UpdateKind:   "Update",
 	ParmsKind:    "Parms",
 	GetParmsKind: "GetParms",
