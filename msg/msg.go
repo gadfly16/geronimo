@@ -22,9 +22,11 @@ var kindNames = map[Kind]string{
 	CreateKind:   "Create",
 }
 
-var OK = &Msg{
-	Kind: OKKind,
-}
+var (
+	OK       = &Msg{Kind: OKKind}
+	Stop     = &Msg{Kind: StopKind}
+	GetParms = &Msg{Kind: GetParmsKind}
+)
 
 type Pipe chan *Msg
 
@@ -34,13 +36,6 @@ type Msg struct {
 	Kind    Kind
 	Payload any
 	Resp    Pipe
-}
-
-func (m *Msg) Ask(out Pipe) *Msg {
-	rin := make(Pipe)
-	m.Resp = rin
-	out <- m
-	return <-rin
 }
 
 func (m *Msg) Answer(q *Msg) {
@@ -60,4 +55,10 @@ func (m *Msg) Error() string {
 
 func (m *Msg) KindName() string {
 	return kindNames[m.Kind]
+}
+
+func (t Pipe) Ask(m *Msg) *Msg {
+	m.Resp = make(Pipe)
+	t <- m
+	return <-m.Resp
 }

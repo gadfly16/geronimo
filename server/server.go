@@ -23,9 +23,7 @@ import (
 func Serve(sdb string) (err error) {
 	node.Tree.Load(sdb)
 
-	rm := (&msg.Msg{
-		Kind: msg.GetParmsKind,
-	}).Ask(node.Tree.Root)
+	rm := node.Tree.Root.Ask(msg.GetParms)
 	slog.Info("Settings received:", "msgKind", rm.Kind)
 	rp := rm.Payload.(node.RootParms)
 
@@ -111,7 +109,6 @@ func guiHandler() http.HandlerFunc {
 
 func reqLogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// slog.Info("HTTP Request:", "URL", r.URL)
 		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 		next.ServeHTTP(ww, r)
 		slog.Info("HTTP Request:", "status", ww.Status(), "URL", r.URL)

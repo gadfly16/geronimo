@@ -56,21 +56,22 @@ var initCmd = &cobra.Command{
 			slog.Error("Failed to create root node. Exiting.", "error", err.Error())
 			return
 		}
-		r := (&msg.Msg{
-			Kind: msg.CreateKind,
-			Payload: &node.GroupNode{
-				Head: &node.Head{
-					Name: "Users",
-					Kind: node.GroupKind,
+		r := node.Tree.Root.Ask(
+			&msg.Msg{
+				Kind: msg.CreateKind,
+				Payload: &node.GroupNode{
+					Head: &node.Head{
+						Name: "Users",
+						Kind: node.GroupKind,
+					},
 				},
-			},
-		}).Ask(node.Tree.Root)
+			})
 		if r.Kind == msg.ErrorKind {
 			slog.Error("User group creation failed. Exiting!", "error", r.Error())
 		}
 		slog.Info("Waiting for goroutines to start. TODO")
 		time.Sleep(time.Millisecond * 100)
-		(&msg.Msg{Kind: msg.StopKind}).Ask(node.Tree.Root)
+		node.Tree.Root.Ask(msg.Stop)
 		if err := node.CloseDB(); err != nil {
 			slog.Error("State db connection close failed.", "error", err)
 		}
