@@ -9,7 +9,7 @@ import (
 
 type RootParms struct {
 	parmModel
-	LogLevel string
+	LogLevel int
 	HTTPAddr string
 	DbKey    string
 }
@@ -24,17 +24,25 @@ var rootMsgHandlers = map[msg.Kind]func(Node, *msg.Msg) *msg.Msg{
 	msg.GetParmsKind: rootGetParmsHandler,
 }
 
+var LogLevel = new(slog.LevelVar)
+var LogLevelNames = map[string]slog.Level{
+	"info":  slog.LevelInfo,
+	"debug": slog.LevelDebug,
+	"warn":  slog.LevelWarn,
+	"error": slog.LevelError,
+}
+
 func (n *RootNode) run() {
 	slog.Info("Running Root node.", "name", n.Head.Name, "logLevel", n.Parms.LogLevel)
 	var r *msg.Msg
 	for q := range n.In {
-		slog.Info("Message received.", "node", n.Name, "kind", q.KindName())
+		slog.Debug("Message received.", "node", n.Name, "kind", q.KindName())
 		r = n.Head.commonMsg(q)
 		if r == nil {
 			r = rootMsgHandlers[q.Kind](n, q)
 		}
 		r.Answer(q)
-		slog.Info("Message answered.", "node", n.Name, "kind", r.KindName())
+		slog.Debug("Message answered.", "node", n.Name, "kind", r.KindName())
 		if r.Kind == msg.StoppedKind {
 			break
 		}
@@ -51,7 +59,7 @@ func (t *RootNode) load(h *Head) (n Node, err error) {
 	if err = Db.Where("node_id = ?", h.ID).Order("created_at desc").Take(rn.Parms).Error; err != nil {
 		return
 	}
-
+	rn.setLogLevel()
 	return rn, nil
 }
 
@@ -69,6 +77,7 @@ func (n *RootNode) create() (in msg.Pipe, err error) {
 	if err != nil {
 		return
 	}
+	n.setLogLevel()
 	go n.run()
 	n.Head.register()
 	Tree.Root = n.Head.In
@@ -79,17 +88,6 @@ func (n *RootNode) create() (in msg.Pipe, err error) {
 func (n *RootNode) Init() (err error) {
 	_, err = n.create()
 	return err
-}
-
-func rootStopTreeHandler(ni Node, m *msg.Msg) (r *msg.Msg) {
-	n := ni.(*RootNode)
-	for _, ch := range n.Head.children {
-		close(ch)
-	}
-	for range len(Tree.Nodes) - 1 {
-		<-n.Head.In
-	}
-	return m
 }
 
 func rootGetParmsHandler(ni Node, m *msg.Msg) (r *msg.Msg) {
@@ -110,4 +108,8 @@ func rootUpdateHandler(ni Node, m *msg.Msg) (r *msg.Msg) {
 	// 	return nil
 	// })
 	return
+}
+
+func (n *RootNode) setLogLevel() {
+	LogLevel.Set(slog.Level(n.Parms.LogLevel))
 }

@@ -23,6 +23,14 @@ var initCmd = &cobra.Command{
 	Long: `The 'init' command initializes all required files in the 
 			working directory for the application.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		var ll slog.Level
+		var ok bool
+		if ll, ok = node.LogLevelNames[logLevelName]; !ok {
+			slog.Error("Unknown log level name.", "levelName", logLevelName)
+			return
+		}
+		rp.LogLevel = int(ll)
+
 		if err := InitDb(sdb); err != nil {
 			slog.Error("Failed to create db. Exiting.", "error", err.Error())
 			return
@@ -32,18 +40,18 @@ var initCmd = &cobra.Command{
 			return
 		}
 
-		r := &node.RootNode{
+		root := &node.RootNode{
 			Head: &node.Head{
 				Name: "Root",
 				Kind: node.RootKind,
 			},
 			Parms: &rp,
 		}
-		if err := r.Init(); err != nil {
+		if err := root.Init(); err != nil {
 			slog.Error("Failed to create root node. Exiting.", "error", err.Error())
 			return
 		}
-		resp := (&msg.Msg{
+		r := (&msg.Msg{
 			Kind: msg.CreateKind,
 			Payload: &node.GroupNode{
 				Head: &node.Head{
@@ -52,8 +60,8 @@ var initCmd = &cobra.Command{
 				},
 			},
 		}).Ask(node.Tree.Root)
-		if resp.Kind == msg.ErrorKind {
-			slog.Error("User group creation failed. Exiting!", "error", resp.Error())
+		if r.Kind == msg.ErrorKind {
+			slog.Error("User group creation failed. Exiting!", "error", r.Error())
 		}
 		slog.Info("Waiting for goroutines to start. TODO")
 		time.Sleep(time.Millisecond * 100)

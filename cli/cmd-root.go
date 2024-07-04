@@ -12,6 +12,7 @@ import (
 
 var (
 	rp           node.RootParms
+	logLevelName string
 	sdb          string
 	userEmail    string
 	userPassword string
@@ -25,7 +26,7 @@ var (
 )
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&rp.LogLevel, "log-level", "L", "debug", "logging level")
+	rootCmd.PersistentFlags().StringVarP(&logLevelName, "log-level", "L", "debug", "logging level")
 	rootCmd.PersistentFlags().StringVarP(&sdb, "state-db", "S", os.Getenv("HOME")+"/.config/Nerd/state.db", "state database path")
 	rootCmd.PersistentFlags().StringVarP(&rp.HTTPAddr, "http-address", "A", "localhost:8088", "server HTTP address")
 	rootCmd.PersistentFlags().StringVarP(&userEmail, "user-email", "U", "", "login email address")
@@ -40,6 +41,8 @@ var rootCmd = &cobra.Command{
 	Long:  `Geronimo is a web application to track, manage and automate crypto investments.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		slog.Info("Inside root command's persistent pre run.")
+		l := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: node.LogLevel})
+		slog.SetDefault(slog.New(l))
 		if prof_cpu {
 			var err error
 			cpuProf, err = os.Create("cpu.prof")
@@ -53,8 +56,10 @@ var rootCmd = &cobra.Command{
 		}
 	},
 	PersistentPostRun: func(cmd *cobra.Command, args []string) {
-		pprof.StopCPUProfile()
-		cpuProf.Close()
+		if prof_cpu {
+			pprof.StopCPUProfile()
+			cpuProf.Close()
+		}
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		slog.Info("Running root command.")
