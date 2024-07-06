@@ -9,11 +9,13 @@ import (
 const (
 	RootKind = iota
 	GroupKind
+	UserKind
 )
 
 var Kinds = map[Kind]Node{
 	RootKind:  &RootNode{},
 	GroupKind: &GroupNode{},
+	UserKind:  &UserNode{},
 }
 
 type Param struct{}
@@ -24,10 +26,11 @@ type Param struct{}
 // }
 
 type Node interface {
-	run()
-	load(*Head) (Node, error)
-	// Save() (error)
 	create() (msg.Pipe, error)
+	loadBody(*Head) (Node, error)
+	run()
+	name() string
+	setParentID(int)
 }
 
 type Group struct {

@@ -1,13 +1,10 @@
 package cli
 
 import (
-	"errors"
 	"log/slog"
 	"time"
 
 	"github.com/spf13/cobra"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
 
 	"github.com/gadfly16/geronimo/msg"
 	"github.com/gadfly16/geronimo/node"
@@ -36,7 +33,7 @@ var initCmd = &cobra.Command{
 		}
 		rp.LogLevel = int(ll)
 
-		if err := InitDb(sdb); err != nil {
+		if err := node.InitDb(sdb); err != nil {
 			slog.Error("Failed to create db. Exiting.", "error", err.Error())
 			return
 		}
@@ -67,7 +64,7 @@ var initCmd = &cobra.Command{
 				},
 			})
 		if r.Kind == msg.ErrorKind {
-			slog.Error("User group creation failed. Exiting!", "error", r.Error())
+			slog.Error("User group creation failed. Exiting!", "error", r.ErrorMsg())
 		}
 		slog.Info("Waiting for goroutines to start. TODO")
 		time.Sleep(time.Millisecond * 100)
@@ -77,23 +74,4 @@ var initCmd = &cobra.Command{
 		}
 		slog.Info("Geronimo initialized.")
 	},
-}
-
-func InitDb(path string) error {
-	if node.FileExists(path) {
-		return errors.New("database already exists")
-	}
-
-	db, err := gorm.Open(sqlite.Open(path), &gorm.Config{})
-	if err != nil {
-		return err
-	}
-
-	db.AutoMigrate(
-		&node.Head{},
-		node.RootParms{},
-	)
-
-	slog.Info("State database created.", "path", path)
-	return nil
 }

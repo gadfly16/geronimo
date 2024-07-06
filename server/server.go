@@ -2,12 +2,14 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"html/template"
 	"log"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -19,6 +21,9 @@ import (
 )
 
 // var tmplGUI *template.Template
+var PayloadKinds = map[msg.PayloadKind]msg.Payloader{
+	msg.UserNodePayload: &node.UserNode{},
+}
 
 func Serve(sdb string) (err error) {
 	node.Tree.Load(sdb)
@@ -87,6 +92,9 @@ func service() http.Handler {
 	r.Get("/gui", guiHandler())
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("web/public/static"))))
 
+	r.Post("/signup", signupHandler)
+	r.Post("/api/{tid}/{plk}", apiHandler)
+
 	return r
 }
 
@@ -116,4 +124,40 @@ func reqLogger(next http.Handler) http.Handler {
 		next.ServeHTTP(ww, r)
 		slog.Info("HTTP Request:", "status", ww.Status(), "URL", r.URL)
 	})
+}
+
+func apiHandler(w http.ResponseWriter, r *http.Request) {
+	slog.Debug("API call.", "targetID", chi.URLParam(r, "tid"), "payloadKind", chi.URLParam(r, "plk"))
+	plk, err := strconv.Atoi(chi.URLParam(r, "plk"))
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	m, err := PayloadKinds[msg.PayloadKind(plk)].UnmarshalMsg(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	slog.Debug("API message unmarshaled", "msg", m)
+}
+
+func signupHandler(w http.ResponseWriter, r *http.Request) {
+	slog.Info("New singup")
+	n := &node.UserNode{}
+	d := json.NewDecoder(r.Body)
+	if err := d.Decode(n); err != nil {
+		slog.Error("Can't unmarshall new user node", "error", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	slog.Debug("New user creation initiated", "name", n.Head.Name, "email", n.Parms.Email)
+	m := &msg.Msg{
+		Kind:    msg.CreateKind,
+		Payload: n,
+	}
+	mr := node.Tree.Nodes[2].Ask(m)
+	if mr.Kind == msg.ErrorKind {
+		slog.Error("User creation failed", "error", mr.ErrorMsg())
+		w.WriteHeader(http.StatusBadRequest)
+	}
 }

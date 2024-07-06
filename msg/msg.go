@@ -42,14 +42,14 @@ func (m *Msg) Answer(q *Msg) {
 	q.Resp <- m
 }
 
-func NewError(err error) *Msg {
+func NewErrorMsg(err error) *Msg {
 	return &Msg{
 		Kind:    ErrorKind,
 		Payload: err.Error(),
 	}
 }
 
-func (m *Msg) Error() string {
+func (m *Msg) ErrorMsg() string {
 	return m.Payload.(string)
 }
 

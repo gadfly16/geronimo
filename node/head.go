@@ -1,6 +1,7 @@
 package node
 
 import (
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -34,10 +35,18 @@ type Head struct {
 	children map[string]msg.Pipe
 }
 
+func (h *Head) name() string {
+	return h.Name
+}
+
+func (h *Head) setParentID(pid int) {
+	h.ParentID = pid
+}
+
 func (h *Head) load() (in msg.Pipe, err error) {
 	h.In = make(msg.Pipe)
 	h.children = make(map[string]msg.Pipe)
-	n, err := Kinds[h.Kind].load(h)
+	n, err := Kinds[h.Kind].loadBody(h)
 	if err != nil {
 		return
 	}
@@ -84,18 +93,23 @@ func (h *Head) commonMsg(m *msg.Msg) (r *msg.Msg) {
 
 func createHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
 	var ch msg.Pipe
-	var chName string
 	var err error
+	n := m.Payload.(Node)
+	if _, ok := h.children[n.name()]; ok {
+		return msg.NewErrorMsg(fmt.Errorf("node '%s' already exists", n.name()))
+	}
+	n.setParentID(h.ID)
 	switch pl := m.Payload.(type) {
-	case *GroupNode:
-		chName = pl.Head.Name
-		pl.Head.ParentID = h.ID
-		ch, err = pl.create()
-		if err != nil {
-			return msg.NewError(err)
+	case *UserNode:
+		if len(h.children) == 0 {
+			pl.Parms.Admin = true
 		}
 	}
-	h.children[chName] = ch
+	ch, err = n.create()
+	if err != nil {
+		return msg.NewErrorMsg(err)
+	}
+	h.children[n.name()] = ch
 	return msg.OK
 }
 

@@ -1,4 +1,4 @@
-import {NodeType} from "../shared/gui_types.js"
+import {nodeKinds} from "../shared/common.js"
 
 window.onload = function() {
     // Attach handlers
@@ -7,18 +7,18 @@ window.onload = function() {
 
 function signup(e: SubmitEvent) {
     const data = new FormData(<HTMLFormElement>e.target)
-    let userNode = {
-        DetailType: NodeType.User,
-        Name: data.get("Name"),
-        Detail: {
-            Email: data.get("Email"),
-            Password: data.get("Password"),
-        }
+    let newUser = {
+            Name: data.get("Name"),
+            Kind: nodeKinds.User,
+            Parms: {
+                Email: data.get("Email"),
+                Password: data.get("Password"),
+            }
     }
-   // Send the request
+ 
     fetch("/signup", {
         method: 'post',
-        body: JSON.stringify(userNode),
+        body: JSON.stringify(newUser),
         mode: 'same-origin',
     }).then((response) => {
         if (response.ok) {

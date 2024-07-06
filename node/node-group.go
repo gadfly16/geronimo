@@ -16,7 +16,7 @@ var groupMsgHandlers = map[msg.Kind]func(Node, *msg.Msg) *msg.Msg{
 	// msg.GetParmsKind: rootGetParmsHandler,
 }
 
-func (t *GroupNode) load(h *Head) (n Node, err error) {
+func (t *GroupNode) loadBody(h *Head) (n Node, err error) {
 	h.In = make(msg.Pipe)
 	gn := &GroupNode{
 		Head: h,

@@ -1,4 +1,4 @@
-import { WSMsg, NodeType, NodeTypeName } from "../shared/gui_types.js";
+import { WSMsg, nodeKinds, NodeTypeName } from "../shared/common.js";
 // UI Globals
 let gui;
 // This is not jQuery, but a helper function to turn a html string into a HTMLElement
@@ -199,13 +199,13 @@ class Node {
             if (displayData.error)
                 throw new Error(displayData.error);
             switch (displayData.DetailType) {
-                case NodeType.Broker:
+                case nodeKinds.Broker:
                     this.display = new BrokerDisplay(displayData);
                     break;
-                case NodeType.Account:
+                case nodeKinds.Account:
                     this.display = new AccountDisplay(displayData);
                     break;
-                case NodeType.User:
+                case nodeKinds.User:
                     this.display = new UserDisplay(displayData);
                     break;
             }

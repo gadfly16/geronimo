@@ -1,6 +1,7 @@
 package node
 
 import (
+	"errors"
 	"log/slog"
 
 	"gorm.io/driver/sqlite"
@@ -21,4 +22,24 @@ func CloseDB() (err error) {
 		return
 	}
 	return sqldb.Close()
+}
+
+func InitDb(path string) error {
+	if FileExists(path) {
+		return errors.New("database already exists")
+	}
+
+	db, err := gorm.Open(sqlite.Open(path), &gorm.Config{})
+	if err != nil {
+		return err
+	}
+
+	db.AutoMigrate(
+		&Head{},
+		RootParms{},
+		UserParms{},
+	)
+
+	slog.Info("State database created.", "path", path)
+	return nil
 }

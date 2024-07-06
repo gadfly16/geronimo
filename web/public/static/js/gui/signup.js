@@ -1,22 +1,21 @@
-import { NodeType } from "../shared/gui_types.js";
+import { nodeKinds } from "../shared/common.js";
 window.onload = function () {
     // Attach handlers
     document.getElementById("signup-form").onsubmit = signup;
 };
 function signup(e) {
     const data = new FormData(e.target);
-    let userNode = {
-        DetailType: NodeType.User,
+    let newUser = {
         Name: data.get("Name"),
-        Detail: {
+        Kind: nodeKinds.User,
+        Parms: {
             Email: data.get("Email"),
             Password: data.get("Password"),
         }
     };
-    // Send the request
     fetch("/signup", {
         method: 'post',
-        body: JSON.stringify(userNode),
+        body: JSON.stringify(newUser),
         mode: 'same-origin',
     }).then((response) => {
         if (response.ok) {

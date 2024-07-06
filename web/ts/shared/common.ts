@@ -1,7 +1,18 @@
-export interface GuiMessage {
-    Type: string,
-    Payload: any
-  }
+export interface msg {
+  Kind: Number,
+  Payload: any,
+}
+
+export enum msgKinds {
+  OK = 0,
+	Error,
+	Stop,
+	Stopped,
+	Update,
+	Parms,
+	GetParms,
+	Create,
+}
 
 export let WSMsg = {
     Credentials: "Credentials",
@@ -10,13 +21,14 @@ export let WSMsg = {
     Update: "Update",
   }
 
-export enum NodeType {
+export enum nodeKinds {
 	Root = 0,
-	User,
-	Account,
-	Broker,
   Group,
-  Pocket
+	User,
+}
+
+export enum payloadKinds {
+  UserNodePayload = 0,
 }
 
 export let NodeTypeName = ["root", "user", "account", "broker", "group", "pocket"]

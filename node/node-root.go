@@ -50,7 +50,7 @@ func (n *RootNode) run() {
 	slog.Info("Stopped Root node.")
 }
 
-func (t *RootNode) load(h *Head) (n Node, err error) {
+func (t *RootNode) loadBody(h *Head) (n Node, err error) {
 	h.In = make(msg.Pipe)
 	rn := &RootNode{
 		Head:  h,

@@ -1,4 +1,4 @@
-import {GuiMessage, WSMsg, NodeType, NodeTypeName} from "../shared/gui_types.js"
+import {WSMsg, nodeKinds, NodeTypeName} from "../shared/common.js"
 
 interface socketMessage {
   Type: string,
@@ -223,13 +223,13 @@ class Node {
     .then((displayData) => {
       if (displayData.error) throw new Error(displayData.error)
         switch (displayData.DetailType) {
-          case NodeType.Broker:
+          case nodeKinds.Broker:
             this.display = new BrokerDisplay(displayData)
             break
-          case NodeType.Account:
+          case nodeKinds.Account:
             this.display = new AccountDisplay(displayData)
             break
-          case NodeType.User:
+          case nodeKinds.User:
             this.display = new UserDisplay(displayData)
             break
         }

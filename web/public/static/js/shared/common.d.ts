@@ -3,7 +3,14 @@ export interface msg {
     Payload: any;
 }
 export declare enum msgKinds {
-    Create = 0
+    OK = 0,
+    Error = 1,
+    Stop = 2,
+    Stopped = 3,
+    Update = 4,
+    Parms = 5,
+    GetParms = 6,
+    Create = 7
 }
 export declare let WSMsg: {
     Credentials: string;
@@ -11,12 +18,12 @@ export declare let WSMsg: {
     Unsubscribe: string;
     Update: string;
 };
-export declare enum NodeKinds {
+export declare enum nodeKinds {
     Root = 0,
-    User = 1,
-    Account = 2,
-    Broker = 3,
-    Group = 4,
-    Pocket = 5
+    Group = 1,
+    User = 2
+}
+export declare enum payloadKinds {
+    UserNodePayload = 0
 }
 export declare let NodeTypeName: string[];
