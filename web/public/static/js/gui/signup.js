@@ -6,10 +6,10 @@ window.onload = function () {
 function signup(e) {
     const data = new FormData(e.target);
     let newUser = {
-        Name: data.get("Name"),
         Kind: nodeKinds.User,
+        Name: data.get("Email"),
         Parms: {
-            Email: data.get("Email"),
+            DisplayName: data.get("Name"),
             Password: data.get("Password"),
         }
     };

@@ -7,13 +7,15 @@ import (
 	"gorm.io/gorm"
 )
 
-type GroupNode struct {
-	*Head
+func init() {
+	nodeMsgHandlers[GroupKind] = map[msg.Kind]func(Node, *msg.Msg) *msg.Msg{
+		// msg.UpdateKind:   rootUpdateHandler,
+		// msg.GetParmsKind: rootGetParmsHandler,
+	}
 }
 
-var groupMsgHandlers = map[msg.Kind]func(Node, *msg.Msg) *msg.Msg{
-	// msg.UpdateKind:   rootUpdateHandler,
-	// msg.GetParmsKind: rootGetParmsHandler,
+type GroupNode struct {
+	*Head
 }
 
 func (t *GroupNode) loadBody(h *Head) (n Node, err error) {
@@ -29,10 +31,7 @@ func (n *GroupNode) run() {
 	slog.Info("Running Group node.", "name", n.Head.Name)
 	for m := range n.Head.In {
 		slog.Info("Message received.", "node", n.Head.Name, "kind", m.KindName())
-		r := n.Head.commonMsg(m)
-		if r == nil {
-			r = groupMsgHandlers[m.Kind](n, m)
-		}
+		r := n.Head.handleMsg(n, m)
 		r.Answer(m)
 		slog.Info("Message answered.", "node", n.Head.Name, "kind", r.KindName())
 		if r.Kind == msg.StoppedKind {

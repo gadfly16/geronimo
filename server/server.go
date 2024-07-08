@@ -150,7 +150,7 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	slog.Debug("New user creation initiated", "name", n.Head.Name, "email", n.Parms.Email)
+	slog.Debug("New user creation initiated", "name", n.Head.Name, "display_name", n.Parms.DisplayName)
 	m := &msg.Msg{
 		Kind:    msg.CreateKind,
 		Payload: n,

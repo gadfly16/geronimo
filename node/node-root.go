@@ -7,6 +7,13 @@ import (
 	"gorm.io/gorm"
 )
 
+func init() {
+	nodeMsgHandlers[RootKind] = map[msg.Kind]func(Node, *msg.Msg) *msg.Msg{
+		// msg.UpdateKind:   rootUpdateHandler,
+		msg.GetParmsKind: rootGetParmsHandler,
+	}
+}
+
 type RootParms struct {
 	ParmModel
 	LogLevel int
@@ -19,11 +26,6 @@ type RootNode struct {
 	Parms *RootParms
 }
 
-var rootMsgHandlers = map[msg.Kind]func(Node, *msg.Msg) *msg.Msg{
-	msg.UpdateKind:   rootUpdateHandler,
-	msg.GetParmsKind: rootGetParmsHandler,
-}
-
 var LogLevel = new(slog.LevelVar)
 var LogLevelNames = map[string]slog.Level{
 	"info":  slog.LevelInfo,
@@ -34,13 +36,9 @@ var LogLevelNames = map[string]slog.Level{
 
 func (n *RootNode) run() {
 	slog.Info("Running Root node.", "name", n.Head.Name, "logLevel", n.Parms.LogLevel)
-	var r *msg.Msg
 	for q := range n.In {
 		slog.Debug("Message received.", "node", n.Name, "kind", q.KindName())
-		r = n.Head.commonMsg(q)
-		if r == nil {
-			r = rootMsgHandlers[q.Kind](n, q)
-		}
+		r := n.Head.handleMsg(n, q)
 		r.Answer(q)
 		slog.Debug("Message answered.", "node", n.Name, "kind", r.KindName())
 		if r.Kind == msg.StoppedKind {
@@ -98,17 +96,17 @@ func rootGetParmsHandler(ni Node, m *msg.Msg) (r *msg.Msg) {
 	}
 }
 
-func rootUpdateHandler(ni Node, m *msg.Msg) (r *msg.Msg) {
-	// if v, ok := m.Payload["parms"]; ok {
-	// 	if n.Parms, ok = v.(*RootParms); !ok {
-	// 		return fmt.Errorf("update failed: wrong parms type %T", n.Parms)
-	// 	}
-	// }
-	// Db.Transaction(func(tx *gorm.DB) error {
-	// 	return nil
-	// })
-	return
-}
+// func rootUpdateHandler(ni Node, m *msg.Msg) (r *msg.Msg) {
+// if v, ok := m.Payload["parms"]; ok {
+// 	if n.Parms, ok = v.(*RootParms); !ok {
+// 		return fmt.Errorf("update failed: wrong parms type %T", n.Parms)
+// 	}
+// }
+// Db.Transaction(func(tx *gorm.DB) error {
+// 	return nil
+// })
+// 	return
+// }
 
 func (n *RootNode) setLogLevel() {
 	LogLevel.Set(slog.Level(n.Parms.LogLevel))

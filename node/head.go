@@ -10,6 +10,7 @@ import (
 )
 
 var commonMsgHandlers map[msg.Kind]func(*Head, *msg.Msg) *msg.Msg
+var nodeMsgHandlers = map[Kind]map[msg.Kind]func(Node, *msg.Msg) *msg.Msg{}
 
 func init() {
 	commonMsgHandlers = map[msg.Kind]func(*Head, *msg.Msg) *msg.Msg{
@@ -83,13 +84,25 @@ func (h *Head) register() {
 	Tree.NodeLock.Unlock()
 }
 
-func (h *Head) commonMsg(m *msg.Msg) (r *msg.Msg) {
-	f, ok := commonMsgHandlers[m.Kind]
-	if !ok {
-		return nil
+func (h *Head) handleMsg(n Node, m *msg.Msg) (r *msg.Msg) {
+	hf, ok := commonMsgHandlers[m.Kind]
+	if ok {
+		return hf(h, m)
 	}
-	return f(h, m)
+	nf, ok := nodeMsgHandlers[h.Kind][m.Kind]
+	if ok {
+		return nf(n, m)
+	}
+	return msg.NewErrorMsg(fmt.Errorf(""))
 }
+
+// func (h *Head) commonMsg(m *msg.Msg) (r *msg.Msg) {
+// 	f, ok := commonMsgHandlers[m.Kind]
+// 	if !ok {
+// 		return nil
+// 	}
+// 	return f(h, m)
+// }
 
 func createHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
 	var ch msg.Pipe

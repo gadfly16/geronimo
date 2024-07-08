@@ -9,11 +9,18 @@ import (
 	"gorm.io/gorm"
 )
 
+func init() {
+	nodeMsgHandlers[UserKind] = map[msg.Kind]func(Node, *msg.Msg) *msg.Msg{
+		// msg.UpdateKind:   rootUpdateHandler,
+		// msg.GetParmsKind: rootGetParmsHandler,
+	}
+}
+
 type UserParms struct {
 	ParmModel
-	Admin    bool
-	Email    string
-	Password string
+	Admin       bool
+	DisplayName string
+	Password    string
 }
 
 type UserNode struct {
@@ -21,20 +28,11 @@ type UserNode struct {
 	Parms *UserParms
 }
 
-var userMsgHandlers = map[msg.Kind]func(Node, *msg.Msg) *msg.Msg{
-	// msg.UpdateKind:   rootUpdateHandler,
-	// msg.GetParmsKind: rootGetParmsHandler,
-}
-
 func (n *UserNode) run() {
 	slog.Debug("Running User node.", "name", n.Head.Name)
-	var r *msg.Msg
 	for q := range n.In {
 		slog.Debug("Message received.", "node", n.Name, "kind", q.KindName())
-		r = n.Head.commonMsg(q)
-		if r == nil {
-			r = userMsgHandlers[q.Kind](n, q)
-		}
+		r := n.Head.handleMsg(n, q)
 		r.Answer(q)
 		slog.Debug("Message answered.", "node", n.Name, "kind", r.KindName())
 		if r.Kind == msg.StoppedKind {
@@ -57,6 +55,10 @@ func (t *UserNode) loadBody(h *Head) (n Node, err error) {
 }
 
 func (n *UserNode) create() (in msg.Pipe, err error) {
+	n.Parms.Password, err = hashPassword(n.Parms.Password)
+	if err != nil {
+		return
+	}
 	err = Db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&n.Head).Error; err != nil {
 			return err

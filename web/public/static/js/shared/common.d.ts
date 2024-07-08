@@ -21,7 +21,9 @@ export declare let WSMsg: {
 export declare enum nodeKinds {
     Root = 0,
     Group = 1,
-    User = 2
+    User = 2,
+    Broker = 3,
+    Account = 4
 }
 export declare enum payloadKinds {
     UserNodePayload = 0

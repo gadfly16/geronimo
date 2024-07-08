@@ -8,12 +8,12 @@ window.onload = function() {
 function signup(e: SubmitEvent) {
     const data = new FormData(<HTMLFormElement>e.target)
     let newUser = {
-            Name: data.get("Name"),
-            Kind: nodeKinds.User,
-            Parms: {
-                Email: data.get("Email"),
-                Password: data.get("Password"),
-            }
+        Kind: nodeKinds.User,
+        Name: data.get("Email"),
+        Parms: {
+            DisplayName: data.get("Name"),
+            Password: data.get("Password"),
+        }
     }
  
     fetch("/signup", {
