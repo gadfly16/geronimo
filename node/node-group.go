@@ -19,7 +19,7 @@ type GroupNode struct {
 }
 
 func (t *GroupNode) loadBody(h *Head) (n Node, err error) {
-	h.In = make(msg.Pipe)
+	// h.In = make(msg.Pipe)
 	gn := &GroupNode{
 		Head: h,
 	}
@@ -30,18 +30,19 @@ func (t *GroupNode) loadBody(h *Head) (n Node, err error) {
 func (n *GroupNode) run() {
 	slog.Info("Running Group node.", "name", n.Head.Name)
 	for m := range n.Head.In {
-		slog.Info("Message received.", "node", n.Head.Name, "kind", m.KindName())
+		slog.Info("Message received.", "node", n.path, "kind", m.KindName())
 		r := n.Head.handleMsg(n, m)
 		r.Answer(m)
-		slog.Info("Message answered.", "node", n.Head.Name, "kind", r.KindName())
+		slog.Info("Message answered.", "node", n.path, "kind", r.KindName())
 		if r.Kind == msg.StoppedKind {
 			break
 		}
 	}
-	slog.Info("Stopped Group node.", "name", n.Head.Name)
+	slog.Info("Stopped Group node.", "node", n.path)
 }
 
-func (n *GroupNode) create() (in msg.Pipe, err error) {
+func (n *GroupNode) create(pp string) (in msg.Pipe, err error) {
+	n.Head.path = pp + "/" + n.Head.Name
 	err = Db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&n.Head).Error; err != nil {
 			return err
@@ -52,7 +53,7 @@ func (n *GroupNode) create() (in msg.Pipe, err error) {
 		return
 	}
 	n.Head.register()
-	slog.Info("Created Group node.", "name", n.Head.Name)
+	slog.Info("Created Group node.", "node", n.Head.path)
 	go n.run()
 	return n.Head.In, nil
 }

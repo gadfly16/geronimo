@@ -32,6 +32,7 @@ type Head struct {
 	ParentID int
 	In       msg.Pipe `gorm:"-"`
 
+	path     string
 	parent   msg.Pipe
 	children map[string]msg.Pipe
 }
@@ -58,6 +59,7 @@ func (h *Head) load() (in msg.Pipe, err error) {
 	}
 	for _, ch := range chs {
 		ch.parent = h.In
+		ch.path = h.path + "/" + ch.Name
 		var chin msg.Pipe
 		chin, err = ch.load()
 		if err != nil {
@@ -118,7 +120,7 @@ func createHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
 			pl.Parms.Admin = true
 		}
 	}
-	ch, err = n.create()
+	ch, err = n.create(h.path)
 	if err != nil {
 		return msg.NewErrorMsg(err)
 	}

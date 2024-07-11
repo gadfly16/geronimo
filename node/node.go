@@ -26,7 +26,7 @@ type Param struct{}
 // }
 
 type Node interface {
-	create() (msg.Pipe, error)
+	create(string) (msg.Pipe, error)
 	loadBody(*Head) (Node, error)
 	run()
 	name() string

@@ -49,7 +49,7 @@ func (n *RootNode) run() {
 }
 
 func (t *RootNode) loadBody(h *Head) (n Node, err error) {
-	h.In = make(msg.Pipe)
+	// h.In = make(msg.Pipe)
 	rn := &RootNode{
 		Head:  h,
 		Parms: &RootParms{},
@@ -61,7 +61,8 @@ func (t *RootNode) loadBody(h *Head) (n Node, err error) {
 	return rn, nil
 }
 
-func (n *RootNode) create() (in msg.Pipe, err error) {
+func (n *RootNode) create(pp string) (in msg.Pipe, err error) {
+	n.Head.path = pp + "/" + n.Head.Name
 	err = Db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&n.Head).Error; err != nil {
 			return err
@@ -79,12 +80,19 @@ func (n *RootNode) create() (in msg.Pipe, err error) {
 	go n.run()
 	n.Head.register()
 	Tree.Root = n.Head.In
-	slog.Info("Created Root node.", "name", n.Head.Name)
+	slog.Info("Created Root node.", "path", n.Head.path)
 	return n.Head.In, nil
 }
 
-func (n *RootNode) Init() (err error) {
-	_, err = n.create()
+func InitRootNode(rp *RootParms) (err error) {
+	root := &RootNode{
+		Head: &Head{
+			Name: "Root",
+			Kind: RootKind,
+		},
+		Parms: rp,
+	}
+	_, err = root.create("")
 	return err
 }
 

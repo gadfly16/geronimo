@@ -31,10 +31,10 @@ type UserNode struct {
 func (n *UserNode) run() {
 	slog.Debug("Running User node.", "name", n.Head.Name)
 	for q := range n.In {
-		slog.Debug("Message received.", "node", n.Name, "kind", q.KindName())
+		slog.Debug("Message received.", "node", n.path, "kind", q.KindName())
 		r := n.Head.handleMsg(n, q)
 		r.Answer(q)
-		slog.Debug("Message answered.", "node", n.Name, "kind", r.KindName())
+		slog.Debug("Message answered.", "node", n.path, "kind", r.KindName())
 		if r.Kind == msg.StoppedKind {
 			break
 		}
@@ -43,7 +43,7 @@ func (n *UserNode) run() {
 }
 
 func (t *UserNode) loadBody(h *Head) (n Node, err error) {
-	h.In = make(msg.Pipe)
+	// h.In = make(msg.Pipe)
 	un := &UserNode{
 		Head:  h,
 		Parms: &UserParms{},
@@ -54,7 +54,8 @@ func (t *UserNode) loadBody(h *Head) (n Node, err error) {
 	return un, nil
 }
 
-func (n *UserNode) create() (in msg.Pipe, err error) {
+func (n *UserNode) create(pp string) (in msg.Pipe, err error) {
+	n.Head.path = pp + "/" + n.Name
 	n.Parms.Password, err = hashPassword(n.Parms.Password)
 	if err != nil {
 		return
@@ -74,7 +75,7 @@ func (n *UserNode) create() (in msg.Pipe, err error) {
 	}
 	go n.run()
 	n.Head.register()
-	slog.Info("Created User node.", "name", n.Head.Name)
+	slog.Info("Created User node.", "path", n.path)
 	return n.Head.In, nil
 }
 

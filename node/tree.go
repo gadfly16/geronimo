@@ -11,6 +11,11 @@ var Tree = nodeTree{
 	Nodes: make(map[int]msg.Pipe),
 }
 
+type treeEntry struct {
+	Name string
+	kids []treeEntry
+}
+
 type nodeTree struct {
 	NodeLock sync.RWMutex
 	Nodes    map[int]msg.Pipe
@@ -23,6 +28,7 @@ func (t *nodeTree) Load(sdb string) (err error) {
 	if err = Db.First(rootHead, 1).Error; err != nil {
 		return
 	}
+	rootHead.path = "/Root"
 	Tree.Root, err = rootHead.load()
 	if err != nil {
 		return

@@ -42,14 +42,7 @@ var initCmd = &cobra.Command{
 			return
 		}
 
-		root := &node.RootNode{
-			Head: &node.Head{
-				Name: "Root",
-				Kind: node.RootKind,
-			},
-			Parms: &rp,
-		}
-		if err := root.Init(); err != nil {
+		if err := node.InitRootNode(&rp); err != nil {
 			slog.Error("Failed to create root node. Exiting.", "error", err.Error())
 			return
 		}
