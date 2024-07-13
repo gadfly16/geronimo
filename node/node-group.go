@@ -1,14 +1,17 @@
 package node
 
 import (
+	"fmt"
 	"log/slog"
 
 	"github.com/gadfly16/geronimo/msg"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 func init() {
 	nodeMsgHandlers[GroupKind] = map[msg.Kind]func(Node, *msg.Msg) *msg.Msg{
+		msg.AuthUserKind: groupAuthUserHandler,
 		// msg.UpdateKind:   rootUpdateHandler,
 		// msg.GetParmsKind: rootGetParmsHandler,
 	}
@@ -56,4 +59,20 @@ func (n *GroupNode) create(pp string) (in msg.Pipe, err error) {
 	slog.Info("Created Group node.", "node", n.Head.path)
 	go n.run()
 	return n.Head.In, nil
+}
+
+func groupAuthUserHandler(ni Node, m *msg.Msg) (r *msg.Msg) {
+	n := ni.(*GroupNode)
+	uc := m.Payload.(*UserNode)
+	slog.Debug("getting user from children", "user_credentials", uc)
+	u, ok := n.children[uc.Name]
+	if !ok {
+		return msg.NewErrorMsg(fmt.Errorf("user not found"))
+	}
+	up := u.Ask(msg.GetParms).Payload.(UserParms)
+	err := bcrypt.CompareHashAndPassword(up.Password, uc.Parms.Password)
+	if err != nil {
+		return msg.NewErrorMsg(err)
+	}
+	return msg.OK
 }

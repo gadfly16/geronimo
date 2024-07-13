@@ -14,8 +14,6 @@ import (
 	"os"
 	"sync/atomic"
 
-	"golang.org/x/crypto/bcrypt"
-
 	//	"github.com/dgrijalva/jwt-go"
 	"golang.org/x/crypto/scrypt"
 )
@@ -38,16 +36,6 @@ func fit01(val, low, high float64) float64 {
 
 func clamp01(val float64) float64 {
 	return math.Min(1, math.Max(0, val))
-}
-
-// Encryption
-func hashPassword(pw string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(pw), 14)
-	return string(bytes), err
-}
-
-func compareHashPassword(password, hash string) error {
-	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 }
 
 func generateSecret(l int) ([]byte, error) {

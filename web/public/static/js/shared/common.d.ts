@@ -10,7 +10,8 @@ export declare enum msgKinds {
     Update = 4,
     Parms = 5,
     GetParms = 6,
-    Create = 7
+    Create = 7,
+    AuthUser = 8
 }
 export declare let WSMsg: {
     Credentials: string;

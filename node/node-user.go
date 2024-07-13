@@ -6,13 +6,14 @@ import (
 	"log/slog"
 
 	"github.com/gadfly16/geronimo/msg"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 func init() {
 	nodeMsgHandlers[UserKind] = map[msg.Kind]func(Node, *msg.Msg) *msg.Msg{
 		// msg.UpdateKind:   rootUpdateHandler,
-		// msg.GetParmsKind: rootGetParmsHandler,
+		msg.GetParmsKind: userGetParmsHandler,
 	}
 }
 
@@ -20,7 +21,7 @@ type UserParms struct {
 	ParmModel
 	Admin       bool
 	DisplayName string
-	Password    string
+	Password    []byte
 }
 
 type UserNode struct {
@@ -56,7 +57,7 @@ func (t *UserNode) loadBody(h *Head) (n Node, err error) {
 
 func (n *UserNode) create(pp string) (in msg.Pipe, err error) {
 	n.Head.path = pp + "/" + n.Name
-	n.Parms.Password, err = hashPassword(n.Parms.Password)
+	n.Parms.Password, err = bcrypt.GenerateFromPassword(n.Parms.Password, 14)
 	if err != nil {
 		return
 	}
@@ -88,13 +89,13 @@ func (n *UserNode) UnmarshalMsg(b io.ReadCloser) (m *msg.Msg, err error) {
 	return
 }
 
-// func rootGetParmsHandler(ni Node, m *msg.Msg) (r *msg.Msg) {
-// 	n := ni.(*RootNode)
-// 	return &msg.Msg{
-// 		Kind:    msg.ParmsKind,
-// 		Payload: *n.Parms,
-// 	}
-// }
+func userGetParmsHandler(ni Node, m *msg.Msg) (r *msg.Msg) {
+	n := ni.(*UserNode)
+	return &msg.Msg{
+		Kind:    msg.ParmsKind,
+		Payload: *n.Parms,
+	}
+}
 
 // func rootUpdateHandler(ni Node, m *msg.Msg) (r *msg.Msg) {
 // 	// if v, ok := m.Payload["parms"]; ok {

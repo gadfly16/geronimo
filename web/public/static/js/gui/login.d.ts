@@ -1,1 +1,1 @@
-declare function login(e: SubmitEvent): boolean;
+export {};

@@ -6,13 +6,13 @@ window.onload = function() {
 }
 
 function signup(e: SubmitEvent) {
-    const data = new FormData(<HTMLFormElement>e.target)
+    const data = new FormData(e.target as HTMLFormElement)
     let newUser = {
         Kind: nodeKinds.User,
         Name: data.get("Email"),
         Parms: {
             DisplayName: data.get("Name"),
-            Password: data.get("Password"),
+            Password: btoa(data.get("Password") as string),
         }
     }
  
@@ -22,12 +22,10 @@ function signup(e: SubmitEvent) {
         mode: 'same-origin',
     }).then((response) => {
         if (response.ok) {
-            return response.json()
+            window.location.replace("login.html")
         } else {
             throw 'failed'
         }
-    }).then((data) => {
-        window.location.replace("login")
     }).catch((e) => { alert(e) })
     return false
 }

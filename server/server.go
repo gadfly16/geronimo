@@ -93,6 +93,7 @@ func service() http.Handler {
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("web/public/static"))))
 
 	r.Post("/signup", signupHandler)
+	r.Post("/login", loginHandler)
 	r.Post("/api/{tid}/{plk}", apiHandler)
 
 	return r
@@ -150,7 +151,6 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	slog.Debug("New user creation initiated", "name", n.Head.Name, "display_name", n.Parms.DisplayName)
 	m := &msg.Msg{
 		Kind:    msg.CreateKind,
 		Payload: n,
@@ -160,4 +160,33 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 		slog.Error("User creation failed", "error", mr.ErrorMsg())
 		w.WriteHeader(http.StatusBadRequest)
 	}
+	w.WriteHeader(http.StatusOK)
+	slog.Info("New user created", "name", n.Head.Name)
+}
+
+func loginHandler(w http.ResponseWriter, r *http.Request) {
+	slog.Info("New login")
+	n := &node.UserNode{
+		// Head:  &node.Head{},
+		// Parms: &node.UserParms{},
+	}
+	d := json.NewDecoder(r.Body)
+	if err := d.Decode(n); err != nil {
+		slog.Error("Can't unmarshall login user node", "error", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	slog.Debug("decoded credentials", "credentials", n)
+	m := &msg.Msg{
+		Kind:    msg.AuthUserKind,
+		Payload: n,
+	}
+	mr := node.Tree.Nodes[2].Ask(m)
+	if mr.Kind == msg.ErrorKind {
+		slog.Error("user authentication failed", "error", mr.ErrorMsg())
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	slog.Info("Successful login", "name", n.Head.Name)
 }

@@ -9,6 +9,7 @@ const (
 	ParmsKind
 	GetParmsKind
 	CreateKind
+	AuthUserKind
 )
 
 var kindNames = map[Kind]string{
@@ -20,6 +21,7 @@ var kindNames = map[Kind]string{
 	ParmsKind:    "Parms",
 	GetParmsKind: "GetParms",
 	CreateKind:   "Create",
+	AuthUserKind: "AuthUser",
 }
 
 var (

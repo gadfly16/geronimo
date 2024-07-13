@@ -12,6 +12,7 @@ export enum msgKinds {
 	Parms,
 	GetParms,
 	Create,
+  AuthUser,
 }
 
 export let WSMsg = {

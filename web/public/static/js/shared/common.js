@@ -8,6 +8,7 @@ export var msgKinds;
     msgKinds[msgKinds["Parms"] = 5] = "Parms";
     msgKinds[msgKinds["GetParms"] = 6] = "GetParms";
     msgKinds[msgKinds["Create"] = 7] = "Create";
+    msgKinds[msgKinds["AuthUser"] = 8] = "AuthUser";
 })(msgKinds || (msgKinds = {}));
 export let WSMsg = {
     Credentials: "Credentials",
