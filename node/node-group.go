@@ -74,5 +74,5 @@ func groupAuthUserHandler(ni Node, m *msg.Msg) (r *msg.Msg) {
 	if err != nil {
 		return msg.NewErrorMsg(err)
 	}
-	return msg.OK
+	return &msg.Msg{Kind: msg.ParmsKind, Payload: up}
 }

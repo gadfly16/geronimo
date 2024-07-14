@@ -1,11 +1,14 @@
 package node
 
 import (
+	"crypto/rand"
 	"log/slog"
 
 	"github.com/gadfly16/geronimo/msg"
 	"gorm.io/gorm"
 )
+
+var JwtKey []byte
 
 func init() {
 	nodeMsgHandlers[RootKind] = map[msg.Kind]func(Node, *msg.Msg) *msg.Msg{
@@ -19,6 +22,7 @@ type RootParms struct {
 	LogLevel int
 	HTTPAddr string
 	DbKey    string
+	JwtKey   []byte
 }
 
 type RootNode struct {
@@ -48,8 +52,7 @@ func (n *RootNode) run() {
 	slog.Info("Stopped Root node.")
 }
 
-func (t *RootNode) loadBody(h *Head) (n Node, err error) {
-	// h.In = make(msg.Pipe)
+func (nt *RootNode) loadBody(h *Head) (n Node, err error) {
 	rn := &RootNode{
 		Head:  h,
 		Parms: &RootParms{},
@@ -58,11 +61,16 @@ func (t *RootNode) loadBody(h *Head) (n Node, err error) {
 		return
 	}
 	rn.setLogLevel()
+	JwtKey = rn.Parms.JwtKey
 	return rn, nil
 }
 
 func (n *RootNode) create(pp string) (in msg.Pipe, err error) {
 	n.Head.path = pp + "/" + n.Head.Name
+	n.Parms.JwtKey = make([]byte, 14)
+	if _, err = rand.Read(n.Parms.JwtKey); err != nil {
+		return
+	}
 	err = Db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&n.Head).Error; err != nil {
 			return err
@@ -80,6 +88,7 @@ func (n *RootNode) create(pp string) (in msg.Pipe, err error) {
 	go n.run()
 	n.Head.register()
 	Tree.Root = n.Head.In
+	JwtKey = n.Parms.JwtKey
 	slog.Info("Created Root node.", "path", n.Head.path)
 	return n.Head.In, nil
 }

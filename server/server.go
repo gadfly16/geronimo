@@ -13,6 +13,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
@@ -20,9 +22,18 @@ import (
 	"github.com/gadfly16/geronimo/node"
 )
 
+const (
+	expirationDuration = 60 * time.Minute
+)
+
 // var tmplGUI *template.Template
 var PayloadKinds = map[msg.PayloadKind]msg.Payloader{
 	msg.UserNodePayload: &node.UserNode{},
+}
+
+type claims struct {
+	jwt.RegisteredClaims
+	Admin bool
 }
 
 func Serve(sdb string) (err error) {
@@ -82,7 +93,6 @@ func Serve(sdb string) (err error) {
 func service() http.Handler {
 	r := chi.NewRouter()
 
-	r.Use(middleware.RequestID)
 	r.Use(reqLogger)
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
@@ -166,27 +176,38 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 
 func loginHandler(w http.ResponseWriter, r *http.Request) {
 	slog.Info("New login")
-	n := &node.UserNode{
-		// Head:  &node.Head{},
-		// Parms: &node.UserParms{},
-	}
+	n := &node.UserNode{}
 	d := json.NewDecoder(r.Body)
 	if err := d.Decode(n); err != nil {
 		slog.Error("Can't unmarshall login user node", "error", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	slog.Debug("decoded credentials", "credentials", n)
-	m := &msg.Msg{
-		Kind:    msg.AuthUserKind,
-		Payload: n,
-	}
-	mr := node.Tree.Nodes[2].Ask(m)
+	mr := node.Tree.Nodes[2].Ask(&msg.Msg{Kind: msg.AuthUserKind, Payload: n})
 	if mr.Kind == msg.ErrorKind {
 		slog.Error("user authentication failed", "error", mr.ErrorMsg())
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+
+	up := mr.Payload.(node.UserParms)
+	exp := time.Now().Add(expirationDuration)
+	claims := &claims{
+		Admin: up.Admin,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   strconv.Itoa(int(up.ID)),
+			ExpiresAt: jwt.NewNumericDate(exp),
+		},
+	}
+
+	st, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(node.JwtKey)
+	if err != nil {
+		slog.Error("user authentication failed", "error", mr.ErrorMsg())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	http.SetCookie(w, &http.Cookie{Name: "geronimo-user", Value: st, Expires: exp})
 	w.WriteHeader(http.StatusOK)
 	slog.Info("Successful login", "name", n.Head.Name)
 }
