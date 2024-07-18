@@ -28,7 +28,7 @@ type Head struct {
 
 	Name     string
 	Kind     Kind
-	UserID   int
+	OwnerID  int `gorm:"-"`
 	ParentID int
 	In       msg.Pipe `gorm:"-"`
 
@@ -48,6 +48,9 @@ func (h *Head) setParentID(pid int) {
 func (h *Head) load() (in msg.Pipe, err error) {
 	h.In = make(msg.Pipe)
 	h.children = make(map[string]msg.Pipe)
+	if h.Kind == UserKind {
+		h.OwnerID = h.ID
+	}
 	n, err := Kinds[h.Kind].loadBody(h)
 	if err != nil {
 		return
@@ -60,6 +63,7 @@ func (h *Head) load() (in msg.Pipe, err error) {
 	for _, ch := range chs {
 		ch.parent = h.In
 		ch.path = h.path + "/" + ch.Name
+		ch.OwnerID = h.OwnerID
 		var chin msg.Pipe
 		chin, err = ch.load()
 		if err != nil {
@@ -137,6 +141,10 @@ func (h *Head) askChildren(m *msg.Msg) {
 }
 
 func getTreeHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
+	if m.Auth.UserID != h.OwnerID && !m.Auth.Admin {
+		slog.Debug("unauthorized tree request", "path", h.path, "user", m.Auth.UserID, "owner", h.OwnerID, "admin", m.Auth.Admin)
+		return msg.NewErrorMsg(fmt.Errorf("unathorized tree request"))
+	}
 	tree := &TreeEntry{
 		ID:   h.ID,
 		Name: h.Name,
@@ -145,13 +153,25 @@ func getTreeHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
 
 	chm := msg.GetTree
 	chm.Resp = make(msg.Pipe)
+	chm.Auth.UserID = m.Auth.UserID
+	chm.Auth.Admin = m.Auth.Admin
 	for _, ch := range h.children {
 		ch <- &chm
 	}
+
+	var cherr bool
 	for range len(h.children) {
 		chr := <-chm.Resp
-		slog.Debug("Children gave back tree")
-		tree.Children = append(tree.Children, chr.Payload.(*TreeEntry))
+		if chr.Kind == msg.ErrorKind {
+			cherr = true
+		} else {
+			slog.Debug("Children gave back tree")
+			tree.Children = append(tree.Children, chr.Payload.(*TreeEntry))
+		}
+	}
+
+	if cherr {
+		return msg.NewErrorMsg(fmt.Errorf("unathorized tree request downstream"))
 	}
 
 	r = &msg.Msg{

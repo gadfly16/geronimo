@@ -45,7 +45,7 @@ func (n *GroupNode) run() {
 }
 
 func (n *GroupNode) create(p *Head) (in msg.Pipe, err error) {
-	n.UserID = p.ID
+	n.OwnerID = p.OwnerID
 	n.Head.path = p.path + "/" + n.Head.Name
 	err = Db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&n.Head).Error; err != nil {

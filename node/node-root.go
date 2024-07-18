@@ -66,6 +66,7 @@ func (nt *RootNode) loadBody(h *Head) (n Node, err error) {
 }
 
 func (n *RootNode) create(p *Head) (in msg.Pipe, err error) {
+	n.OwnerID = p.OwnerID
 	n.Head.path = p.path + "/" + n.Head.Name
 	n.Parms.JwtKey = make([]byte, 14)
 	if _, err = rand.Read(n.Parms.JwtKey); err != nil {

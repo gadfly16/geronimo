@@ -52,9 +52,9 @@ type Msg struct {
 	Payload any
 	Resp    Pipe
 
-	auth struct {
-		uid   int
-		admin bool
+	Auth struct {
+		UserID int
+		Admin  bool
 	}
 }
 

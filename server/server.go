@@ -160,19 +160,26 @@ func auth(next http.Handler) http.Handler {
 		slog.Debug("Authenticating request")
 		ctx := r.Context()
 		et, err := r.Cookie(authCookie)
-		if err == nil {
-			token, _ := jwt.ParseWithClaims(et.Value, &claims{}, func(token *jwt.Token) (interface{}, error) {
-				return node.JwtKey, nil
-			})
-			if cls, ok := token.Claims.(*claims); ok {
-				ctx = context.WithValue(ctx, ctxClaims, cls)
-				r = r.WithContext(ctx)
-				next.ServeHTTP(w, r)
-				return
-			}
+		if err != nil {
+			http.Redirect(w, r, "/static/login.html", http.StatusTemporaryRedirect)
+			return
+		}
+
+		token, err := jwt.ParseWithClaims(et.Value, &claims{}, func(token *jwt.Token) (interface{}, error) {
+			return node.JwtKey, nil
+		})
+		if err != nil {
+			http.Redirect(w, r, "/static/login.html", http.StatusTemporaryRedirect)
+			return
+		}
+
+		if cls, ok := token.Claims.(*claims); ok {
+			ctx = context.WithValue(ctx, ctxClaims, cls)
+			r = r.WithContext(ctx)
+			next.ServeHTTP(w, r)
+			return
 		}
 		http.Redirect(w, r, "/static/login.html", http.StatusTemporaryRedirect)
-		// w.WriteHeader(http.StatusForbidden)
 	})
 }
 
@@ -222,6 +229,10 @@ func apiMsgHandler(w http.ResponseWriter, q *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
+
+	m.Auth.UserID = uid
+	m.Auth.Admin = cls.Admin
+	slog.Debug("API message ready to send", "message", m)
 
 	r := t.Ask(m)
 	if r.Kind == msg.ErrorKind {

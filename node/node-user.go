@@ -45,7 +45,6 @@ func (n *UserNode) run() {
 }
 
 func (t *UserNode) loadBody(h *Head) (n Node, err error) {
-	// h.In = make(msg.Pipe)
 	un := &UserNode{
 		Head:  h,
 		Parms: &UserParms{},
@@ -57,7 +56,7 @@ func (t *UserNode) loadBody(h *Head) (n Node, err error) {
 }
 
 func (n *UserNode) create(p *Head) (in msg.Pipe, err error) {
-	n.UserID = n.ID
+	n.OwnerID = n.ID
 	n.Head.path = p.path + "/" + n.Name
 	n.Parms.Password, err = bcrypt.GenerateFromPassword(n.Parms.Password, 14)
 	if err != nil {
