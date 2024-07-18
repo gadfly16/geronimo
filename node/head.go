@@ -14,12 +14,11 @@ var nodeMsgHandlers = map[Kind]map[msg.Kind]func(Node, *msg.Msg) *msg.Msg{}
 
 func init() {
 	commonMsgHandlers = map[msg.Kind]func(*Head, *msg.Msg) *msg.Msg{
-		msg.CreateKind: createHandler,
-		msg.StopKind:   stopHandler,
+		msg.CreateKind:  createHandler,
+		msg.StopKind:    stopHandler,
+		msg.GetTreeKind: getTreeHandler,
 	}
 }
-
-type Kind = int
 
 type Head struct {
 	ID        int `gorm:"primarykey"`
@@ -29,6 +28,7 @@ type Head struct {
 
 	Name     string
 	Kind     Kind
+	UserID   int
 	ParentID int
 	In       msg.Pipe `gorm:"-"`
 
@@ -95,16 +95,8 @@ func (h *Head) handleMsg(n Node, m *msg.Msg) (r *msg.Msg) {
 	if ok {
 		return nf(n, m)
 	}
-	return msg.NewErrorMsg(fmt.Errorf(""))
+	return msg.NewErrorMsg(fmt.Errorf("no appropriate handler found for %s on %s", m.KindName(), h.KindName()))
 }
-
-// func (h *Head) commonMsg(m *msg.Msg) (r *msg.Msg) {
-// 	f, ok := commonMsgHandlers[m.Kind]
-// 	if !ok {
-// 		return nil
-// 	}
-// 	return f(h, m)
-// }
 
 func createHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
 	var ch msg.Pipe
@@ -120,12 +112,12 @@ func createHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
 			pl.Parms.Admin = true
 		}
 	}
-	ch, err = n.create(h.path)
+	ch, err = n.create(h)
 	if err != nil {
 		return msg.NewErrorMsg(err)
 	}
 	h.children[n.name()] = ch
-	return msg.OK
+	return &msg.OK
 }
 
 func stopHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
@@ -142,4 +134,28 @@ func (h *Head) askChildren(m *msg.Msg) {
 	for range len(h.children) {
 		<-m.Resp
 	}
+}
+
+func getTreeHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
+	tree := &TreeEntry{
+		ID:   h.ID,
+		Name: h.Name,
+		Kind: h.Kind,
+	}
+
+	chm := msg.GetTree
+	chm.Resp = make(msg.Pipe)
+	for _, ch := range h.children {
+		ch <- &chm
+	}
+	for range len(h.children) {
+		chr := <-chm.Resp
+		slog.Debug("Children gave back tree")
+		tree.Children = append(tree.Children, chr.Payload.(*TreeEntry))
+	}
+
+	r = &msg.Msg{
+		Kind:    msg.TreeKind,
+		Payload: tree}
+	return
 }

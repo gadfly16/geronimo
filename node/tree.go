@@ -11,9 +11,11 @@ var Tree = nodeTree{
 	Nodes: make(map[int]msg.Pipe),
 }
 
-type treeEntry struct {
-	Name string
-	kids []treeEntry
+type TreeEntry struct {
+	ID       int
+	Name     string
+	Kind     Kind
+	Children []*TreeEntry `json:",omitempty"`
 }
 
 type nodeTree struct {

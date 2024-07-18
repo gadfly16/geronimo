@@ -9,6 +9,7 @@ export var msgKinds;
     msgKinds[msgKinds["GetParms"] = 6] = "GetParms";
     msgKinds[msgKinds["Create"] = 7] = "Create";
     msgKinds[msgKinds["AuthUser"] = 8] = "AuthUser";
+    msgKinds[msgKinds["GetTree"] = 9] = "GetTree";
 })(msgKinds || (msgKinds = {}));
 export let WSMsg = {
     Credentials: "Credentials",
@@ -26,6 +27,7 @@ export var nodeKinds;
 })(nodeKinds || (nodeKinds = {}));
 export var payloadKinds;
 (function (payloadKinds) {
-    payloadKinds[payloadKinds["UserNodePayload"] = 0] = "UserNodePayload";
+    payloadKinds[payloadKinds["Empty"] = 0] = "Empty";
+    payloadKinds[payloadKinds["UserNodePayload"] = 1] = "UserNodePayload";
 })(payloadKinds || (payloadKinds = {}));
 export let NodeTypeName = ["root", "user", "account", "broker", "group", "pocket"];

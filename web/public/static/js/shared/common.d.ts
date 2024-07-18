@@ -11,7 +11,8 @@ export declare enum msgKinds {
     Parms = 5,
     GetParms = 6,
     Create = 7,
-    AuthUser = 8
+    AuthUser = 8,
+    GetTree = 9
 }
 export declare let WSMsg: {
     Credentials: string;
@@ -27,6 +28,7 @@ export declare enum nodeKinds {
     Account = 4
 }
 export declare enum payloadKinds {
-    UserNodePayload = 0
+    Empty = 0,
+    UserNodePayload = 1
 }
 export declare let NodeTypeName: string[];

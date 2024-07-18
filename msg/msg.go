@@ -1,7 +1,7 @@
 package msg
 
 const (
-	OKKind = iota
+	OKKind Kind = iota
 	ErrorKind
 	StopKind
 	StoppedKind
@@ -10,24 +10,37 @@ const (
 	GetParmsKind
 	CreateKind
 	AuthUserKind
+	GetTreeKind
+	TreeKind
+	GetCopyKind
+	GetDetailKind
+	DetailKind
 )
 
 var kindNames = map[Kind]string{
-	OKKind:       "OK",
-	ErrorKind:    "Error",
-	StopKind:     "Stop",
-	StoppedKind:  "Stopped",
-	UpdateKind:   "Update",
-	ParmsKind:    "Parms",
-	GetParmsKind: "GetParms",
-	CreateKind:   "Create",
-	AuthUserKind: "AuthUser",
+	OKKind:        "OK",
+	ErrorKind:     "Error",
+	StopKind:      "Stop",
+	StoppedKind:   "Stopped",
+	UpdateKind:    "Update",
+	ParmsKind:     "Parms",
+	GetParmsKind:  "GetParms",
+	CreateKind:    "Create",
+	AuthUserKind:  "AuthUser",
+	GetTreeKind:   "GetTree",
+	TreeKind:      "Tree",
+	GetCopyKind:   "GetCopy",
+	GetDetailKind: "GetDetail",
+	DetailKind:    "Detail",
 }
 
 var (
-	OK       = &Msg{Kind: OKKind}
-	Stop     = &Msg{Kind: StopKind}
-	GetParms = &Msg{Kind: GetParmsKind}
+	OK        = Msg{Kind: OKKind}
+	Stop      = Msg{Kind: StopKind}
+	GetParms  = Msg{Kind: GetParmsKind}
+	GetCopy   = Msg{Kind: GetCopyKind}
+	GetTree   = Msg{Kind: GetTreeKind}
+	GetDetail = Msg{Kind: GetDetailKind}
 )
 
 type Pipe chan *Msg
@@ -38,6 +51,11 @@ type Msg struct {
 	Kind    Kind
 	Payload any
 	Resp    Pipe
+
+	auth struct {
+		uid   int
+		admin bool
+	}
 }
 
 func (m *Msg) Answer(q *Msg) {

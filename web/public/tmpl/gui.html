@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Geronimo - {{.Name}}</title>
+  <title>Geronimo</title>
   <link href="https://fonts.googleapis.com/css?family=Roboto:regular,bold" rel="stylesheet">
   <link rel="stylesheet" href="/static/gui.css">
   <link rel="icon" href="/static/favicon.png">
@@ -12,13 +12,14 @@
 </head>
 
 <body>
+  <data id="user-id" value="{{.ID}}"></data>
+
   <div id="header">
     <span id="name">Geronimo</span>
     <img id="logo" src="/static/favicon.png">
   </div>
 
   <div id="sidebar">
-    <div id="user-email"><data id="user-id" value="{{.ID}}">{{.Email}}</data></div>
     <ul id="tree-view"></ul>
   </div>
 

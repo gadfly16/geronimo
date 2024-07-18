@@ -44,8 +44,9 @@ func (n *GroupNode) run() {
 	slog.Info("Stopped Group node.", "node", n.path)
 }
 
-func (n *GroupNode) create(pp string) (in msg.Pipe, err error) {
-	n.Head.path = pp + "/" + n.Head.Name
+func (n *GroupNode) create(p *Head) (in msg.Pipe, err error) {
+	n.UserID = p.ID
+	n.Head.path = p.path + "/" + n.Head.Name
 	err = Db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&n.Head).Error; err != nil {
 			return err
@@ -69,8 +70,8 @@ func groupAuthUserHandler(ni Node, m *msg.Msg) (r *msg.Msg) {
 	if !ok {
 		return msg.NewErrorMsg(fmt.Errorf("user not found"))
 	}
-	up := u.Ask(msg.GetParms).Payload.(UserParms)
-	err := bcrypt.CompareHashAndPassword(up.Password, uc.Parms.Password)
+	up := u.Ask(&msg.GetCopy).Payload.(UserNode)
+	err := bcrypt.CompareHashAndPassword(up.Parms.Password, uc.Parms.Password)
 	if err != nil {
 		return msg.NewErrorMsg(err)
 	}

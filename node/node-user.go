@@ -14,6 +14,7 @@ func init() {
 	nodeMsgHandlers[UserKind] = map[msg.Kind]func(Node, *msg.Msg) *msg.Msg{
 		// msg.UpdateKind:   rootUpdateHandler,
 		msg.GetParmsKind: userGetParmsHandler,
+		msg.GetCopyKind:  userGetNodeCopyHandler,
 	}
 }
 
@@ -55,8 +56,9 @@ func (t *UserNode) loadBody(h *Head) (n Node, err error) {
 	return un, nil
 }
 
-func (n *UserNode) create(pp string) (in msg.Pipe, err error) {
-	n.Head.path = pp + "/" + n.Name
+func (n *UserNode) create(p *Head) (in msg.Pipe, err error) {
+	n.UserID = n.ID
+	n.Head.path = p.path + "/" + n.Name
 	n.Parms.Password, err = bcrypt.GenerateFromPassword(n.Parms.Password, 14)
 	if err != nil {
 		return
@@ -89,11 +91,19 @@ func (n *UserNode) UnmarshalMsg(b io.ReadCloser) (m *msg.Msg, err error) {
 	return
 }
 
-func userGetParmsHandler(ni Node, m *msg.Msg) (r *msg.Msg) {
+func userGetParmsHandler(ni Node, _ *msg.Msg) *msg.Msg {
 	n := ni.(*UserNode)
 	return &msg.Msg{
 		Kind:    msg.ParmsKind,
 		Payload: *n.Parms,
+	}
+}
+
+func userGetNodeCopyHandler(ni Node, _ *msg.Msg) *msg.Msg {
+	ncp := *ni.(*UserNode)
+	return &msg.Msg{
+		Kind:    msg.ParmsKind,
+		Payload: ncp,
 	}
 }
 

@@ -1,4 +1,4 @@
-import { WSMsg, nodeKinds, NodeTypeName } from "../shared/common.js";
+import { WSMsg, nodeKinds, NodeTypeName, msgKinds, payloadKinds } from "../shared/common.js";
 // UI Globals
 let gui;
 // This is not jQuery, but a helper function to turn a html string into a HTMLElement
@@ -18,7 +18,7 @@ class GUI {
         this.guiOTP = "";
         this.htmlTreeView = document.querySelector("#tree-view");
         this.htmlDisplayView = document.querySelector("#display-view");
-        this.loadTree(rootNodeID);
+        this.fetchTree(rootNodeID);
         this.htmlTreeView.addEventListener("click", this.treeClick.bind(this));
         this.socket = new WebSocket("/socket");
         this.socket.onmessage = this.socketMessageHandler.bind(this);
@@ -61,10 +61,15 @@ class GUI {
     addNode(node) {
         this.nodes.set(node.ID.toString(), node);
     }
-    loadTree(nodeID) {
-        fetch("/api/tree?" + new URLSearchParams({
-            userid: nodeID.toString()
-        })).then((resp) => {
+    fetchTree(nodeID) {
+        let msg = {
+            Kind: msgKinds.GetTree
+        };
+        fetch("/api/msg/" + nodeID + "/" + payloadKinds.Empty, {
+            method: "post",
+            body: JSON.stringify(msg),
+            mode: "same-origin",
+        }).then((resp) => {
             return resp.json();
         }).then((treeData) => {
             this.tree = new Node(treeData);
@@ -128,7 +133,7 @@ class Node {
     constructor(nodeData = null, parentID = 0) {
         this.ID = 0;
         this.Name = "";
-        this.DetailType = 0;
+        this.Kind = 0;
         this.ParentID = 0;
         this.htmlTreeElem = null;
         this.htmlDisplayElem = null;
@@ -138,9 +143,9 @@ class Node {
             return;
         this.ID = nodeData.ID;
         this.Name = nodeData.Name;
-        this.DetailType = nodeData.DetailType;
-        if ("children" in nodeData) {
-            nodeData.children.forEach((e) => {
+        this.Kind = nodeData.Kind;
+        if ("Children" in nodeData) {
+            nodeData.Children.forEach((e) => {
                 this.children.push(new Node(e, this.ID));
             });
         }
@@ -488,9 +493,6 @@ class Info {
             (_a = this.htmlInfo) === null || _a === void 0 ? void 0 : _a.classList.add("changeAlert");
         }
     }
-}
-function displayTemplate(dd) {
-    return "";
 }
 window.onload = () => {
     let userID = parseInt(document.getElementById("user-id").getAttribute("value"));

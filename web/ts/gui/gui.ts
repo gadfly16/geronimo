@@ -1,4 +1,4 @@
-import {WSMsg, nodeKinds, NodeTypeName} from "../shared/common.js"
+import {WSMsg, nodeKinds, NodeTypeName, msgKinds, payloadKinds} from "../shared/common.js"
 
 interface socketMessage {
   Type: string,
@@ -34,7 +34,7 @@ class GUI {
   constructor(rootNodeID: number) {
     this.htmlTreeView = document.querySelector("#tree-view")!
     this.htmlDisplayView = document.querySelector("#display-view")!
-    this.loadTree(rootNodeID)
+    this.fetchTree(rootNodeID)
     this.htmlTreeView.addEventListener("click", this.treeClick.bind(this))
     this.socket = new WebSocket("/socket")
     this.socket.onmessage = this.socketMessageHandler.bind(this)
@@ -85,10 +85,15 @@ class GUI {
     this.nodes.set(node.ID.toString(), node)
   }
 
-  loadTree(nodeID: number) {
-    fetch("/api/tree?" + new URLSearchParams({
-      userid: nodeID.toString()
-    })).then((resp) => {
+  fetchTree(nodeID: number) {
+    let msg = {
+      Kind: msgKinds.GetTree
+    }
+    fetch("/api/msg/" + nodeID + "/" + payloadKinds.Empty, {
+      method: "post",
+      body: JSON.stringify(msg),
+      mode: "same-origin",
+    }).then((resp) => {
         return resp.json()
     }).then((treeData) => {
       this.tree = new Node(treeData)
@@ -151,7 +156,7 @@ class GUI {
 class Node {
   ID: number = 0
   Name: string = ""
-  DetailType: number = 0
+  Kind: number = 0
   ParentID: number = 0
   htmlTreeElem: HTMLElement | null = null
   htmlDisplayElem: HTMLElement | null = null
@@ -163,9 +168,9 @@ class Node {
     if (nodeData == null) return
     this.ID = nodeData.ID
     this.Name = nodeData.Name
-    this.DetailType = nodeData.DetailType
-    if ("children" in nodeData) {
-      nodeData.children.forEach((e: any) => {
+    this.Kind = nodeData.Kind
+    if ("Children" in nodeData) {
+      nodeData.Children.forEach((e: any) => {
         this.children.push(new Node(e, this.ID))
       });
     }
@@ -546,10 +551,6 @@ class Info {
       this.htmlInfo?.classList.add("changeAlert")
     }
   } 
-}
-
-function displayTemplate(dd: any): string {
-  return ""
 }
 
 window.onload = () => { 

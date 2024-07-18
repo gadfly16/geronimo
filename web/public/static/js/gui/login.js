@@ -9,7 +9,6 @@ function login(e) {
         Kind: nodeKinds.User,
         Name: data.get("Email"),
         Parms: {
-            DisplayName: "subidubi",
             Password: btoa(data.get("Password")),
         }
     };
@@ -19,7 +18,7 @@ function login(e) {
         mode: 'same-origin',
     }).then((response) => {
         if (response.ok) {
-            window.location.replace("/static/gui.html");
+            window.location.replace("/gui");
         }
         else {
             throw 'unauthorized';

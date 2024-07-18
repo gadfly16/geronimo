@@ -65,8 +65,8 @@ func (nt *RootNode) loadBody(h *Head) (n Node, err error) {
 	return rn, nil
 }
 
-func (n *RootNode) create(pp string) (in msg.Pipe, err error) {
-	n.Head.path = pp + "/" + n.Head.Name
+func (n *RootNode) create(p *Head) (in msg.Pipe, err error) {
+	n.Head.path = p.path + "/" + n.Head.Name
 	n.Parms.JwtKey = make([]byte, 14)
 	if _, err = rand.Read(n.Parms.JwtKey); err != nil {
 		return
@@ -101,7 +101,7 @@ func InitRootNode(rp *RootParms) (err error) {
 		},
 		Parms: rp,
 	}
-	_, err = root.create("")
+	_, err = root.create(&Head{path: ""})
 	return err
 }
 
