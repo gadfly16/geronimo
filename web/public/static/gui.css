@@ -102,19 +102,19 @@ data:hover::after {
 }
 
 .user:before {
-    background: url("http://localhost:8088/static/user_icon.svg");
+    background: url("/static/user_icon.svg");
     background-size:cover;
     filter: invert(95%) sepia(33%) saturate(516%) hue-rotate(157deg) brightness(96%) contrast(92%);
 }
 
 .account:before {
-    background: url("http://localhost:8088/static/account_icon.svg");
+    background: url("/static/account_icon.svg");
     background-size:cover;
     filter: invert(95%) sepia(33%) saturate(516%) hue-rotate(157deg) brightness(96%) contrast(92%);
 }
 
 .broker:before {
-    background: url("http://localhost:8088/static/broker_icon.svg");
+    background: url("/static/broker_icon.svg");
     background-size:cover;
     filter: invert(95%) sepia(33%) saturate(516%) hue-rotate(157deg) brightness(96%) contrast(92%);
 }

@@ -1,4 +1,4 @@
-import {WSMsg, nodeKinds, NodeTypeName, msgKinds, payloadKinds} from "../shared/common.js"
+import {WSMsg, nodeKinds, NodeKindName, msgKinds, payloadKinds} from "../shared/common.js"
 
 interface socketMessage {
   Type: string,
@@ -203,15 +203,20 @@ class Node {
 
   updateDisplay() {
     console.log(`Updating node ${this.ID}.`)
-    fetch(`/api/display/${this.ID.toString()}`)
-    .then((resp) => {
+    let msg = {
+      Kind: msgKinds.GetDisplay
+    }
+
+    fetch(`/api/msg/${this.ID}/${payloadKinds.Empty}`, {
+      method: "post",
+      body: JSON.stringify(msg),
+      mode: "same-origin",
+    }).then((resp) => {
       return resp.json()
-    })
-    .then((displayData) => {
+    }).then((displayData) => {
       if (displayData.error) throw new Error(displayData.error)
       this.display?.update(displayData)
-    })
-    .catch((e: Error) => {
+    }).catch((e: Error) => {
       if (e.message == "unauthorized") {
         window.location.replace("/login" + new URL(location.href).search)
       }
@@ -221,13 +226,20 @@ class Node {
   
   select() {
     this.htmlTreeElem!.classList.add("selected")
-    fetch(`/api/display/${this.ID.toString()}`)
-    .then((resp) => {
+
+    let msg = {
+      Kind: msgKinds.GetDisplay
+    }
+    fetch(`/api/msg/${this.ID}/${payloadKinds.Empty}`, {
+      method: "post",
+      body: JSON.stringify(msg),
+      mode: "same-origin",
+    }).then((resp) => {
       return resp.json()
-    })
-    .then((displayData) => {
+    }).then((displayData) => {
+      console.log(`Display data received:`, displayData)
       if (displayData.error) throw new Error(displayData.error)
-        switch (displayData.DetailType) {
+        switch (displayData.Head.Kind) {
           case nodeKinds.Broker:
             this.display = new BrokerDisplay(displayData)
             break
@@ -240,8 +252,7 @@ class Node {
         }
       gui.htmlDisplayView.appendChild(this.display!.render())
       gui.subscribe(this.ID)
-    })
-    .catch((e: Error) => {
+    }).catch((e: Error) => {
       if (e.message == "unauthorized") {
         window.location.replace("/login" + new URL(location.href).search)
       }
@@ -259,7 +270,7 @@ class Node {
 
 class NodeDisplay {
   name: string
-  detailType: number
+  kind: number
   id: number
   path: string
   parms: ParameterForm | null = null
@@ -267,10 +278,10 @@ class NodeDisplay {
   htmlDisplay: HTMLElement | null = null
   
   constructor(displayData: any) {
-    this.name = displayData.Name
-    this.detailType = displayData.DetailType
+    this.name = displayData.Head.Name
+    this.kind = displayData.Head.Kind
     this.id = displayData.ID
-    this.path = displayData.Path
+    this.path = displayData.Head.Path
   }
 
   render():HTMLElement {
@@ -285,7 +296,7 @@ class NodeDisplay {
     let dispHead = $(`
       <div class="display">
         <div class="displayHead">
-          <div class="displayName ${NodeTypeName[this.detailType]}">${this.name}</div>
+          <div class="displayName ${NodeKindName[this.kind]}">${this.name}</div>
           <div class="displayPath">${this.path}</div>
         </div>
       </div>
@@ -306,13 +317,14 @@ class NodeDisplay {
 }
 
 class UserDisplay extends NodeDisplay{
-  infoNames = ["Last Modified"]
+  // parmNames = ["Display Name", "Admin"]
+  // infoNames = ["Last Modified"]
 
   constructor(displayData: any) {
     super(displayData)
-    let parmDict = displayData.Detail
-    parmDict["Last Modified"] = parmDict.CreatedAt
-    this.infos = new InfoList(parmDict, this.infoNames)
+    let parmDict = displayData.Parms
+    // this.parms = new ParameterForm(this, parmDict, this.parmNames)
+    // this.infos = new InfoList(parmDict, this.infoNames)
   }
 }
 
@@ -368,7 +380,7 @@ class ParameterForm {
       detail[parm.name] = parm.inputType == "number" ? Number(value) : value
     }
 
-    const apiUpdatePath = `/api/update/${NodeTypeName[this.nodeDisplay.detailType]}`
+    const apiUpdatePath = `/api/update/${NodeKindName[this.nodeDisplay.kind]}`
     console.log(apiUpdatePath)
     const msg = {
       Type: "Update",

@@ -1,4 +1,4 @@
-import { WSMsg, nodeKinds, NodeTypeName, msgKinds, payloadKinds } from "../shared/common.js";
+import { WSMsg, nodeKinds, NodeKindName, msgKinds, payloadKinds } from "../shared/common.js";
 // UI Globals
 let gui;
 // This is not jQuery, but a helper function to turn a html string into a HTMLElement
@@ -177,17 +177,21 @@ class Node {
     }
     updateDisplay() {
         console.log(`Updating node ${this.ID}.`);
-        fetch(`/api/display/${this.ID.toString()}`)
-            .then((resp) => {
+        let msg = {
+            Kind: msgKinds.GetDisplay
+        };
+        fetch(`/api/msg/${this.ID}/${payloadKinds.Empty}`, {
+            method: "post",
+            body: JSON.stringify(msg),
+            mode: "same-origin",
+        }).then((resp) => {
             return resp.json();
-        })
-            .then((displayData) => {
+        }).then((displayData) => {
             var _a;
             if (displayData.error)
                 throw new Error(displayData.error);
             (_a = this.display) === null || _a === void 0 ? void 0 : _a.update(displayData);
-        })
-            .catch((e) => {
+        }).catch((e) => {
             if (e.message == "unauthorized") {
                 window.location.replace("/login" + new URL(location.href).search);
             }
@@ -196,14 +200,20 @@ class Node {
     }
     select() {
         this.htmlTreeElem.classList.add("selected");
-        fetch(`/api/display/${this.ID.toString()}`)
-            .then((resp) => {
+        let msg = {
+            Kind: msgKinds.GetDisplay
+        };
+        fetch(`/api/msg/${this.ID}/${payloadKinds.Empty}`, {
+            method: "post",
+            body: JSON.stringify(msg),
+            mode: "same-origin",
+        }).then((resp) => {
             return resp.json();
-        })
-            .then((displayData) => {
+        }).then((displayData) => {
+            console.log(`Display data received:`, displayData);
             if (displayData.error)
                 throw new Error(displayData.error);
-            switch (displayData.DetailType) {
+            switch (displayData.Head.Kind) {
                 case nodeKinds.Broker:
                     this.display = new BrokerDisplay(displayData);
                     break;
@@ -216,8 +226,7 @@ class Node {
             }
             gui.htmlDisplayView.appendChild(this.display.render());
             gui.subscribe(this.ID);
-        })
-            .catch((e) => {
+        }).catch((e) => {
             if (e.message == "unauthorized") {
                 window.location.replace("/login" + new URL(location.href).search);
             }
@@ -236,10 +245,10 @@ class NodeDisplay {
         this.parms = null;
         this.infos = null;
         this.htmlDisplay = null;
-        this.name = displayData.Name;
-        this.detailType = displayData.DetailType;
+        this.name = displayData.Head.Name;
+        this.kind = displayData.Head.Kind;
         this.id = displayData.ID;
-        this.path = displayData.Path;
+        this.path = displayData.Head.Path;
     }
     render() {
         let disp = this.renderHead();
@@ -254,7 +263,7 @@ class NodeDisplay {
         let dispHead = $(`
       <div class="display">
         <div class="displayHead">
-          <div class="displayName ${NodeTypeName[this.detailType]}">${this.name}</div>
+          <div class="displayName ${NodeKindName[this.kind]}">${this.name}</div>
           <div class="displayPath">${this.path}</div>
         </div>
       </div>
@@ -273,12 +282,13 @@ class NodeDisplay {
     }
 }
 class UserDisplay extends NodeDisplay {
+    // parmNames = ["Display Name", "Admin"]
+    // infoNames = ["Last Modified"]
     constructor(displayData) {
         super(displayData);
-        this.infoNames = ["Last Modified"];
-        let parmDict = displayData.Detail;
-        parmDict["Last Modified"] = parmDict.CreatedAt;
-        this.infos = new InfoList(parmDict, this.infoNames);
+        let parmDict = displayData.Parms;
+        // this.parms = new ParameterForm(this, parmDict, this.parmNames)
+        // this.infos = new InfoList(parmDict, this.infoNames)
     }
 }
 class BrokerDisplay extends NodeDisplay {
@@ -324,7 +334,7 @@ class ParameterForm {
             const value = formData.get(parm.name);
             detail[parm.name] = parm.inputType == "number" ? Number(value) : value;
         }
-        const apiUpdatePath = `/api/update/${NodeTypeName[this.nodeDisplay.detailType]}`;
+        const apiUpdatePath = `/api/update/${NodeKindName[this.nodeDisplay.kind]}`;
         console.log(apiUpdatePath);
         const msg = {
             Type: "Update",

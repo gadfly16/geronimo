@@ -13,34 +13,35 @@ const (
 	GetTreeKind
 	TreeKind
 	GetCopyKind
-	GetDetailKind
-	DetailKind
+	GetDisplayKind
+	DisplayKind
 )
 
 var kindNames = map[Kind]string{
-	OKKind:        "OK",
-	ErrorKind:     "Error",
-	StopKind:      "Stop",
-	StoppedKind:   "Stopped",
-	UpdateKind:    "Update",
-	ParmsKind:     "Parms",
-	GetParmsKind:  "GetParms",
-	CreateKind:    "Create",
-	AuthUserKind:  "AuthUser",
-	GetTreeKind:   "GetTree",
-	TreeKind:      "Tree",
-	GetCopyKind:   "GetCopy",
-	GetDetailKind: "GetDetail",
-	DetailKind:    "Detail",
+	OKKind:         "OK",
+	ErrorKind:      "Error",
+	StopKind:       "Stop",
+	StoppedKind:    "Stopped",
+	UpdateKind:     "Update",
+	ParmsKind:      "Parms",
+	GetParmsKind:   "GetParms",
+	CreateKind:     "Create",
+	AuthUserKind:   "AuthUser",
+	GetTreeKind:    "GetTree",
+	TreeKind:       "Tree",
+	GetCopyKind:    "GetCopy",
+	GetDisplayKind: "GetDisplay",
+	DisplayKind:    "Display",
 }
 
 var (
-	OK        = Msg{Kind: OKKind}
-	Stop      = Msg{Kind: StopKind}
-	GetParms  = Msg{Kind: GetParmsKind}
-	GetCopy   = Msg{Kind: GetCopyKind}
-	GetTree   = Msg{Kind: GetTreeKind}
-	GetDetail = Msg{Kind: GetDetailKind}
+	OK         = Msg{Kind: OKKind}
+	Stop       = Msg{Kind: StopKind}
+	Stopped    = Msg{Kind: StoppedKind}
+	GetParms   = Msg{Kind: GetParmsKind}
+	GetCopy    = Msg{Kind: GetCopyKind}
+	GetTree    = Msg{Kind: GetTreeKind}
+	GetDisplay = Msg{Kind: GetDisplayKind}
 )
 
 type Pipe chan *Msg
@@ -58,7 +59,7 @@ type Msg struct {
 	}
 }
 
-func (m *Msg) Answer(q *Msg) {
+func (q *Msg) Answer(m *Msg) {
 	q.Resp <- m
 }
 
@@ -77,8 +78,8 @@ func (m *Msg) KindName() string {
 	return kindNames[m.Kind]
 }
 
-func (t Pipe) Ask(m *Msg) *Msg {
+func (t Pipe) Ask(m Msg) Msg {
 	m.Resp = make(Pipe)
-	t <- m
-	return <-m.Resp
+	t <- &m
+	return *<-m.Resp
 }

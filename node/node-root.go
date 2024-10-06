@@ -43,7 +43,7 @@ func (n *RootNode) run() {
 	for q := range n.In {
 		slog.Debug("Message received.", "node", n.Name, "kind", q.KindName())
 		r := n.Head.handleMsg(n, q)
-		r.Answer(q)
+		q.Answer(r)
 		slog.Debug("Message answered.", "node", n.Name, "kind", r.KindName())
 		if r.Kind == msg.StoppedKind {
 			break
@@ -87,7 +87,7 @@ func (n *RootNode) create(p *Head) (in msg.Pipe, err error) {
 	}
 	n.setLogLevel()
 	go n.run()
-	n.Head.register()
+	n.Head.initNew()
 	Tree.Root = n.Head.In
 	JwtKey = n.Parms.JwtKey
 	slog.Info("Created Root node.", "path", n.Head.path)
@@ -125,6 +125,13 @@ func rootGetParmsHandler(ni Node, m *msg.Msg) (r *msg.Msg) {
 // })
 // 	return
 // }
+
+func (n *RootNode) getDisplay() (d display) {
+	d = display{
+		"Parms": n.Parms,
+	}
+	return
+}
 
 func (n *RootNode) setLogLevel() {
 	LogLevel.Set(slog.Level(n.Parms.LogLevel))

@@ -14,6 +14,10 @@ export enum msgKinds {
 	Create,
   AuthUser,
   GetTree,
+  Tree,
+  GetCopy,
+  GetDisplay,
+  Display,
 }
 
 export let WSMsg = {
@@ -36,4 +40,4 @@ export enum payloadKinds {
   UserNodePayload,
 }
 
-export let NodeTypeName = ["root", "user", "account", "broker", "group", "pocket"]
+export let NodeKindName = ["root", "group", "user", "broker", "account", "broker", "pocket"]

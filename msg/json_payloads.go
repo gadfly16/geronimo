@@ -13,16 +13,16 @@ const (
 )
 
 type JSONPayloader interface {
-	UnmarshalMsg(io.ReadCloser) (*Msg, error)
+	UnmarshalMsg(io.ReadCloser) (Msg, error)
 }
 
 type EmptyPayload struct{}
 
-func (pl *EmptyPayload) UnmarshalMsg(b io.ReadCloser) (m *Msg, err error) {
-	m = &Msg{
+func (pl *EmptyPayload) UnmarshalMsg(b io.ReadCloser) (m Msg, err error) {
+	m = Msg{
 		Payload: nil,
 	}
 	d := json.NewDecoder(b)
-	err = d.Decode(m)
+	err = d.Decode(&m)
 	return
 }

@@ -13,8 +13,9 @@ import (
 func init() {
 	nodeMsgHandlers[UserKind] = map[msg.Kind]func(Node, *msg.Msg) *msg.Msg{
 		// msg.UpdateKind:   rootUpdateHandler,
-		msg.GetParmsKind: userGetParmsHandler,
-		msg.GetCopyKind:  userGetNodeCopyHandler,
+		msg.GetParmsKind:   userGetParmsHandler,
+		msg.GetCopyKind:    userGetNodeCopyHandler,
+		msg.GetDisplayKind: userGetDisplayHandler,
 	}
 }
 
@@ -35,7 +36,7 @@ func (n *UserNode) run() {
 	for q := range n.In {
 		slog.Debug("Message received.", "node", n.path, "kind", q.KindName())
 		r := n.Head.handleMsg(n, q)
-		r.Answer(q)
+		q.Answer(r)
 		slog.Debug("Message answered.", "node", n.path, "kind", r.KindName())
 		if r.Kind == msg.StoppedKind {
 			break
@@ -76,17 +77,17 @@ func (n *UserNode) create(p *Head) (in msg.Pipe, err error) {
 		return
 	}
 	go n.run()
-	n.Head.register()
+	n.Head.initNew()
 	slog.Info("Created User node.", "path", n.path)
 	return n.Head.In, nil
 }
 
-func (n *UserNode) UnmarshalMsg(b io.ReadCloser) (m *msg.Msg, err error) {
-	m = &msg.Msg{
+func (n *UserNode) UnmarshalMsg(b io.ReadCloser) (m msg.Msg, err error) {
+	m = msg.Msg{
 		Payload: UserNode{},
 	}
 	d := json.NewDecoder(b)
-	err = d.Decode(m)
+	err = d.Decode(&m)
 	return
 }
 
@@ -121,3 +122,18 @@ func userGetNodeCopyHandler(ni Node, _ *msg.Msg) *msg.Msg {
 // func (n *RootNode) setLogLevel() {
 // 	LogLevel.Set(slog.Level(n.Parms.LogLevel))
 // }
+
+func userGetDisplayHandler(ni Node, _ *msg.Msg) *msg.Msg {
+	n := ni.(*UserNode)
+	d := n.Head.display()
+	d["Parms"] = display{
+		"Display Name": n.Parms.DisplayName,
+		"Admin":        n.Parms.Admin,
+	}
+	// slog.Debug("Display data returned by user node", "displayData", d)
+	r := &msg.Msg{
+		Kind:    msg.DisplayKind,
+		Payload: d,
+	}
+	return r
+}

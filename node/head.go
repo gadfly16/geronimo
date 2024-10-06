@@ -28,8 +28,8 @@ type Head struct {
 
 	Name     string
 	Kind     Kind
-	OwnerID  int `gorm:"-"`
 	ParentID int
+	OwnerID  int      `gorm:"-"`
 	In       msg.Pipe `gorm:"-"`
 
 	path     string
@@ -82,7 +82,7 @@ func (h *Head) load() (in msg.Pipe, err error) {
 	return h.In, err
 }
 
-func (h *Head) register() {
+func (h *Head) initNew() {
 	h.children = make(map[string]msg.Pipe)
 	h.In = make(msg.Pipe)
 	Tree.NodeLock.Lock()
@@ -91,14 +91,15 @@ func (h *Head) register() {
 }
 
 func (h *Head) handleMsg(n Node, m *msg.Msg) (r *msg.Msg) {
-	hf, ok := commonMsgHandlers[m.Kind]
+	chf, ok := commonMsgHandlers[m.Kind]
 	if ok {
-		return hf(h, m)
+		return chf(h, m)
 	}
-	nf, ok := nodeMsgHandlers[h.Kind][m.Kind]
+	nhf, ok := nodeMsgHandlers[h.Kind][m.Kind]
 	if ok {
-		return nf(n, m)
+		return nhf(n, m)
 	}
+	slog.Error("No appropriate handler found.", "path", h.path, "msg_kind", m.KindName())
 	return msg.NewErrorMsg(fmt.Errorf("no appropriate handler found for %s on %s", m.KindName(), h.KindName()))
 }
 
@@ -126,11 +127,12 @@ func createHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
 
 func stopHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
 	slog.Info("Stopping children.", "name", h.Name)
-	h.askChildren(&msg.Msg{Kind: msg.StopKind})
-	return &msg.Msg{Kind: msg.StoppedKind}
+	h.askChildren(m)
+	return &msg.Stopped
 }
 
 func (h *Head) askChildren(m *msg.Msg) {
+	rp := m.Resp
 	m.Resp = make(msg.Pipe)
 	for _, ch := range h.children {
 		ch <- m
@@ -138,6 +140,7 @@ func (h *Head) askChildren(m *msg.Msg) {
 	for range len(h.children) {
 		<-m.Resp
 	}
+	m.Resp = rp
 }
 
 func getTreeHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
@@ -151,17 +154,15 @@ func getTreeHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
 		Kind: h.Kind,
 	}
 
-	chm := msg.GetTree
-	chm.Resp = make(msg.Pipe)
-	chm.Auth.UserID = m.Auth.UserID
-	chm.Auth.Admin = m.Auth.Admin
+	pp := m.Resp
+	m.Resp = make(msg.Pipe)
 	for _, ch := range h.children {
-		ch <- &chm
+		ch <- m
 	}
 
 	var cherr bool
 	for range len(h.children) {
-		chr := <-chm.Resp
+		chr := <-m.Resp
 		if chr.Kind == msg.ErrorKind {
 			cherr = true
 		} else {
@@ -174,8 +175,21 @@ func getTreeHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
 		return msg.NewErrorMsg(fmt.Errorf("unathorized tree request downstream"))
 	}
 
+	m.Resp = pp
 	r = &msg.Msg{
 		Kind:    msg.TreeKind,
 		Payload: tree}
 	return
+}
+
+func (h *Head) display() display {
+	d := display{
+		"Head": display{
+			"Name":          h.Name,
+			"Kind":          h.Kind,
+			"Path":          h.path,
+			"Last Modified": h.CreatedAt,
+		},
+	}
+	return d
 }

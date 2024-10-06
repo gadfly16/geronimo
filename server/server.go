@@ -28,7 +28,6 @@ const (
 	authCookie         = "geronimo-user"
 )
 
-// var tmplGUI *template.Template
 var JSONPayloadKinds = map[msg.JSONPayloadKind]msg.JSONPayloader{
 	msg.EmptyJSONPayload:    &msg.EmptyPayload{},
 	msg.UserNodeJSONPayload: &node.UserNode{},
@@ -48,7 +47,7 @@ const (
 func Serve(sdb string) (err error) {
 	node.Tree.Load(sdb)
 
-	rp := node.Tree.Root.Ask(&msg.GetParms).Payload.(node.RootParms)
+	rp := node.Tree.Root.Ask(msg.GetParms).Payload.(node.RootParms)
 	slog.Debug("Server settings received")
 
 	server := &http.Server{Addr: rp.HTTPAddr, Handler: service()}
@@ -92,7 +91,7 @@ func Serve(sdb string) (err error) {
 	// Wait for server context to be stopped
 	<-serverCtx.Done()
 
-	node.Tree.Root.Ask(&msg.Stop)
+	node.Tree.Root.Ask(msg.Stop)
 
 	slog.Info("Exiting server.")
 	return
@@ -203,7 +202,7 @@ func apiMsgHandler(w http.ResponseWriter, q *http.Request) {
 		return
 	}
 
-	slog.Debug("API call.",
+	slog.Debug("API message call.",
 		"targetID", tid,
 		"payloadKind", plk,
 		"uid", uid,
@@ -215,7 +214,6 @@ func apiMsgHandler(w http.ResponseWriter, q *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	slog.Debug("API message unmarshaled", "msg", m)
 
 	switch m.Kind {
 	case msg.GetTreeKind:
@@ -232,14 +230,9 @@ func apiMsgHandler(w http.ResponseWriter, q *http.Request) {
 
 	m.Auth.UserID = uid
 	m.Auth.Admin = cls.Admin
-	slog.Debug("API message ready to send", "message", m)
 
 	r := t.Ask(m)
-	if r.Kind == msg.ErrorKind {
-		slog.Error("API message resulted in error", "error", r.ErrorMsg())
-	}
 
-	slog.Debug("Answering API msg", "resp_payload", r.Payload)
 	render.JSON(w, q, r.Payload)
 }
 
@@ -252,7 +245,7 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	m := &msg.Msg{
+	m := msg.Msg{
 		Kind:    msg.CreateKind,
 		Payload: n,
 	}
@@ -274,7 +267,7 @@ func loginHandler(w http.ResponseWriter, q *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	r := node.Tree.Nodes[2].Ask(&msg.Msg{Kind: msg.AuthUserKind, Payload: n})
+	r := node.Tree.Nodes[2].Ask(msg.Msg{Kind: msg.AuthUserKind, Payload: n})
 	if r.Kind == msg.ErrorKind {
 		slog.Error("user authentication failed", "error", r.ErrorMsg())
 		w.WriteHeader(http.StatusBadRequest)

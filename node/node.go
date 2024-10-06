@@ -6,8 +6,6 @@ import (
 	"github.com/gadfly16/geronimo/msg"
 )
 
-type Param struct{}
-
 type Node interface {
 	create(*Head) (msg.Pipe, error)
 	loadBody(*Head) (Node, error)
@@ -30,3 +28,5 @@ type ParmModel struct {
 	CreatedAt time.Time
 	HeadID    int
 }
+
+type display map[string]interface{}

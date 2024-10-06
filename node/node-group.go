@@ -32,10 +32,10 @@ func (t *GroupNode) loadBody(h *Head) (n Node, err error) {
 
 func (n *GroupNode) run() {
 	slog.Info("Running Group node.", "name", n.Head.Name)
-	for m := range n.Head.In {
-		slog.Info("Message received.", "node", n.path, "kind", m.KindName())
-		r := n.Head.handleMsg(n, m)
-		r.Answer(m)
+	for q := range n.Head.In {
+		slog.Info("Message received.", "node", n.path, "kind", q.KindName())
+		r := n.Head.handleMsg(n, q)
+		q.Answer(r)
 		slog.Info("Message answered.", "node", n.path, "kind", r.KindName())
 		if r.Kind == msg.StoppedKind {
 			break
@@ -56,7 +56,7 @@ func (n *GroupNode) create(p *Head) (in msg.Pipe, err error) {
 	if err != nil {
 		return
 	}
-	n.Head.register()
+	n.Head.initNew()
 	slog.Info("Created Group node.", "node", n.Head.path)
 	go n.run()
 	return n.Head.In, nil
@@ -70,10 +70,15 @@ func groupAuthUserHandler(ni Node, m *msg.Msg) (r *msg.Msg) {
 	if !ok {
 		return msg.NewErrorMsg(fmt.Errorf("user not found"))
 	}
-	up := u.Ask(&msg.GetCopy).Payload.(UserNode)
+	up := u.Ask(msg.GetCopy).Payload.(UserNode)
 	err := bcrypt.CompareHashAndPassword(up.Parms.Password, uc.Parms.Password)
 	if err != nil {
 		return msg.NewErrorMsg(err)
 	}
 	return &msg.Msg{Kind: msg.ParmsKind, Payload: up}
+}
+
+func (n *GroupNode) getDisplay() (d display) {
+	d = display{}
+	return
 }

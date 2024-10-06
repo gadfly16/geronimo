@@ -47,7 +47,7 @@ var initCmd = &cobra.Command{
 			return
 		}
 		r := node.Tree.Root.Ask(
-			&msg.Msg{
+			msg.Msg{
 				Kind: msg.CreateKind,
 				Payload: &node.GroupNode{
 					Head: &node.Head{
@@ -61,7 +61,7 @@ var initCmd = &cobra.Command{
 		}
 		slog.Info("Waiting for goroutines to start. TODO")
 		time.Sleep(time.Millisecond * 100)
-		node.Tree.Root.Ask(&msg.Stop)
+		node.Tree.Root.Ask(msg.Stop)
 		if err := node.CloseDB(); err != nil {
 			slog.Error("State db connection close failed.", "error", err)
 		}
