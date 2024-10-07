@@ -19,6 +19,12 @@ function $(html: string): HTMLElement {
   return result as HTMLElement;
 }
 
+let parmTypes = new Map<string, string>([
+  ["string", "text"],
+  ["number", "number"],
+  ["boolean", "checkbox"],
+])
+
 class GUI {
   tree: Node | null = null
   nodes = new Map<string,Node>()
@@ -282,6 +288,7 @@ class NodeDisplay {
     this.kind = displayData.Head.Kind
     this.id = displayData.ID
     this.path = displayData.Head.Path
+    this.parms = new ParameterForm(this, displayData)
   }
 
   render():HTMLElement {
@@ -317,40 +324,29 @@ class NodeDisplay {
 }
 
 class UserDisplay extends NodeDisplay{
-  // parmNames = ["Display Name", "Admin"]
   // infoNames = ["Last Modified"]
 
   constructor(displayData: any) {
     super(displayData)
-    let parmDict = displayData.Parms
-    // this.parms = new ParameterForm(this, parmDict, this.parmNames)
     // this.infos = new InfoList(parmDict, this.infoNames)
   }
 }
 
 class BrokerDisplay extends NodeDisplay{
-  parmNames = ["Pair", "Base", "Quote", "LowLimit", "HighLimit", "Delta", "MinWait", "MaxWait", "Offset"]
-  infoNames = ["Fee", "Last Modified"]
+  // infoNames = ["Fee", "Last Modified"]
 
   constructor(displayData: any) {
     super(displayData)
-    let parmDict = displayData.Detail
-    parmDict["Last Modified"] = parmDict.CreatedAt
-    this.parms = new ParameterForm(this, parmDict, this.parmNames)
-    this.infos = new InfoList(parmDict, this.infoNames)
+    // this.infos = new InfoList(parmDict, this.infoNames)
   }
 }
 
 class AccountDisplay extends NodeDisplay{
-  parmNames = ["Exchange"]
-  infoNames = ["Last Modified"]
+  // infoNames = ["Last Modified"]
 
   constructor(displayData: any) {
     super(displayData)
-    let parmDict = displayData.Detail
-    parmDict["Last Modified"] = parmDict.CreatedAt
-    this.parms = new ParameterForm(this, parmDict, this.parmNames)
-    this.infos = new InfoList(parmDict, this.infoNames)
+    // this.infos = new InfoList(parmDict, this.infoNames)
   }
 }
 
@@ -360,13 +356,12 @@ class ParameterForm {
   submitButton: HTMLElement | null = null
   nodeDisplay: NodeDisplay
 
-  constructor(nodeDisplay: NodeDisplay, parmDict: any, parmNames: string[] = []) {
+  constructor(nodeDisplay: NodeDisplay, displayData: any) {
     this.nodeDisplay = nodeDisplay
-    if (!parmNames.length) {
-      parmNames = Object.keys(parmDict)
-    }
-    for (const parmName of parmNames) {
-      this.parms.set(parmName, new Parameter(parmName, parmDict[parmName], this))
+    if ("Parms" in displayData) {
+      for (const parmName in displayData.Parms) {
+        this.parms.set(parmName, new Parameter(parmName, displayData.Parms[parmName], this))
+      }
     }
   }
 
@@ -447,18 +442,18 @@ class ParameterForm {
 
 class Parameter {
   name: string
-  value: number|string
-  origValue: number|string
+  value: number|string|boolean
+  origValue: number|string|boolean
   inputType: string
   parmForm: ParameterForm
   changed: boolean
   htmlParm: HTMLElement | null = null
 
-  constructor(name: string, value: number|string, parmForm: ParameterForm) {
+  constructor(name: string, value: number|string|boolean, parmForm: ParameterForm) {
     this.name = name
     this.value = value
     this.origValue = value
-    this.inputType = typeof this.value == "string" ? "text" : "number"
+    this.inputType = parmTypes.get(typeof this.value)!
     this.parmForm = parmForm
     this.changed = false
   }
@@ -472,7 +467,7 @@ class Parameter {
           class="settingInput"
           type="${this.inputType}"
           ${this.inputType == "number" ? `step="any"` : ``}
-          value="${this.value}"
+          ${this.inputType == "checkbox" ? `${this.value ? "checked": ""}` : `value="${this.value}"`}
         />
       </div>
     `)
@@ -491,7 +486,11 @@ class Parameter {
 
   valueChange(event: Event) {
     const target = event.target as HTMLInputElement
-    this.value = target.value
+    if (this.inputType == "checkbox") {
+      this.value = target.checked
+    } else {
+      this.value = target.value
+    }
     this.changed = (this.value != this.origValue)
     if (this.changed) {
       this.htmlParm?.classList.add("changed")

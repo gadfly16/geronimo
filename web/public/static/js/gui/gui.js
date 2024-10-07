@@ -9,6 +9,11 @@ function $(html) {
     const result = template.content.firstElementChild;
     return result;
 }
+let parmTypes = new Map([
+    ["string", "text"],
+    ["number", "number"],
+    ["boolean", "checkbox"],
+]);
 class GUI {
     constructor(rootNodeID) {
         this.tree = null;
@@ -249,6 +254,7 @@ class NodeDisplay {
         this.kind = displayData.Head.Kind;
         this.id = displayData.ID;
         this.path = displayData.Head.Path;
+        this.parms = new ParameterForm(this, displayData);
     }
     render() {
         let disp = this.renderHead();
@@ -282,48 +288,36 @@ class NodeDisplay {
     }
 }
 class UserDisplay extends NodeDisplay {
-    // parmNames = ["Display Name", "Admin"]
     // infoNames = ["Last Modified"]
     constructor(displayData) {
         super(displayData);
-        let parmDict = displayData.Parms;
-        // this.parms = new ParameterForm(this, parmDict, this.parmNames)
         // this.infos = new InfoList(parmDict, this.infoNames)
     }
 }
 class BrokerDisplay extends NodeDisplay {
+    // infoNames = ["Fee", "Last Modified"]
     constructor(displayData) {
         super(displayData);
-        this.parmNames = ["Pair", "Base", "Quote", "LowLimit", "HighLimit", "Delta", "MinWait", "MaxWait", "Offset"];
-        this.infoNames = ["Fee", "Last Modified"];
-        let parmDict = displayData.Detail;
-        parmDict["Last Modified"] = parmDict.CreatedAt;
-        this.parms = new ParameterForm(this, parmDict, this.parmNames);
-        this.infos = new InfoList(parmDict, this.infoNames);
+        // this.infos = new InfoList(parmDict, this.infoNames)
     }
 }
 class AccountDisplay extends NodeDisplay {
+    // infoNames = ["Last Modified"]
     constructor(displayData) {
         super(displayData);
-        this.parmNames = ["Exchange"];
-        this.infoNames = ["Last Modified"];
-        let parmDict = displayData.Detail;
-        parmDict["Last Modified"] = parmDict.CreatedAt;
-        this.parms = new ParameterForm(this, parmDict, this.parmNames);
-        this.infos = new InfoList(parmDict, this.infoNames);
+        // this.infos = new InfoList(parmDict, this.infoNames)
     }
 }
 class ParameterForm {
-    constructor(nodeDisplay, parmDict, parmNames = []) {
+    constructor(nodeDisplay, displayData) {
         this.parms = new Map();
         this.htmlParmForm = null;
         this.submitButton = null;
         this.nodeDisplay = nodeDisplay;
-        if (!parmNames.length) {
-            parmNames = Object.keys(parmDict);
-        }
-        for (const parmName of parmNames) {
-            this.parms.set(parmName, new Parameter(parmName, parmDict[parmName], this));
+        if ("Parms" in displayData) {
+            for (const parmName in displayData.Parms) {
+                this.parms.set(parmName, new Parameter(parmName, displayData.Parms[parmName], this));
+            }
         }
     }
     submit(event) {
@@ -404,7 +398,7 @@ class Parameter {
         this.name = name;
         this.value = value;
         this.origValue = value;
-        this.inputType = typeof this.value == "string" ? "text" : "number";
+        this.inputType = parmTypes.get(typeof this.value);
         this.parmForm = parmForm;
         this.changed = false;
     }
@@ -418,7 +412,7 @@ class Parameter {
           class="settingInput"
           type="${this.inputType}"
           ${this.inputType == "number" ? `step="any"` : ``}
-          value="${this.value}"
+          ${this.inputType == "checkbox" ? `${this.value ? "checked" : ""}` : `value="${this.value}"`}
         />
       </div>
     `);
@@ -437,7 +431,12 @@ class Parameter {
     valueChange(event) {
         var _a, _b;
         const target = event.target;
-        this.value = target.value;
+        if (this.inputType == "checkbox") {
+            this.value = target.checked;
+        }
+        else {
+            this.value = target.value;
+        }
         this.changed = (this.value != this.origValue);
         if (this.changed) {
             (_a = this.htmlParm) === null || _a === void 0 ? void 0 : _a.classList.add("changed");
