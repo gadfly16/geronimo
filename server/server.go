@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"html/template"
-	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -27,11 +26,6 @@ const (
 	expirationDuration = 60 * time.Minute
 	authCookie         = "geronimo-user"
 )
-
-var JSONPayloadKinds = map[msg.JSONPayloadKind]msg.JSONPayloader{
-	msg.EmptyJSONPayload:    &msg.EmptyPayload{},
-	msg.UserNodeJSONPayload: &node.UserNode{},
-}
 
 type claims struct {
 	jwt.RegisteredClaims
@@ -68,14 +62,16 @@ func Serve(sdb string) (err error) {
 		go func() {
 			<-shutdownCtx.Done()
 			if shutdownCtx.Err() == context.DeadlineExceeded {
-				log.Fatal("graceful shutdown timed out.. forcing exit.")
+				slog.Error("graceful shutdown timed out.. forcing exit.")
+				os.Exit(1)
 			}
 		}()
 
 		// Trigger graceful shutdown
 		err := server.Shutdown(shutdownCtx)
 		if err != nil {
-			log.Fatal(err)
+			slog.Error(err.Error())
+			os.Exit(1)
 		}
 		serverStopCtx()
 	}()
@@ -85,7 +81,8 @@ func Serve(sdb string) (err error) {
 	// Run the server
 	err = server.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
-		log.Fatal(err)
+		slog.Error(err.Error())
+		os.Exit(1)
 	}
 
 	// Wait for server context to be stopped
@@ -106,14 +103,14 @@ func service() http.Handler {
 		http.Redirect(w, r, r.URL.Host+"/gui", http.StatusMovedPermanently)
 	})
 
-	r.With(auth).Get("/gui", guiHandler())
+	r.With(authPage).Get("/gui", guiHandler())
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("web/public/static"))))
 
 	r.Post("/signup", signupHandler)
 	r.Post("/login", loginHandler)
 	r.Route("/api", func(r chi.Router) {
-		r.Use(auth)
-		r.Post("/msg/{target_id}/{payload_kind}", apiMsgHandler)
+		r.Use(authFetch)
+		r.Post("/msg/{msg_kind}/{target_id}", apiMsgHandler)
 	})
 
 	return r
@@ -154,12 +151,13 @@ func reqLogger(next http.Handler) http.Handler {
 	})
 }
 
-func auth(next http.Handler) http.Handler {
+func authPage(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		slog.Debug("Authenticating request")
+		slog.Debug("Authenticating page request")
 		ctx := r.Context()
 		et, err := r.Cookie(authCookie)
 		if err != nil {
+			slog.Error("Auth request without cookie", "URL", r.URL)
 			http.Redirect(w, r, "/static/login.html", http.StatusTemporaryRedirect)
 			return
 		}
@@ -168,6 +166,7 @@ func auth(next http.Handler) http.Handler {
 			return node.JwtKey, nil
 		})
 		if err != nil {
+			slog.Error("Unable to parse cookie", "URL", r.URL)
 			http.Redirect(w, r, "/static/login.html", http.StatusTemporaryRedirect)
 			return
 		}
@@ -178,7 +177,39 @@ func auth(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
+		slog.Error("Rejected page authorization", "URL", r.URL)
 		http.Redirect(w, r, "/static/login.html", http.StatusTemporaryRedirect)
+	})
+}
+
+func authFetch(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		slog.Debug("Authenticating fetch request")
+		ctx := r.Context()
+		et, err := r.Cookie(authCookie)
+		if err != nil {
+			slog.Error("Auth request without cookie", "URL", r.URL)
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		token, err := jwt.ParseWithClaims(et.Value, &claims{}, func(token *jwt.Token) (interface{}, error) {
+			return node.JwtKey, nil
+		})
+		if err != nil {
+			slog.Error("Unable to parse cookie", "URL", r.URL)
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		if cls, ok := token.Claims.(*claims); ok {
+			ctx = context.WithValue(ctx, ctxClaims, cls)
+			r = r.WithContext(ctx)
+			next.ServeHTTP(w, r)
+			return
+		}
+		slog.Error("Rejected fetch authorization", "URL", r.URL)
+		w.WriteHeader(http.StatusUnauthorized)
 	})
 }
 
@@ -186,31 +217,35 @@ func apiMsgHandler(w http.ResponseWriter, q *http.Request) {
 	cls := q.Context().Value(ctxClaims).(*claims)
 	uid, err := strconv.Atoi(cls.Subject)
 	if err != nil {
+		slog.Error("invalid user ID")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	tid, err := strconv.Atoi(chi.URLParam(q, "target_id"))
 	if err != nil {
+		slog.Error("invalid target node ID")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	plk, err := strconv.Atoi(chi.URLParam(q, "payload_kind"))
+	mk, err := strconv.Atoi(chi.URLParam(q, "msg_kind"))
 	if err != nil {
+		slog.Error("invalid message kind")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	slog.Debug("API message call.",
 		"targetID", tid,
-		"payloadKind", plk,
+		"msgKind", msg.KindNames[mk],
 		"uid", uid,
 		"admin", cls.Admin,
 	)
 
-	m, err := JSONPayloadKinds[msg.JSONPayloadKind(plk)].UnmarshalMsg(q.Body)
+	m, err := msg.UnmarshalMsg(mk, q.Body)
 	if err != nil {
+		slog.Error("can't unmarshal message payload", "error", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -224,6 +259,7 @@ func apiMsgHandler(w http.ResponseWriter, q *http.Request) {
 
 	t, ok := node.Tree.Nodes[tid]
 	if !ok {
+		slog.Error("target node doesn't exists", "target", tid)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -231,7 +267,7 @@ func apiMsgHandler(w http.ResponseWriter, q *http.Request) {
 	m.Auth.UserID = uid
 	m.Auth.Admin = cls.Admin
 
-	r := t.Ask(m)
+	r := t.Ask(*m)
 
 	render.JSON(w, q, r.Payload)
 }

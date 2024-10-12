@@ -31,8 +31,4 @@ export declare enum nodeKinds {
     Broker = 3,
     Account = 4
 }
-export declare enum payloadKinds {
-    Empty = 0,
-    UserNodePayload = 1
-}
 export declare let NodeKindName: string[];

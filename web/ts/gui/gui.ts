@@ -1,4 +1,4 @@
-import {WSMsg, nodeKinds, NodeKindName, msgKinds, payloadKinds} from "../shared/common.js"
+import {WSMsg, nodeKinds, NodeKindName, msgKinds} from "../shared/common.js"
 
 interface socketMessage {
   Type: string,
@@ -6,6 +6,29 @@ interface socketMessage {
   GUIID: number,
   NodeID: number,
 }
+
+function ask(mk: number, tid: number, pl: any, f: ((r: any)=>any)) {
+  return fetch(`/api/msg/${mk}/${tid}`, {
+    method: "post",
+    mode: "same-origin",
+    body: pl === null ? null : JSON.stringify(pl),
+  })
+  .then((resp) => {
+    console.log('Msg resonse: ', resp)
+    if (!resp.ok) {
+      if (resp.status === 401) {
+        window.location.replace("/static/login.html" + new URL(location.href).search)
+      }
+      throw 'http error'
+    }
+    return resp.json()
+  })
+  .then(f)
+  .catch((e: Error) => {
+    console.log("Error:", e)
+    alert(`${e} at line: ${(e as any).lineNumber}`) 
+  })
+} 
 
 // UI Globals
 let gui: GUI
@@ -92,21 +115,11 @@ class GUI {
   }
 
   fetchTree(nodeID: number) {
-    let msg = {
-      Kind: msgKinds.GetTree
-    }
-    fetch("/api/msg/" + nodeID + "/" + payloadKinds.Empty, {
-      method: "post",
-      body: JSON.stringify(msg),
-      mode: "same-origin",
-    }).then((resp) => {
-        return resp.json()
-    }).then((treeData) => {
+    ask(msgKinds.GetTree, nodeID, null,
+    (treeData) => {
       this.tree = new Node(treeData)
       this.htmlTreeView.appendChild(this.tree.renderTree())
       this.updateSelection()
-    }).catch((e) => {
-      alert(e)
     })
   }
 
@@ -209,62 +222,36 @@ class Node {
 
   updateDisplay() {
     console.log(`Updating node ${this.ID}.`)
-    let msg = {
-      Kind: msgKinds.GetDisplay
-    }
 
-    fetch(`/api/msg/${this.ID}/${payloadKinds.Empty}`, {
-      method: "post",
-      body: JSON.stringify(msg),
-      mode: "same-origin",
-    }).then((resp) => {
-      return resp.json()
-    }).then((displayData) => {
-      if (displayData.error) throw new Error(displayData.error)
-      this.display?.update(displayData)
-    }).catch((e: Error) => {
-      if (e.message == "unauthorized") {
-        window.location.replace("/login" + new URL(location.href).search)
-      }
-      alert(e + " at line: " + (e as any).lineNumber) 
-    })
+    ask(msgKinds.GetDisplay, this.ID, null,
+      (displayData) => {
+        if (displayData.error) throw new Error(displayData.error)
+        this.display?.update(displayData)
+      })
   }
   
   select() {
     this.htmlTreeElem!.classList.add("selected")
 
-    let msg = {
-      Kind: msgKinds.GetDisplay
-    }
-    fetch(`/api/msg/${this.ID}/${payloadKinds.Empty}`, {
-      method: "post",
-      body: JSON.stringify(msg),
-      mode: "same-origin",
-    }).then((resp) => {
-      return resp.json()
-    }).then((displayData) => {
-      console.log(`Display data received:`, displayData)
-      if (displayData.error) throw new Error(displayData.error)
-        switch (displayData.Head.Kind) {
-          case nodeKinds.Broker:
-            this.display = new BrokerDisplay(displayData)
-            break
-          case nodeKinds.Account:
-            this.display = new AccountDisplay(displayData)
-            break
-          case nodeKinds.User:
-            this.display = new UserDisplay(displayData)
-            break
-        }
-      gui.htmlDisplayView.appendChild(this.display!.render())
-      gui.subscribe(this.ID)
-    }).catch((e: Error) => {
-      if (e.message == "unauthorized") {
-        window.location.replace("/login" + new URL(location.href).search)
-      }
-      alert(e + " at line: " + (e as any).lineNumber) 
+    ask(msgKinds.GetDisplay, this.ID, null,
+      (displayData) => {
+        console.log(`Display data received:`, displayData)
+        if (displayData.error) throw new Error(displayData.error)
+          switch (displayData.Head.Kind) {
+            case nodeKinds.Broker:
+              this.display = new BrokerDisplay(displayData)
+              break
+            case nodeKinds.Account:
+              this.display = new AccountDisplay(displayData)
+              break
+            case nodeKinds.User:
+              this.display = new UserDisplay(displayData)
+              break
+          }
+        gui.htmlDisplayView.appendChild(this.display!.render())
+        gui.subscribe(this.ID)
     })
-  }
+}
 
   deselect() {
     this.htmlTreeElem!.classList.remove("selected")
@@ -275,9 +262,9 @@ class Node {
 }
 
 class NodeDisplay {
+  ID: number
   name: string
   kind: number
-  id: number
   path: string
   parms: ParameterForm | null = null
   infos: InfoList | null = null
@@ -286,7 +273,7 @@ class NodeDisplay {
   constructor(displayData: any) {
     this.name = displayData.Head.Name
     this.kind = displayData.Head.Kind
-    this.id = displayData.ID
+    this.ID = displayData.Head.ID
     this.path = displayData.Head.Path
     this.parms = new ParameterForm(this, displayData)
   }
@@ -313,7 +300,7 @@ class NodeDisplay {
 
   update(displayData: any) {
     let parmDict = displayData.Detail
-    parmDict["Last Modified"] = parmDict.CreatedAt
+    parmDict["Modified"] = parmDict.CreatedAt
     if (this.infos) {
       this.infos.update(parmDict)
     }
@@ -369,38 +356,30 @@ class ParameterForm {
     event.preventDefault()
     const formData = new FormData(event.target as HTMLFormElement)
 
-    const detail: {[k: string]: any} = {}
+    const newParms: {[k: string]: number|string|boolean} = {}
     for (const [name, parm] of this.parms) {
       const value = formData.get(parm.name)
-      detail[parm.name] = parm.inputType == "number" ? Number(value) : value
+      switch (parm.inputType) {
+        case 'number':
+          newParms[parm.name] = Number(value)
+          break
+        case 'checkbox':
+          newParms[parm.name] = Boolean(value)
+          break
+        case 'text':
+          newParms[parm.name] = String(value)
+          break
+      }
     }
+    console.log('newParms:', newParms)
 
-    const apiUpdatePath = `/api/update/${NodeKindName[this.nodeDisplay.kind]}`
-    console.log(apiUpdatePath)
-    const msg = {
-      Type: "Update",
-      Path: this.nodeDisplay.path,
-      Payload: detail
-    }
-    console.log(msg)
-    fetch(apiUpdatePath, {
-      method: 'post',
-      body: JSON.stringify(msg),
-      mode: 'same-origin',
-    })
-    .then((response) => {
-      if (response.ok) {
+    ask(msgKinds.Update, this.nodeDisplay.ID, newParms,
+      (response) => {
         const diffs = this.htmlParmForm!.querySelectorAll(".changed")
         for (const delem of diffs) {
           delem.classList.remove("changed")
         }
         this.htmlParmForm?.classList.remove("changed")
-      } else {
-        throw 'failed'
-      }
-    })
-    .catch((e) => {
-      alert(e)
     })
     return false
   }

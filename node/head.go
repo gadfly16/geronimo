@@ -185,10 +185,11 @@ func getTreeHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
 func (h *Head) display() display {
 	d := display{
 		"Head": display{
-			"Name":          h.Name,
-			"Kind":          h.Kind,
-			"Path":          h.path,
-			"Last Modified": h.CreatedAt,
+			"ID":       h.ID,
+			"Name":     h.Name,
+			"Kind":     h.Kind,
+			"Path":     h.path,
+			"Modified": h.CreatedAt,
 		},
 	}
 	return d

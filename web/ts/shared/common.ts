@@ -35,9 +35,10 @@ export enum nodeKinds {
   Account,
 }
 
-export enum payloadKinds {
-  Empty = 0,
-  UserNodePayload,
-}
+// export enum payloadKinds {
+//   Empty = 0,
+//   UserNode,
+//   Parms,
+// }
 
 export let NodeKindName = ["root", "group", "user", "broker", "account", "broker", "pocket"]

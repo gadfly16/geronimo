@@ -2,6 +2,7 @@ package node
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 
@@ -12,7 +13,7 @@ import (
 
 func init() {
 	nodeMsgHandlers[UserKind] = map[msg.Kind]func(Node, *msg.Msg) *msg.Msg{
-		// msg.UpdateKind:   rootUpdateHandler,
+		msg.UpdateKind:     userUpdateHandler,
 		msg.GetParmsKind:   userGetParmsHandler,
 		msg.GetCopyKind:    userGetNodeCopyHandler,
 		msg.GetDisplayKind: userGetDisplayHandler,
@@ -107,17 +108,35 @@ func userGetNodeCopyHandler(ni Node, _ *msg.Msg) *msg.Msg {
 	}
 }
 
-// func rootUpdateHandler(ni Node, m *msg.Msg) (r *msg.Msg) {
-// 	// if v, ok := m.Payload["parms"]; ok {
-// 	// 	if n.Parms, ok = v.(*RootParms); !ok {
-// 	// 		return fmt.Errorf("update failed: wrong parms type %T", n.Parms)
-// 	// 	}
-// 	// }
-// 	// Db.Transaction(func(tx *gorm.DB) error {
-// 	// 	return nil
-// 	// })
-// 	return
-// }
+func userUpdateHandler(ni Node, m *msg.Msg) (r *msg.Msg) {
+	n := ni.(*UserNode)
+	if m.Auth.UserID != n.OwnerID && !m.Auth.Admin {
+		slog.Debug("unauthorized update request", "path", n.path, "user", m.Auth.UserID, "owner", n.OwnerID, "admin", m.Auth.Admin)
+		return msg.NewErrorMsg(fmt.Errorf("unathorized update request"))
+	}
+	slog.Debug("user node update", "payload", m.Payload)
+	pl := m.Payload.(map[string]any)
+	np := &UserParms{
+		Admin:       pl["Admin"].(bool),
+		DisplayName: pl["Display Name"].(string),
+		Password:    n.Parms.Password,
+	}
+	err := Db.Transaction(func(tx *gorm.DB) (err error) {
+		// if err := tx.Create(&n.Head).Error; err != nil {
+		// 	return err
+		// }
+		// n.Parms.HeadID = n.Head.ID
+		if err = tx.Create(np).Error; err != nil {
+			return err
+		}
+		return
+	})
+	if err != nil {
+		return msg.NewErrorMsg(err)
+	}
+	n.Parms = np
+	return &msg.OK
+}
 
 // func (n *RootNode) setLogLevel() {
 // 	LogLevel.Set(slog.Level(n.Parms.LogLevel))

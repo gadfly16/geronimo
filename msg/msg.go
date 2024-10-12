@@ -1,5 +1,10 @@
 package msg
 
+import (
+	"encoding/json"
+	"io"
+)
+
 const (
 	OKKind Kind = iota
 	ErrorKind
@@ -17,7 +22,7 @@ const (
 	DisplayKind
 )
 
-var kindNames = map[Kind]string{
+var KindNames = map[Kind]string{
 	OKKind:         "OK",
 	ErrorKind:      "Error",
 	StopKind:       "Stop",
@@ -75,11 +80,27 @@ func (m *Msg) ErrorMsg() string {
 }
 
 func (m *Msg) KindName() string {
-	return kindNames[m.Kind]
+	return KindNames[m.Kind]
 }
 
 func (t Pipe) Ask(m Msg) Msg {
 	m.Resp = make(Pipe)
 	t <- &m
 	return *<-m.Resp
+}
+
+func UnmarshalMsg(mk Kind, b io.ReadCloser) (m *Msg, err error) {
+	m = &Msg{}
+	switch mk {
+	case UpdateKind:
+		m.Payload = map[string]interface{}{}
+	default:
+		m.Payload = nil
+	}
+	if m.Payload != nil {
+		d := json.NewDecoder(b)
+		err = d.Decode(&m.Payload)
+	}
+	m.Kind = mk
+	return
 }

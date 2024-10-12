@@ -1,4 +1,26 @@
-import { WSMsg, nodeKinds, NodeKindName, msgKinds, payloadKinds } from "../shared/common.js";
+import { WSMsg, nodeKinds, NodeKindName, msgKinds } from "../shared/common.js";
+function ask(mk, tid, pl, f) {
+    return fetch(`/api/msg/${mk}/${tid}`, {
+        method: "post",
+        mode: "same-origin",
+        body: pl === null ? null : JSON.stringify(pl),
+    })
+        .then((resp) => {
+        console.log('Msg resonse: ', resp);
+        if (!resp.ok) {
+            if (resp.status === 401) {
+                window.location.replace("/static/login.html" + new URL(location.href).search);
+            }
+            throw 'http error';
+        }
+        return resp.json();
+    })
+        .then(f)
+        .catch((e) => {
+        console.log("Error:", e);
+        alert(`${e} at line: ${e.lineNumber}`);
+    });
+}
 // UI Globals
 let gui;
 // This is not jQuery, but a helper function to turn a html string into a HTMLElement
@@ -67,21 +89,10 @@ class GUI {
         this.nodes.set(node.ID.toString(), node);
     }
     fetchTree(nodeID) {
-        let msg = {
-            Kind: msgKinds.GetTree
-        };
-        fetch("/api/msg/" + nodeID + "/" + payloadKinds.Empty, {
-            method: "post",
-            body: JSON.stringify(msg),
-            mode: "same-origin",
-        }).then((resp) => {
-            return resp.json();
-        }).then((treeData) => {
+        ask(msgKinds.GetTree, nodeID, null, (treeData) => {
             this.tree = new Node(treeData);
             this.htmlTreeView.appendChild(this.tree.renderTree());
             this.updateSelection();
-        }).catch((e) => {
-            alert(e);
         });
     }
     treeClick(e) {
@@ -182,39 +193,16 @@ class Node {
     }
     updateDisplay() {
         console.log(`Updating node ${this.ID}.`);
-        let msg = {
-            Kind: msgKinds.GetDisplay
-        };
-        fetch(`/api/msg/${this.ID}/${payloadKinds.Empty}`, {
-            method: "post",
-            body: JSON.stringify(msg),
-            mode: "same-origin",
-        }).then((resp) => {
-            return resp.json();
-        }).then((displayData) => {
+        ask(msgKinds.GetDisplay, this.ID, null, (displayData) => {
             var _a;
             if (displayData.error)
                 throw new Error(displayData.error);
             (_a = this.display) === null || _a === void 0 ? void 0 : _a.update(displayData);
-        }).catch((e) => {
-            if (e.message == "unauthorized") {
-                window.location.replace("/login" + new URL(location.href).search);
-            }
-            alert(e + " at line: " + e.lineNumber);
         });
     }
     select() {
         this.htmlTreeElem.classList.add("selected");
-        let msg = {
-            Kind: msgKinds.GetDisplay
-        };
-        fetch(`/api/msg/${this.ID}/${payloadKinds.Empty}`, {
-            method: "post",
-            body: JSON.stringify(msg),
-            mode: "same-origin",
-        }).then((resp) => {
-            return resp.json();
-        }).then((displayData) => {
+        ask(msgKinds.GetDisplay, this.ID, null, (displayData) => {
             console.log(`Display data received:`, displayData);
             if (displayData.error)
                 throw new Error(displayData.error);
@@ -231,11 +219,6 @@ class Node {
             }
             gui.htmlDisplayView.appendChild(this.display.render());
             gui.subscribe(this.ID);
-        }).catch((e) => {
-            if (e.message == "unauthorized") {
-                window.location.replace("/login" + new URL(location.href).search);
-            }
-            alert(e + " at line: " + e.lineNumber);
         });
     }
     deselect() {
@@ -252,7 +235,7 @@ class NodeDisplay {
         this.htmlDisplay = null;
         this.name = displayData.Head.Name;
         this.kind = displayData.Head.Kind;
-        this.id = displayData.ID;
+        this.ID = displayData.Head.ID;
         this.path = displayData.Head.Path;
         this.parms = new ParameterForm(this, displayData);
     }
@@ -278,7 +261,7 @@ class NodeDisplay {
     }
     update(displayData) {
         let parmDict = displayData.Detail;
-        parmDict["Last Modified"] = parmDict.CreatedAt;
+        parmDict["Modified"] = parmDict.CreatedAt;
         if (this.infos) {
             this.infos.update(parmDict);
         }
@@ -323,39 +306,29 @@ class ParameterForm {
     submit(event) {
         event.preventDefault();
         const formData = new FormData(event.target);
-        const detail = {};
+        const newParms = {};
         for (const [name, parm] of this.parms) {
             const value = formData.get(parm.name);
-            detail[parm.name] = parm.inputType == "number" ? Number(value) : value;
+            switch (parm.inputType) {
+                case 'number':
+                    newParms[parm.name] = Number(value);
+                    break;
+                case 'checkbox':
+                    newParms[parm.name] = Boolean(value);
+                    break;
+                case 'text':
+                    newParms[parm.name] = String(value);
+                    break;
+            }
         }
-        const apiUpdatePath = `/api/update/${NodeKindName[this.nodeDisplay.kind]}`;
-        console.log(apiUpdatePath);
-        const msg = {
-            Type: "Update",
-            Path: this.nodeDisplay.path,
-            Payload: detail
-        };
-        console.log(msg);
-        fetch(apiUpdatePath, {
-            method: 'post',
-            body: JSON.stringify(msg),
-            mode: 'same-origin',
-        })
-            .then((response) => {
+        console.log('newParms:', newParms);
+        ask(msgKinds.Update, this.nodeDisplay.ID, newParms, (response) => {
             var _a;
-            if (response.ok) {
-                const diffs = this.htmlParmForm.querySelectorAll(".changed");
-                for (const delem of diffs) {
-                    delem.classList.remove("changed");
-                }
-                (_a = this.htmlParmForm) === null || _a === void 0 ? void 0 : _a.classList.remove("changed");
+            const diffs = this.htmlParmForm.querySelectorAll(".changed");
+            for (const delem of diffs) {
+                delem.classList.remove("changed");
             }
-            else {
-                throw 'failed';
-            }
-        })
-            .catch((e) => {
-            alert(e);
+            (_a = this.htmlParmForm) === null || _a === void 0 ? void 0 : _a.classList.remove("changed");
         });
         return false;
     }
