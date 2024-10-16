@@ -110,8 +110,8 @@ func userGetNodeCopyHandler(ni Node, _ *msg.Msg) *msg.Msg {
 
 func userUpdateHandler(ni Node, m *msg.Msg) (r *msg.Msg) {
 	n := ni.(*UserNode)
-	if m.Auth.UserID != n.OwnerID && !m.Auth.Admin {
-		slog.Debug("unauthorized update request", "path", n.path, "user", m.Auth.UserID, "owner", n.OwnerID, "admin", m.Auth.Admin)
+	if m.UserID != n.OwnerID && !m.Admin {
+		slog.Debug("unauthorized update request", "path", n.path, "user", m.UserID, "owner", n.OwnerID, "admin", m.Admin)
 		return msg.NewErrorMsg(fmt.Errorf("unathorized update request"))
 	}
 	slog.Debug("user node update", "payload", m.Payload)

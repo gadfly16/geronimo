@@ -108,6 +108,9 @@ func service() http.Handler {
 
 	r.Post("/signup", signupHandler)
 	r.Post("/login", loginHandler)
+
+	r.With(authFetch).Get("/socket", socketHandler)
+
 	r.Route("/api", func(r chi.Router) {
 		r.Use(authFetch)
 		r.Post("/msg/{msg_kind}/{target_id}", apiMsgHandler)
@@ -264,8 +267,8 @@ func apiMsgHandler(w http.ResponseWriter, q *http.Request) {
 		return
 	}
 
-	m.Auth.UserID = uid
-	m.Auth.Admin = cls.Admin
+	m.UserID = uid
+	m.Admin = cls.Admin
 
 	r := t.Ask(*m)
 

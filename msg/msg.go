@@ -20,23 +20,27 @@ const (
 	GetCopyKind
 	GetDisplayKind
 	DisplayKind
+	SubscribeKind
+	UnsubscribeKind
 )
 
 var KindNames = map[Kind]string{
-	OKKind:         "OK",
-	ErrorKind:      "Error",
-	StopKind:       "Stop",
-	StoppedKind:    "Stopped",
-	UpdateKind:     "Update",
-	ParmsKind:      "Parms",
-	GetParmsKind:   "GetParms",
-	CreateKind:     "Create",
-	AuthUserKind:   "AuthUser",
-	GetTreeKind:    "GetTree",
-	TreeKind:       "Tree",
-	GetCopyKind:    "GetCopy",
-	GetDisplayKind: "GetDisplay",
-	DisplayKind:    "Display",
+	OKKind:          "OK",
+	ErrorKind:       "Error",
+	StopKind:        "Stop",
+	StoppedKind:     "Stopped",
+	UpdateKind:      "Update",
+	ParmsKind:       "Parms",
+	GetParmsKind:    "GetParms",
+	CreateKind:      "Create",
+	AuthUserKind:    "AuthUser",
+	GetTreeKind:     "GetTree",
+	TreeKind:        "Tree",
+	GetCopyKind:     "GetCopy",
+	GetDisplayKind:  "GetDisplay",
+	DisplayKind:     "Display",
+	SubscribeKind:   "Subscribe",
+	UnsubscribeKind: "Unsubscribe",
 }
 
 var (
@@ -58,10 +62,8 @@ type Msg struct {
 	Payload any
 	Resp    Pipe
 
-	Auth struct {
-		UserID int
-		Admin  bool
-	}
+	UserID int
+	Admin  bool
 }
 
 func (q *Msg) Answer(m *Msg) {

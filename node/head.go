@@ -144,8 +144,8 @@ func (h *Head) askChildren(m *msg.Msg) {
 }
 
 func getTreeHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
-	if m.Auth.UserID != h.OwnerID && !m.Auth.Admin {
-		slog.Debug("unauthorized tree request", "path", h.path, "user", m.Auth.UserID, "owner", h.OwnerID, "admin", m.Auth.Admin)
+	if m.UserID != h.OwnerID && !m.Admin {
+		slog.Debug("unauthorized tree request", "path", h.path, "user", m.UserID, "owner", h.OwnerID, "admin", m.Admin)
 		return msg.NewErrorMsg(fmt.Errorf("unathorized tree request"))
 	}
 	tree := &TreeEntry{

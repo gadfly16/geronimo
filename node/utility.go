@@ -21,7 +21,7 @@ import (
 // Atomic counter for messages
 var globalIDCounter *int64 = new(int64)
 
-func nextID() int64 {
+func NextID() int64 {
 	return atomic.AddInt64(globalIDCounter, 1)
 }
 
@@ -38,7 +38,7 @@ func clamp01(val float64) float64 {
 	return math.Min(1, math.Max(0, val))
 }
 
-func generateSecret(l int) ([]byte, error) {
+func GenerateSecret(l int) ([]byte, error) {
 	s := make([]byte, l)
 	_, err := rand.Read(s)
 	if err != nil {
@@ -47,19 +47,11 @@ func generateSecret(l int) ([]byte, error) {
 	return s, nil
 }
 
-func generateOTP() string {
-	otp, _ := generateSecret(16)
-	for i, b := range otp {
-		otp[i] = b%94 + 33
-	}
-	return string(otp)
-}
-
 func createSecret(path string) error {
 	if FileExists(path) {
 		return errors.New("key file already exists: " + path)
 	}
-	secret, err := generateSecret(14)
+	secret, err := GenerateSecret(14)
 	if err != nil {
 		return err
 	}

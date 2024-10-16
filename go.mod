@@ -15,6 +15,7 @@ require (
 )
 
 require (
+	github.com/coder/websocket v1.8.12
 	github.com/go-chi/render v1.0.3
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/jinzhu/inflection v1.0.0 // indirect
@@ -22,4 +23,5 @@ require (
 	github.com/spf13/cobra v1.8.1
 	golang.org/x/crypto v0.24.0
 	gorm.io/driver/sqlite v1.5.6
+	nhooyr.io/websocket v1.8.17
 )

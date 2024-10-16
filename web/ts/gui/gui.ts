@@ -14,7 +14,7 @@ function ask(mk: number, tid: number, pl: any, f: ((r: any)=>any)) {
     body: pl === null ? null : JSON.stringify(pl),
   })
   .then((resp) => {
-    console.log('Msg resonse: ', resp)
+    // console.log('Msg resonse: ', resp)
     if (!resp.ok) {
       if (resp.status === 401) {
         window.location.replace("/static/login.html" + new URL(location.href).search)
@@ -76,6 +76,7 @@ class GUI {
         this.guiID = msg.GUIID
         this.guiOTP = msg.OTP
         this.socket.send(JSON.stringify(msg))
+        console.log("Credentials received.")
         break
       case WSMsg.Update:
         console.log(`Update needed for node id: ${msg.NodeID}`)
