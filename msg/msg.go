@@ -22,6 +22,7 @@ const (
 	DisplayKind
 	SubscribeKind
 	UnsubscribeKind
+	UpdatedKind
 )
 
 var KindNames = map[Kind]string{
@@ -41,6 +42,7 @@ var KindNames = map[Kind]string{
 	DisplayKind:     "Display",
 	SubscribeKind:   "Subscribe",
 	UnsubscribeKind: "Unsubscribe",
+	UpdatedKind:     "Updated",
 }
 
 var (
@@ -51,6 +53,7 @@ var (
 	GetCopy    = Msg{Kind: GetCopyKind}
 	GetTree    = Msg{Kind: GetTreeKind}
 	GetDisplay = Msg{Kind: GetDisplayKind}
+	Updated    = Msg{Kind: UpdatedKind}
 )
 
 type Pipe chan *Msg

@@ -43,36 +43,57 @@ class GUI {
         this.selection = new Map();
         this.guiID = 0;
         this.guiOTP = "";
+        this.heart = 0;
+        this.last_srv_beat = 0;
+        this.heart_interval = 5000;
+        this.roundtrip = 2000;
         this.htmlTreeView = document.querySelector("#tree-view");
         this.htmlDisplayView = document.querySelector("#display-view");
         this.fetchTree(rootNodeID);
         this.htmlTreeView.addEventListener("click", this.treeClick.bind(this));
         this.socket = new WebSocket("/socket");
         this.socket.onmessage = this.socketMessageHandler.bind(this);
+        this.heart = setInterval(this.heartbeat.bind(this), this.heart_interval);
+    }
+    heartbeat() {
+        let off = Date.now() - this.last_srv_beat;
+        if (off > this.heart_interval + this.roundtrip && this.last_srv_beat != 0) {
+            console.log("connection to server lost.", off);
+        }
+        // console.log("Sending heartbeat to gui")
+        this.socket.send(JSON.stringify({
+            Kind: WSMsg.Heartbeat,
+            GUIID: this.guiID,
+            OTP: this.guiOTP,
+        }));
     }
     socketMessageHandler(event) {
-        const msg = JSON.parse(event.data);
-        switch (msg.Type) {
+        const wsm = JSON.parse(event.data);
+        console.log("Socket message received:", wsm);
+        switch (wsm.Kind) {
+            case WSMsg.Heartbeat:
+                this.last_srv_beat = Date.now();
+                break;
             case WSMsg.Credentials:
-                this.guiID = msg.GUIID;
-                this.guiOTP = msg.OTP;
-                this.socket.send(JSON.stringify(msg));
-                console.log("Credentials received.");
+                this.guiID = wsm.GUIID;
+                this.guiOTP = wsm.OTP;
+                this.socket.send(JSON.stringify(wsm));
+                console.log(`Credentials received: guiid=${this.guiID}`);
                 break;
             case WSMsg.Update:
-                console.log(`Update needed for node id: ${msg.NodeID}`);
-                let node = this.nodes.get(msg.NodeID.toString());
+                console.log(`Update needed for node id: ${wsm.NodeID}`);
+                let node = this.nodes.get(wsm.NodeID.toString());
                 if (node) {
                     node.updateDisplay();
                 }
                 else {
-                    console.log(`Update requested for unknown node id: ${msg.NodeID}`);
+                    console.log(`Update requested for unknown node id: ${wsm.NodeID}`);
                 }
         }
     }
     subscribe(id) {
         this.socket.send(JSON.stringify({
-            Type: WSMsg.Subscribe,
+            Kind: WSMsg.Subscribe,
             GUIID: this.guiID,
             OTP: this.guiOTP,
             NodeID: id,
@@ -80,7 +101,7 @@ class GUI {
     }
     unsubscribe(id) {
         this.socket.send(JSON.stringify({
-            Type: WSMsg.Unsubscribe,
+            Kind: WSMsg.Unsubscribe,
             GUIID: this.guiID,
             OTP: this.guiOTP,
             NodeID: id,
@@ -261,14 +282,12 @@ class NodeDisplay {
         return dispHead;
     }
     update(displayData) {
-        let parmDict = displayData.Detail;
-        parmDict["Modified"] = parmDict.CreatedAt;
-        if (this.infos) {
-            this.infos.update(parmDict);
-        }
         if (this.parms) {
-            this.parms.update(parmDict);
+            this.parms.update(displayData.Parms);
         }
+        // if (this.infos) {
+        //   this.infos.update(parms)
+        // }
     }
 }
 class UserDisplay extends NodeDisplay {
@@ -349,9 +368,9 @@ class ParameterForm {
         }
         return this.htmlParmForm;
     }
-    update(parmDict) {
+    update(parms) {
         for (const [name, parm] of this.parms) {
-            const newValue = parmDict[name];
+            const newValue = parms[name];
             parm.update(newValue);
         }
     }
@@ -391,14 +410,28 @@ class Parameter {
       </div>
     `);
         (_a = this.htmlParm.querySelector("input")) === null || _a === void 0 ? void 0 : _a.addEventListener("change", this.valueChange.bind(this));
+        this.htmlParm.addEventListener("animationend", this.removeChangedAlert.bind(this), false);
         return this.htmlParm;
+    }
+    removeChangedAlert(event) {
+        var _a;
+        console.log("animation ended");
+        (_a = this.htmlParm) === null || _a === void 0 ? void 0 : _a.classList.remove("changeAlert");
     }
     update(newValue) {
         var _a, _b;
-        if (this.value != newValue) {
+        console.log("update request for parm", newValue);
+        if (this.origValue != newValue) {
+            console.log("update needed for parameter", this.inputType, newValue, typeof newValue);
             this.value = newValue;
+            this.origValue = newValue;
             const htmlInput = (_a = this.htmlParm) === null || _a === void 0 ? void 0 : _a.querySelector("input");
-            htmlInput.setAttribute("value", `${newValue}`);
+            if (this.inputType == "checkbox") {
+                htmlInput.checked = newValue;
+            }
+            else {
+                htmlInput.setAttribute("value", `${newValue}`);
+            }
             (_b = this.htmlParm) === null || _b === void 0 ? void 0 : _b.classList.add("changeAlert");
         }
     }

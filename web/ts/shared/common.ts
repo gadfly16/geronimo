@@ -1,5 +1,5 @@
 export interface msg {
-  Kind: Number,
+  Kind: number,
   Payload: any,
 }
 
@@ -20,11 +20,14 @@ export enum msgKinds {
   Display,
 }
 
-export let WSMsg = {
-    Credentials: "Credentials",
-    Subscribe: "Subscribe",
-    Unsubscribe: "Unsubscribe",
-    Update: "Update",
+export enum WSMsg {
+    Credentials = 0,
+    Subscribe,
+    Unsubscribe,
+    Update,
+    Error,
+    ClientShutdown,
+    Heartbeat,
   }
 
 export enum nodeKinds {

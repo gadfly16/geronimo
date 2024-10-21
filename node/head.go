@@ -1,6 +1,7 @@
 package node
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -14,9 +15,11 @@ var nodeMsgHandlers = map[Kind]map[msg.Kind]func(Node, *msg.Msg) *msg.Msg{}
 
 func init() {
 	commonMsgHandlers = map[msg.Kind]func(*Head, *msg.Msg) *msg.Msg{
-		msg.CreateKind:  createHandler,
-		msg.StopKind:    stopHandler,
-		msg.GetTreeKind: getTreeHandler,
+		msg.CreateKind:      createHandler,
+		msg.StopKind:        stopHandler,
+		msg.GetTreeKind:     getTreeHandler,
+		msg.SubscribeKind:   subscribeHandler,
+		msg.UnsubscribeKind: unsubscribeHandler,
 	}
 }
 
@@ -35,6 +38,13 @@ type Head struct {
 	path     string
 	parent   msg.Pipe
 	children map[string]msg.Pipe
+
+	subs map[int64]msg.Pipe
+}
+
+type SubscribePayload struct {
+	GUIID int64
+	GUIIn msg.Pipe
 }
 
 func (h *Head) name() string {
@@ -182,6 +192,28 @@ func getTreeHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
 	return
 }
 
+func subscribeHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
+	if h.subs == nil {
+		h.subs = make(map[int64]msg.Pipe)
+	}
+	gui := m.Payload.(SubscribePayload)
+	h.subs[gui.GUIID] = gui.GUIIn
+	slog.Debug("GUI subscribed", "node", h.path, "gui", gui.GUIID)
+	return &msg.OK
+}
+
+func unsubscribeHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
+	guiid := m.Payload.(int64)
+	_, ok := h.subs[guiid]
+	if !ok {
+		slog.Error("Can't unscrubsibe GUI that's not subscribed", "node", h.path, "gui", guiid)
+		return msg.NewErrorMsg(errors.New("ettempt to unscrubscribe non-subscribed GUI"))
+	}
+	delete(h.subs, guiid)
+	slog.Debug("GUI unsubscribed", "node", h.path, "gui", guiid)
+	return &msg.OK
+}
+
 func (h *Head) display() display {
 	d := display{
 		"Head": display{
@@ -193,4 +225,11 @@ func (h *Head) display() display {
 		},
 	}
 	return d
+}
+
+func (h *Head) updateGUIs() {
+	for id, g := range h.subs {
+		slog.Debug("sending updated msg to GUI", "gui_id", id)
+		g <- &msg.Msg{Kind: msg.UpdatedKind, Payload: h.ID}
+	}
 }

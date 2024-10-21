@@ -15,12 +15,16 @@ export var msgKinds;
     msgKinds[msgKinds["GetDisplay"] = 12] = "GetDisplay";
     msgKinds[msgKinds["Display"] = 13] = "Display";
 })(msgKinds || (msgKinds = {}));
-export let WSMsg = {
-    Credentials: "Credentials",
-    Subscribe: "Subscribe",
-    Unsubscribe: "Unsubscribe",
-    Update: "Update",
-};
+export var WSMsg;
+(function (WSMsg) {
+    WSMsg[WSMsg["Credentials"] = 0] = "Credentials";
+    WSMsg[WSMsg["Subscribe"] = 1] = "Subscribe";
+    WSMsg[WSMsg["Unsubscribe"] = 2] = "Unsubscribe";
+    WSMsg[WSMsg["Update"] = 3] = "Update";
+    WSMsg[WSMsg["Error"] = 4] = "Error";
+    WSMsg[WSMsg["ClientShutdown"] = 5] = "ClientShutdown";
+    WSMsg[WSMsg["Heartbeat"] = 6] = "Heartbeat";
+})(WSMsg || (WSMsg = {}));
 export var nodeKinds;
 (function (nodeKinds) {
     nodeKinds[nodeKinds["Root"] = 0] = "Root";

@@ -15,34 +15,39 @@ import (
 )
 
 const (
-	WSMsg_Credentials = "Credentials"
-	WSMsg_Subscribe   = "Subscribe"
-	WSMsq_Unsubscribe = "Unsubscribe"
-	WSMsg_Update      = "Update"
+	WSMsg_Credentials int = iota
+	WSMsg_Subscribe
+	WSMsq_Unsubscribe
+	WSMsg_Update
+	WSMsg_Error
+	WSMsg_ClientShutdown
+	WSMsg_Heartbeat
 )
 
-type guiClient struct {
+type GUIClient struct {
 	id     int64
 	otp    string
 	conn   *websocket.Conn
 	in     msg.Pipe
 	userID int
+	subs   map[int]bool
 }
 
 type wsmsg struct {
-	Kind   string
+	Kind   int
 	OTP    string
 	GUIID  int64
 	NodeID int
 }
 
-func newGuiClient(conn *websocket.Conn, uid int) (client *guiClient) {
-	client = &guiClient{
+func newGuiClient(conn *websocket.Conn, uid int) (client *GUIClient) {
+	client = &GUIClient{
 		conn:   conn,
 		id:     node.NextID(),
 		otp:    generateOTP(),
 		in:     make(msg.Pipe),
 		userID: uid,
+		subs:   make(map[int]bool),
 	}
 	return
 }
@@ -93,7 +98,7 @@ func generateOTP() string {
 	return string(otp)
 }
 
-func (gui *guiClient) sendMessage(msg *wsmsg) (err error) {
+func (gui *GUIClient) sendMessage(msg *wsmsg) (err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
@@ -104,7 +109,7 @@ func (gui *guiClient) sendMessage(msg *wsmsg) (err error) {
 	return nil
 }
 
-func (gui *guiClient) receiveMessage() (msg *wsmsg, err error) {
+func (gui *GUIClient) receiveMessage() (msg *wsmsg, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
@@ -112,57 +117,105 @@ func (gui *guiClient) receiveMessage() (msg *wsmsg, err error) {
 	return
 }
 
-func (gui *guiClient) run() {
-eventLoop:
+func (gui *GUIClient) receiver(mc chan wsmsg) {
+	var msg wsmsg
 	for {
-		wm, err := gui.receiveMessage()
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+		defer cancel()
+		err := wsjson.Read(ctx, gui.conn, &msg)
 		if err != nil {
-			switch e := err.(type) {
-			case *websocket.CloseError:
-				if e.Code == 1000 {
-					slog.Info("Client closed connection gracefully.")
-				} else {
-					slog.Error("Client closed abruptly: ", "error", err)
+			slog.Error("websocket read error", "error", err)
+			mc <- wsmsg{Kind: WSMsg_Error}
+			break
+		}
+		if msg.GUIID != gui.id || msg.OTP != gui.otp {
+			slog.Error("wrong websocket credentials")
+			mc <- wsmsg{Kind: WSMsg_Error}
+			break
+		}
+		mc <- msg
+	}
+}
+
+func (gui *GUIClient) run() {
+	rmsgc := make(chan wsmsg)
+	go gui.receiver(rmsgc)
+
+out:
+	for {
+		select {
+		case wm := <-rmsgc:
+			switch wm.Kind {
+			case WSMsg_Error:
+				break out
+			case WSMsg_Subscribe:
+				n, ok := node.Tree.Nodes[wm.NodeID]
+				if !ok {
+					slog.Error("subscribing to nonexisting node", "node_id", wm.NodeID)
+					break out
 				}
-				break eventLoop
+				m := msg.Msg{
+					Kind: msg.SubscribeKind,
+					Payload: node.SubscribePayload{
+						GUIID: gui.id,
+						GUIIn: gui.in,
+					},
+					UserID: gui.userID,
+				}
+				n.Ask(m)
+				gui.subs[wm.NodeID] = true
+				slog.Debug("subscribed to node", "node_id", wm.NodeID)
+			case WSMsq_Unsubscribe:
+				n, ok := node.Tree.Nodes[wm.NodeID]
+				if !ok {
+					slog.Error("unsubscribing from nonexisting node", "node_id", wm.NodeID)
+					break out
+				}
+				m := msg.Msg{
+					Kind:    msg.UnsubscribeKind,
+					Payload: gui.id,
+					UserID:  gui.userID,
+				}
+				n.Ask(m)
+				delete(gui.subs, wm.NodeID)
+				slog.Debug("unsubscribed to node", "node_id", wm.NodeID)
+			case WSMsg_Heartbeat:
+				err := gui.sendMessage(&wsmsg{Kind: WSMsg_Heartbeat})
+				if err != nil {
+					slog.Error("Couldn't send client credentials, closing connection", "error", err)
+					break out
+				}
+				// slog.Debug("Heartbeat sent.", "gui_id", gui.id)
 			default:
-				slog.Error("Error during receiving ws message:", "error", err)
-				continue eventLoop
+				slog.Error("GUI unknown websocket message", "wsmsg_kind", wm.Kind)
+				break out
 			}
-		}
-		if wm.GUIID != gui.id || wm.OTP != gui.otp {
-			slog.Error("wrong GUI client credentials")
-			continue eventLoop
-		}
-		switch wm.Kind {
-		case WSMsg_Subscribe:
-			node, ok := node.Tree.Nodes[wm.NodeID]
-			if !ok {
-				slog.Error("subscribing to nonexisting node", "node_id", wm.NodeID)
-				continue eventLoop
+		case m := <-gui.in:
+			slog.Debug("GUI received msg from node", "msg", m)
+			nid := m.Payload.(int)
+			wsm := &wsmsg{
+				Kind:   WSMsg_Update,
+				NodeID: nid,
 			}
-			m := msg.Msg{
-				Kind:    msg.SubscribeKind,
-				Payload: gui.id,
-				UserID:  gui.userID,
+			err := gui.sendMessage(wsm)
+			if err != nil {
+				slog.Error("GUI couldn't send update msg", "error", err)
+				break out
 			}
-			node.Ask(m)
-		case WSMsq_Unsubscribe:
-			node, ok := node.Tree.Nodes[wm.NodeID]
-			if !ok {
-				slog.Error("unsubscribing from nonexisting node", "node_id", wm.NodeID)
-				continue eventLoop
-			}
-			m := msg.Msg{
-				Kind:    msg.UnsubscribeKind,
-				Payload: gui.id,
-				UserID:  gui.userID,
-			}
-			node.Ask(m)
-		default:
-			slog.Error("unknown websocket message", "wsmsg_kind", wm.Kind)
-			continue eventLoop
+			slog.Debug("GUI sent update to client", "gui", gui.id, "node_id", nid)
 		}
 	}
-	slog.Debug("Stopped reading messages for client: ", "gui", gui.id)
+	slog.Debug("GUI stopped reading messages for client: ", "gui", gui.id)
+	for nid := range gui.subs {
+		n, ok := node.Tree.Nodes[nid]
+		if !ok {
+			slog.Error("GUI unsubscribing from nonexisting node", "node_id", nid)
+		}
+		n.Ask(msg.Msg{
+			Kind:    msg.UnsubscribeKind,
+			Payload: gui.id,
+			UserID:  gui.userID,
+		})
+	}
+	slog.Debug("GUI unsubscribed from nodes: ", "gui", gui.id)
 }

@@ -1,7 +1,7 @@
 import {WSMsg, nodeKinds, NodeKindName, msgKinds} from "../shared/common.js"
 
 interface socketMessage {
-  Type: string,
+  Kind: number,
   OTP: string,
   GUIID: number,
   NodeID: number,
@@ -59,6 +59,10 @@ class GUI {
   socket: WebSocket
   guiID: number = 0
   guiOTP: string = ""
+  heart: number = 0
+  last_srv_beat: number = 0
+  readonly heart_interval = 5000
+  readonly roundtrip = 2000
 
   constructor(rootNodeID: number) {
     this.htmlTreeView = document.querySelector("#tree-view")!
@@ -67,24 +71,44 @@ class GUI {
     this.htmlTreeView.addEventListener("click", this.treeClick.bind(this))
     this.socket = new WebSocket("/socket")
     this.socket.onmessage = this.socketMessageHandler.bind(this)
+    this.heart = setInterval(this.heartbeat.bind(this), this.heart_interval)
+  }
+
+  heartbeat() {
+    let off = Date.now() - this.last_srv_beat
+    if (off > this.heart_interval + this.roundtrip && this.last_srv_beat != 0) {
+      console.log("connection to server lost.", off)
+    }
+    // console.log("Sending heartbeat to gui")
+    this.socket.send(
+      JSON.stringify({
+        Kind: WSMsg.Heartbeat,
+        GUIID: this.guiID,
+        OTP: this.guiOTP,
+      })
+    )
   }
 
   socketMessageHandler(event: MessageEvent) {
-    const msg = JSON.parse(event.data) as socketMessage
-    switch (msg.Type) {
+    const wsm = JSON.parse(event.data) as socketMessage
+    console.log("Socket message received:", wsm)
+    switch (wsm.Kind) {
+      case WSMsg.Heartbeat:
+        this.last_srv_beat = Date.now()
+        break
       case WSMsg.Credentials:
-        this.guiID = msg.GUIID
-        this.guiOTP = msg.OTP
-        this.socket.send(JSON.stringify(msg))
-        console.log("Credentials received.")
+        this.guiID = wsm.GUIID
+        this.guiOTP = wsm.OTP
+        this.socket.send(JSON.stringify(wsm))
+        console.log(`Credentials received: guiid=${this.guiID}`)
         break
       case WSMsg.Update:
-        console.log(`Update needed for node id: ${msg.NodeID}`)
-        let node = this.nodes.get(msg.NodeID.toString())
+        console.log(`Update needed for node id: ${wsm.NodeID}`)
+        let node = this.nodes.get(wsm.NodeID.toString())
         if (node) {
           node.updateDisplay()
         } else {
-          console.log(`Update requested for unknown node id: ${msg.NodeID}`)
+          console.log(`Update requested for unknown node id: ${wsm.NodeID}`)
         }
     }
   }
@@ -92,7 +116,7 @@ class GUI {
   subscribe(id: number) {
     this.socket.send(
       JSON.stringify({
-        Type: WSMsg.Subscribe,
+        Kind: WSMsg.Subscribe,
         GUIID: this.guiID,
         OTP: this.guiOTP,
         NodeID: id,
@@ -103,7 +127,7 @@ class GUI {
   unsubscribe(id: number) {
     this.socket.send(
       JSON.stringify({
-        Type: WSMsg.Unsubscribe,
+        Kind: WSMsg.Unsubscribe,
         GUIID: this.guiID,
         OTP: this.guiOTP,
         NodeID: id,
@@ -300,14 +324,12 @@ class NodeDisplay {
   }
 
   update(displayData: any) {
-    let parmDict = displayData.Detail
-    parmDict["Modified"] = parmDict.CreatedAt
-    if (this.infos) {
-      this.infos.update(parmDict)
-    }
     if (this.parms) {
-      this.parms.update(parmDict)
+      this.parms.update(displayData.Parms)
     }
+    // if (this.infos) {
+      //   this.infos.update(parms)
+      // }
   }
 }
 
@@ -402,9 +424,9 @@ class ParameterForm {
     return this.htmlParmForm
   }
 
-  update(parmDict: any) {
+  update(parms: any) {
     for (const [name, parm] of this.parms) {
-      const newValue = parmDict[name]
+      const newValue = parms[name]
       parm.update(newValue)
     }
   }
@@ -452,14 +474,27 @@ class Parameter {
       </div>
     `)
     this.htmlParm.querySelector("input")?.addEventListener("change", this.valueChange.bind(this))
+    this.htmlParm.addEventListener("animationend", this.removeChangedAlert.bind(this), false)
     return this.htmlParm
   }
 
-  update(newValue: number|string) {
-    if (this.value != newValue) {
+  removeChangedAlert(event: Event) {
+    console.log("animation ended")
+    this.htmlParm?.classList.remove("changeAlert")
+  }
+
+  update(newValue: number|string|boolean) {
+    console.log("update request for parm", newValue)
+    if (this.origValue != newValue) {
+      console.log("update needed for parameter", this.inputType, newValue, typeof newValue)
       this.value = newValue
+      this.origValue = newValue
       const htmlInput = this.htmlParm?.querySelector("input")! 
-      htmlInput.setAttribute("value", `${newValue}`)
+      if (this.inputType == "checkbox") {
+        htmlInput.checked = newValue as boolean
+      } else {
+        htmlInput.setAttribute("value", `${newValue}`)
+      }
       this.htmlParm?.classList.add("changeAlert")
     }
   }

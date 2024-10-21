@@ -122,10 +122,6 @@ func userUpdateHandler(ni Node, m *msg.Msg) (r *msg.Msg) {
 		Password:    n.Parms.Password,
 	}
 	err := Db.Transaction(func(tx *gorm.DB) (err error) {
-		// if err := tx.Create(&n.Head).Error; err != nil {
-		// 	return err
-		// }
-		// n.Parms.HeadID = n.Head.ID
 		if err = tx.Create(np).Error; err != nil {
 			return err
 		}
@@ -135,6 +131,7 @@ func userUpdateHandler(ni Node, m *msg.Msg) (r *msg.Msg) {
 		return msg.NewErrorMsg(err)
 	}
 	n.Parms = np
+	n.Head.updateGUIs()
 	return &msg.OK
 }
 
