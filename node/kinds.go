@@ -6,7 +6,8 @@ const (
 	RootKind Kind = iota
 	GroupKind
 	UserKind
-	GUIKind
+	AccountKind
+	BrokerKind
 )
 
 var Kinds = map[Kind]Node{

@@ -7,6 +7,11 @@ interface socketMessage {
   NodeID: number,
 }
 
+const newNodes: any = {
+  User: {Kind: nodeKinds.User},
+  Group: {Kind: nodeKinds.Group},
+}
+
 function ask(mk: number, tid: number, pl: any, f: ((r: any)=>any)) {
   return fetch(`/api/msg/${mk}/${tid}`, {
     method: "post",
@@ -272,6 +277,8 @@ class Node {
             case nodeKinds.User:
               this.display = new UserDisplay(displayData)
               break
+            case nodeKinds.Group:
+              this.display = new GroupDisplay(displayData)
           }
         gui.htmlDisplayView.appendChild(this.display!.render())
         gui.subscribe(this.ID)
@@ -291,6 +298,7 @@ class NodeDisplay {
   name: string
   kind: number
   path: string
+  n_children: number
   parms: ParameterForm | null = null
   infos: InfoList | null = null
   htmlDisplay: HTMLElement | null = null
@@ -300,13 +308,17 @@ class NodeDisplay {
     this.kind = displayData.Head.Kind
     this.ID = displayData.Head.ID
     this.path = displayData.Head.Path
-    this.parms = new ParameterForm(this, displayData)
+    this.n_children = displayData.Head.N_children
+    if ("Parms" in displayData) {
+      this.parms = new ParameterForm(this, displayData)
+    }
   }
 
   render():HTMLElement {
     let disp = this.renderHead()
     if (this.parms) disp.appendChild(this.parms.render())
     if (this.infos) disp.appendChild(this.infos.render())
+    disp.appendChild(this.renderChildren())
     this.htmlDisplay = disp
     return disp
   }
@@ -321,6 +333,34 @@ class NodeDisplay {
       </div>
     `)
     return dispHead
+  }
+
+  renderChildren():HTMLElement {
+    let elem = $(`
+      <div class="childrenBox">
+        <div class="n_children">Children: ${this.n_children}</div>
+        <div class="newChildren">
+          New
+          <div class="newChildrenMenu">
+            <div class="menuItem">Group</div>
+            <div class="menuItem">User</div>
+            <div class="menuItem">Pocket</div>
+          </div>
+        </div>
+      </div>
+    `)
+    const mis = elem.querySelector(".newChildrenMenu")!.addEventListener("click", this.newChildClick.bind(this))
+    return elem
+  }
+
+  newChildClick(ev: Event){
+    const t = ev.target as HTMLElement
+    const n = newNodes[t.textContent!]
+    console.log("clicked create child:", n, this.ID)
+    ask(msgKinds.Create, this.ID, n,
+      (r) => {
+        console.log(r)
+      })
   }
 
   update(displayData: any) {
@@ -352,6 +392,15 @@ class BrokerDisplay extends NodeDisplay{
 }
 
 class AccountDisplay extends NodeDisplay{
+  // infoNames = ["Last Modified"]
+
+  constructor(displayData: any) {
+    super(displayData)
+    // this.infos = new InfoList(parmDict, this.infoNames)
+  }
+}
+
+class GroupDisplay extends NodeDisplay{
   // infoNames = ["Last Modified"]
 
   constructor(displayData: any) {

@@ -25,6 +25,7 @@ import (
 const (
 	expirationDuration = 60 * time.Minute
 	authCookie         = "geronimo-user"
+	shutdown_timout    = 10 * time.Second
 )
 
 type claims struct {
@@ -56,7 +57,7 @@ func Serve(sdb string) (err error) {
 		<-sig
 
 		// Shutdown signal with grace period of 30 seconds
-		shutdownCtx, cancel := context.WithTimeout(serverCtx, 30*time.Second)
+		shutdownCtx, cancel := context.WithTimeout(serverCtx, shutdown_timout)
 		defer cancel()
 
 		go func() {
@@ -246,7 +247,7 @@ func apiMsgHandler(w http.ResponseWriter, q *http.Request) {
 		"admin", cls.Admin,
 	)
 
-	m, err := msg.UnmarshalMsg(mk, q.Body)
+	m, err := node.UnmarshalMsg(mk, q.Body)
 	if err != nil {
 		slog.Error("can't unmarshal message payload", "error", err)
 		w.WriteHeader(http.StatusBadRequest)

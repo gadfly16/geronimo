@@ -11,7 +11,8 @@ import (
 
 func init() {
 	nodeMsgHandlers[GroupKind] = map[msg.Kind]func(Node, *msg.Msg) *msg.Msg{
-		msg.AuthUserKind: groupAuthUserHandler,
+		msg.AuthUserKind:   groupAuthUserHandler,
+		msg.GetDisplayKind: groupGetDisplayHandler,
 		// msg.UpdateKind:   rootUpdateHandler,
 		// msg.GetParmsKind: rootGetParmsHandler,
 	}
@@ -78,7 +79,17 @@ func groupAuthUserHandler(ni Node, m *msg.Msg) (r *msg.Msg) {
 	return &msg.Msg{Kind: msg.ParmsKind, Payload: up}
 }
 
-func (n *GroupNode) getDisplay() (d display) {
-	d = display{}
-	return
+func groupGetDisplayHandler(ni Node, _ *msg.Msg) *msg.Msg {
+	n := ni.(*GroupNode)
+	d := n.Head.display()
+	// d["Parms"] = display{
+	// 	"Display Name": n.Parms.DisplayName,
+	// 	"Admin":        n.Parms.Admin,
+	// }
+	// slog.Debug("Display data returned by user node", "displayData", d)
+	r := &msg.Msg{
+		Kind:    msg.DisplayKind,
+		Payload: d,
+	}
+	return r
 }

@@ -30,8 +30,8 @@ export var nodeKinds;
     nodeKinds[nodeKinds["Root"] = 0] = "Root";
     nodeKinds[nodeKinds["Group"] = 1] = "Group";
     nodeKinds[nodeKinds["User"] = 2] = "User";
-    nodeKinds[nodeKinds["Broker"] = 3] = "Broker";
-    nodeKinds[nodeKinds["Account"] = 4] = "Account";
+    nodeKinds[nodeKinds["Account"] = 3] = "Account";
+    nodeKinds[nodeKinds["Broker"] = 4] = "Broker";
 })(nodeKinds || (nodeKinds = {}));
 // export enum payloadKinds {
 //   Empty = 0,

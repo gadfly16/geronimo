@@ -1,4 +1,8 @@
 import { WSMsg, nodeKinds, NodeKindName, msgKinds } from "../shared/common.js";
+const newNodes = {
+    User: { Kind: nodeKinds.User },
+    Group: { Kind: nodeKinds.Group },
+};
 function ask(mk, tid, pl, f) {
     return fetch(`/api/msg/${mk}/${tid}`, {
         method: "post",
@@ -238,6 +242,8 @@ class Node {
                 case nodeKinds.User:
                     this.display = new UserDisplay(displayData);
                     break;
+                case nodeKinds.Group:
+                    this.display = new GroupDisplay(displayData);
             }
             gui.htmlDisplayView.appendChild(this.display.render());
             gui.subscribe(this.ID);
@@ -259,7 +265,10 @@ class NodeDisplay {
         this.kind = displayData.Head.Kind;
         this.ID = displayData.Head.ID;
         this.path = displayData.Head.Path;
-        this.parms = new ParameterForm(this, displayData);
+        this.n_children = displayData.Head.N_children;
+        if ("Parms" in displayData) {
+            this.parms = new ParameterForm(this, displayData);
+        }
     }
     render() {
         let disp = this.renderHead();
@@ -267,6 +276,7 @@ class NodeDisplay {
             disp.appendChild(this.parms.render());
         if (this.infos)
             disp.appendChild(this.infos.render());
+        disp.appendChild(this.renderChildren());
         this.htmlDisplay = disp;
         return disp;
     }
@@ -280,6 +290,31 @@ class NodeDisplay {
       </div>
     `);
         return dispHead;
+    }
+    renderChildren() {
+        let elem = $(`
+      <div class="childrenBox">
+        <div class="n_children">Children: ${this.n_children}</div>
+        <div class="newChildren">
+          New
+          <div class="newChildrenMenu">
+            <div class="menuItem">Group</div>
+            <div class="menuItem">User</div>
+            <div class="menuItem">Pocket</div>
+          </div>
+        </div>
+      </div>
+    `);
+        const mis = elem.querySelector(".newChildrenMenu").addEventListener("click", this.newChildClick.bind(this));
+        return elem;
+    }
+    newChildClick(ev) {
+        const t = ev.target;
+        const n = newNodes[t.textContent];
+        console.log("clicked create child:", n, this.ID);
+        ask(msgKinds.Create, this.ID, n, (r) => {
+            console.log(r);
+        });
     }
     update(displayData) {
         if (this.parms) {
@@ -305,6 +340,13 @@ class BrokerDisplay extends NodeDisplay {
     }
 }
 class AccountDisplay extends NodeDisplay {
+    // infoNames = ["Last Modified"]
+    constructor(displayData) {
+        super(displayData);
+        // this.infos = new InfoList(parmDict, this.infoNames)
+    }
+}
+class GroupDisplay extends NodeDisplay {
     // infoNames = ["Last Modified"]
     constructor(displayData) {
         super(displayData);

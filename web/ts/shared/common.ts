@@ -34,8 +34,8 @@ export enum nodeKinds {
 	Root = 0,
   Group,
 	User,
-  Broker,
   Account,
+  Broker,
 }
 
 // export enum payloadKinds {

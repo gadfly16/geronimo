@@ -47,8 +47,12 @@ type SubscribePayload struct {
 	GUIIn msg.Pipe
 }
 
-func (h *Head) name() string {
+func (h *Head) getName() string {
 	return h.Name
+}
+
+func (h *Head) setName(n string) {
+	h.Name = n
 }
 
 func (h *Head) setParentID(pid int) {
@@ -114,11 +118,12 @@ func (h *Head) handleMsg(n Node, m *msg.Msg) (r *msg.Msg) {
 }
 
 func createHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
-	var ch msg.Pipe
-	var err error
 	n := m.Payload.(Node)
-	if _, ok := h.children[n.name()]; ok {
-		return msg.NewErrorMsg(fmt.Errorf("node '%s' already exists", n.name()))
+	if n.getName() == "" {
+		n.setName("NewNode")
+	}
+	if _, ok := h.children[n.getName()]; ok {
+		return msg.NewErrorMsg(fmt.Errorf("node '%s' already exists", n.getName()))
 	}
 	n.setParentID(h.ID)
 	switch pl := m.Payload.(type) {
@@ -127,11 +132,11 @@ func createHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
 			pl.Parms.Admin = true
 		}
 	}
-	ch, err = n.create(h)
+	nin, err := n.create(h)
 	if err != nil {
 		return msg.NewErrorMsg(err)
 	}
-	h.children[n.name()] = ch
+	h.children[n.getName()] = nin
 	return &msg.OK
 }
 
@@ -217,11 +222,12 @@ func unsubscribeHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
 func (h *Head) display() display {
 	d := display{
 		"Head": display{
-			"ID":       h.ID,
-			"Name":     h.Name,
-			"Kind":     h.Kind,
-			"Path":     h.path,
-			"Modified": h.CreatedAt,
+			"ID":         h.ID,
+			"Name":       h.Name,
+			"Kind":       h.Kind,
+			"Path":       h.path,
+			"Modified":   h.CreatedAt,
+			"N_children": len(h.children),
 		},
 	}
 	return d

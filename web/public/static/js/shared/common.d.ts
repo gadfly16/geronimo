@@ -31,7 +31,7 @@ export declare enum nodeKinds {
     Root = 0,
     Group = 1,
     User = 2,
-    Broker = 3,
-    Account = 4
+    Account = 3,
+    Broker = 4
 }
 export declare let NodeKindName: string[];
