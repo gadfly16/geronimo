@@ -1,4 +1,4 @@
-import {WSMsg, nodeKinds, NodeKindName, msgKinds} from "../shared/common.js"
+import {WSMsg, nodeKinds, NodeKindName, msgKinds} from "./common.js"
 
 interface socketMessage {
   Kind: number,

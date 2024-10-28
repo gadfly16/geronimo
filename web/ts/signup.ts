@@ -1,4 +1,4 @@
-import {nodeKinds} from "../shared/common.js"
+import {nodeKinds} from "./common.js"
 
 window.onload = function() {
     // Attach handlers

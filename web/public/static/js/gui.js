@@ -1,4 +1,4 @@
-import { WSMsg, nodeKinds, NodeKindName, msgKinds } from "../shared/common.js";
+import { WSMsg, nodeKinds, NodeKindName, msgKinds } from "./common.js";
 const newNodes = {
     User: { Kind: nodeKinds.User },
     Group: { Kind: nodeKinds.Group },

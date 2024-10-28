@@ -1,28 +1,27 @@
-import { nodeKinds } from "../shared/common.js";
+import { nodeKinds } from "./common.js";
 window.onload = function () {
     // Attach handlers
-    document.getElementById("signup-form").onsubmit = signup;
+    document.getElementById("login-form").onsubmit = login;
 };
-function signup(e) {
+function login(e) {
     const data = new FormData(e.target);
-    let newUser = {
+    let userCredentials = {
         Kind: nodeKinds.User,
         Name: data.get("Email"),
         Parms: {
-            DisplayName: data.get("Name"),
             Password: btoa(data.get("Password")),
         }
     };
-    fetch("/signup", {
+    fetch("/login", {
         method: 'post',
-        body: JSON.stringify(newUser),
+        body: JSON.stringify(userCredentials),
         mode: 'same-origin',
     }).then((response) => {
         if (response.ok) {
-            window.location.replace("login.html");
+            window.location.replace("/gui");
         }
         else {
-            throw 'failed';
+            throw 'unauthorized';
         }
     }).catch((e) => { alert(e); });
     return false;

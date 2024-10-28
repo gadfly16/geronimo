@@ -2,8 +2,7 @@
   "compilerOptions": {
     "target": "es6",
     "strict": true,
-    "rootDir": ".",
     "outDir": "../public/static/js",
-    "composite": true
-  }
+    "lib": ["esnext", "dom", "DOM.Iterable"],
+  },
 }
