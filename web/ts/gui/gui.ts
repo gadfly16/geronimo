@@ -315,20 +315,35 @@ class NodeDisplay {
   }
 
   render():HTMLElement {
-    let disp = this.renderHead()
-    if (this.parms) disp.appendChild(this.parms.render())
-    if (this.infos) disp.appendChild(this.infos.render())
-    disp.appendChild(this.renderChildren())
-    this.htmlDisplay = disp
-    return disp
+    const head = this.renderHead()
+    const detail = head.querySelector(".nodeDetailsBox")!
+    if (this.parms) detail.appendChild(this.parms.render())
+      detail.appendChild(this.renderChildren())
+    if (this.infos) detail.appendChild(this.infos.render())
+    this.htmlDisplay = head
+    return head
   }
 
   renderHead():HTMLElement {
     let dispHead = $(`
-      <div class="display">
-        <div class="displayHead">
-          <div class="displayName ${NodeKindName[this.kind]}">${this.name}</div>
-          <div class="displayPath">${this.path}</div>
+      <div class="nodeDisplay">
+        <div class="nodeKindBox ${NodeKindName[this.kind]}">
+          <div class="nodeKindText">
+            ${NodeKindName[this.kind]}
+          </div>
+        </div>
+        <div class="nodeDetailsBox">
+          <div class="displayHead">
+            <input type="text" class="displayName">${this.name}</input>
+            <div class="displayPath">${this.path}</div>
+            <div class="nodeActions">
+              Actions
+              <div class="nodeActionsMenu">
+                <div class="menuItem">Rename</div>
+                <div class="menuItem">Delete</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     `)

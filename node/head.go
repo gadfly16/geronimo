@@ -169,15 +169,15 @@ func getTreeHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
 		Kind: h.Kind,
 	}
 
-	pp := m.Resp
-	m.Resp = make(msg.Pipe)
+	chm := *m
+	chm.Resp = make(msg.Pipe)
 	for _, ch := range h.children {
-		ch <- m
+		ch <- &chm
 	}
 
 	var cherr bool
 	for range len(h.children) {
-		chr := <-m.Resp
+		chr := <-chm.Resp
 		if chr.Kind == msg.ErrorKind {
 			cherr = true
 		} else {
@@ -190,7 +190,6 @@ func getTreeHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
 		return msg.NewErrorMsg(fmt.Errorf("unathorized tree request downstream"))
 	}
 
-	m.Resp = pp
 	r = &msg.Msg{
 		Kind:    msg.TreeKind,
 		Payload: tree}
