@@ -44,6 +44,8 @@ func UnmarshalMsg(mk msg.Kind, b io.ReadCloser) (m *msg.Msg, err error) {
 		m.Payload = map[string]interface{}{}
 	case msg.CreateKind:
 		m.Payload = &Head{}
+	case msg.RenameKind:
+		m.Payload = ""
 	default:
 		m.Payload = nil
 	}

@@ -291,7 +291,9 @@ class NodeDisplay {
         </div>
         <div class="nodeDetailsBox">
           <div class="displayHead">
-            <input type="text" class="displayName">${this.name}</input>
+            <form class="renameForm">
+              <input type="text" class="displayName" value="${this.name}"/>
+            </form>
             <div class="displayPath">${this.path}</div>
             <div class="nodeActions">
               Actions
@@ -300,11 +302,46 @@ class NodeDisplay {
                 <div class="menuItem">Delete</div>
               </div>
             </div>
+            <div class="renameAction">
+              Rename
+            </div>
           </div>
         </div>
       </div>
     `);
+        dispHead.querySelector(".displayName").addEventListener("input", this.nameChange.bind(this));
+        dispHead.querySelector(".renameForm").addEventListener("submit", this.rename.bind(this));
+        dispHead.querySelector(".renameAction").addEventListener("click", this.rename.bind(this));
         return dispHead;
+    }
+    nameChange(event) {
+        const target = event.target;
+        const na = this.htmlDisplay.querySelector(".nodeActions");
+        const ra = this.htmlDisplay.querySelector(".renameAction");
+        // console.log("name changed, nam:", target.value, this.name)
+        if (target.value !== this.name) {
+            na.style.display = "none";
+            ra.style.display = "block";
+        }
+        else {
+            na.style.display = "block";
+            ra.style.display = "none";
+        }
+    }
+    rename(e) {
+        var t;
+        e.preventDefault();
+        if (e.type === 'click') {
+            t = e.target.parentElement;
+        }
+        else {
+            t = e.target;
+        }
+        const i = t.querySelector(".displayName");
+        console.log(`Rename from ${this.name} to ${i.value}`);
+        ask(msgKinds.Rename, this.ID, i.value, (r) => {
+            console.log(r);
+        });
     }
     renderChildren() {
         let elem = $(`
@@ -380,7 +417,7 @@ class ParameterForm {
             }
         }
     }
-    submit(event) {
+    submitParms(event) {
         event.preventDefault();
         const formData = new FormData(event.target);
         const newParms = {};
@@ -418,7 +455,7 @@ class ParameterForm {
         </div>        
       </form>
     `);
-        this.htmlParmForm.addEventListener("submit", this.submit.bind(this));
+        this.htmlParmForm.addEventListener("submit", this.submitParms.bind(this));
         this.submitButton = this.htmlParmForm.querySelector(".parameterFormSubmit");
         for (const [name, parm] of this.parms) {
             this.htmlParmForm.appendChild(parm.render());
@@ -466,7 +503,7 @@ class Parameter {
         />
       </div>
     `);
-        (_a = this.htmlParm.querySelector("input")) === null || _a === void 0 ? void 0 : _a.addEventListener("change", this.valueChange.bind(this));
+        (_a = this.htmlParm.querySelector("input")) === null || _a === void 0 ? void 0 : _a.addEventListener("input", this.valueChange.bind(this));
         this.htmlParm.addEventListener("animationend", this.removeChangedAlert.bind(this), false);
         return this.htmlParm;
     }

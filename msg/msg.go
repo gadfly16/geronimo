@@ -18,6 +18,7 @@ const (
 	SubscribeKind
 	UnsubscribeKind
 	UpdatedKind
+	RenameKind
 )
 
 var KindNames = map[Kind]string{
@@ -38,6 +39,7 @@ var KindNames = map[Kind]string{
 	SubscribeKind:   "Subscribe",
 	UnsubscribeKind: "Unsubscribe",
 	UpdatedKind:     "Updated",
+	RenameKind:      "Rename",
 }
 
 var (

@@ -20,6 +20,7 @@ func init() {
 		msg.GetTreeKind:     getTreeHandler,
 		msg.SubscribeKind:   subscribeHandler,
 		msg.UnsubscribeKind: unsubscribeHandler,
+		msg.RenameKind:      renameHandler,
 	}
 }
 
@@ -215,6 +216,19 @@ func unsubscribeHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
 	}
 	delete(h.subs, guiid)
 	slog.Debug("GUI unsubscribed", "node", h.path, "gui", guiid)
+	return &msg.OK
+}
+
+func renameHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
+	nn, ok := m.Payload.(string)
+	if !ok {
+		return msg.NewErrorMsg(errors.New("unusable payload for rename"))
+	}
+	dbr := Db.Model(h).Where("id = ?", h.ID).Update("name", nn)
+	if dbr.Error != nil {
+		return msg.NewErrorMsg(fmt.Errorf("database error during rename: %w", dbr.Error))
+	}
+	h.updateGUIs()
 	return &msg.OK
 }
 

@@ -18,6 +18,10 @@ export enum msgKinds {
   GetCopy,
   GetDisplay,
   Display,
+  Subscribe,
+  Unsubscribe,
+  Updated,
+  Rename,
 }
 
 export enum WSMsg {

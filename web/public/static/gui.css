@@ -122,6 +122,16 @@ data:hover::after {
     display: block;
     margin-left: 0.5em;
     margin-bottom: 0.05em;
+    background-color: #00000000;
+    color: #c7e9eb;
+    width: auto;
+    text-align: left;
+}
+
+.displayName:focus {
+    border: none;
+    background-color: #589294;
+    outline: none;
 }
 
 .parameterForm {
@@ -273,6 +283,15 @@ input:invalid {
 
 .n_children {
     font-size: 1.2em;
+}
+
+.renameAction {
+    font-size: 0.9em;
+    color: #b5f0bd;
+    text-decoration: underline;
+    text-decoration-color: #b5f0bd80;
+    position: relative;
+    display: none;
 }
 
 .nodeActions {

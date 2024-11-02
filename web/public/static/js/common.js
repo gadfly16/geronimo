@@ -14,6 +14,10 @@ export var msgKinds;
     msgKinds[msgKinds["GetCopy"] = 11] = "GetCopy";
     msgKinds[msgKinds["GetDisplay"] = 12] = "GetDisplay";
     msgKinds[msgKinds["Display"] = 13] = "Display";
+    msgKinds[msgKinds["Subscribe"] = 14] = "Subscribe";
+    msgKinds[msgKinds["Unsubscribe"] = 15] = "Unsubscribe";
+    msgKinds[msgKinds["Updated"] = 16] = "Updated";
+    msgKinds[msgKinds["Rename"] = 17] = "Rename";
 })(msgKinds || (msgKinds = {}));
 export var WSMsg;
 (function (WSMsg) {
