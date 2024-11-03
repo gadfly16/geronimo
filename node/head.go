@@ -40,12 +40,12 @@ type Head struct {
 	parent   msg.Pipe
 	children map[string]msg.Pipe
 
-	subs map[int64]msg.Pipe
+	subs map[int]msg.Pipe
 }
 
 type SubscribePayload struct {
-	GUIID int64
-	GUIIn msg.Pipe
+	ID   int
+	Node msg.Pipe
 }
 
 func (h *Head) getName() string {
@@ -199,16 +199,16 @@ func getTreeHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
 
 func subscribeHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
 	if h.subs == nil {
-		h.subs = make(map[int64]msg.Pipe)
+		h.subs = make(map[int]msg.Pipe)
 	}
 	gui := m.Payload.(SubscribePayload)
-	h.subs[gui.GUIID] = gui.GUIIn
-	slog.Debug("GUI subscribed", "node", h.path, "gui", gui.GUIID)
+	h.subs[gui.ID] = gui.Node
+	slog.Debug("GUI subscribed", "node", h.path, "gui", gui.ID)
 	return &msg.OK
 }
 
 func unsubscribeHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
-	guiid := m.Payload.(int64)
+	guiid := m.Payload.(int)
 	_, ok := h.subs[guiid]
 	if !ok {
 		slog.Error("Can't unscrubsibe GUI that's not subscribed", "node", h.path, "gui", guiid)

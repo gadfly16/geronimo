@@ -25,10 +25,11 @@ const (
 )
 
 type GUIClient struct {
-	id     int64
+	id     int
 	otp    string
 	conn   *websocket.Conn
 	in     msg.Pipe
+	wsin   chan wsmsg
 	userID int
 	subs   map[int]bool
 }
@@ -36,7 +37,7 @@ type GUIClient struct {
 type wsmsg struct {
 	Kind   int
 	OTP    string
-	GUIID  int64
+	GUIID  int
 	NodeID int
 }
 
@@ -46,6 +47,7 @@ func newGuiClient(conn *websocket.Conn, uid int) (client *GUIClient) {
 		id:     node.NextID(),
 		otp:    generateOTP(),
 		in:     make(msg.Pipe),
+		wsin:   make(chan wsmsg),
 		userID: uid,
 		subs:   make(map[int]bool),
 	}
@@ -117,7 +119,7 @@ func (gui *GUIClient) receiveMessage() (msg *wsmsg, err error) {
 	return
 }
 
-func (gui *GUIClient) receiver(mc chan wsmsg) {
+func (gui *GUIClient) receiver() {
 	var msg wsmsg
 	for {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
@@ -125,26 +127,34 @@ func (gui *GUIClient) receiver(mc chan wsmsg) {
 		err := wsjson.Read(ctx, gui.conn, &msg)
 		if err != nil {
 			slog.Error("websocket read error", "error", err)
-			mc <- wsmsg{Kind: WSMsg_Error}
+			gui.wsin <- wsmsg{Kind: WSMsg_Error}
 			break
 		}
 		if msg.GUIID != gui.id || msg.OTP != gui.otp {
 			slog.Error("wrong websocket credentials")
-			mc <- wsmsg{Kind: WSMsg_Error}
+			gui.wsin <- wsmsg{Kind: WSMsg_Error}
 			break
 		}
-		mc <- msg
+		gui.wsin <- msg
 	}
+	slog.Debug("GUI ws receiver stopped", "gui", gui.id)
 }
 
 func (gui *GUIClient) run() {
-	rmsgc := make(chan wsmsg)
-	go gui.receiver(rmsgc)
+	node.Tree.TreeUpdater.Ask(msg.Msg{
+		Kind: msg.SubscribeKind,
+		Payload: node.SubscribePayload{
+			ID:   gui.userID,
+			Node: gui.in,
+		},
+	})
 
+	go gui.receiver()
+	slog.Debug("gui receiver started", "gui", gui.id)
 out:
 	for {
 		select {
-		case wm := <-rmsgc:
+		case wm := <-gui.wsin:
 			switch wm.Kind {
 			case WSMsg_Error:
 				break out
@@ -157,8 +167,8 @@ out:
 				m := msg.Msg{
 					Kind: msg.SubscribeKind,
 					Payload: node.SubscribePayload{
-						GUIID: gui.id,
-						GUIIn: gui.in,
+						ID:   gui.id,
+						Node: gui.in,
 					},
 					UserID: gui.userID,
 				}
@@ -218,4 +228,12 @@ out:
 		})
 	}
 	slog.Debug("GUI unsubscribed from nodes: ", "gui", gui.id)
+
+	node.Tree.TreeUpdater.Ask(msg.Msg{
+		Kind: msg.UnsubscribeKind,
+		Payload: node.SubscribePayload{
+			ID:   gui.userID,
+			Node: gui.in,
+		},
+	})
 }

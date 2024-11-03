@@ -84,7 +84,7 @@ class GUI {
     if (off > this.heart_interval + this.roundtrip && this.last_srv_beat != 0) {
       console.log("connection to server lost.", off)
     }
-    // console.log("Sending heartbeat to gui")
+    console.log("Sending heartbeat to gui")
     this.socket.send(
       JSON.stringify({
         Kind: WSMsg.Heartbeat,
@@ -353,6 +353,7 @@ class NodeDisplay {
       </div>
     `)
     dispHead.querySelector(".displayName")!.addEventListener("input", this.nameChange.bind(this))
+    dispHead.querySelector(".displayName")!.addEventListener("animationend", this.removeNameChangeAlert.bind(this))
     dispHead.querySelector(".renameForm")!.addEventListener("submit", this.rename.bind(this))
     dispHead.querySelector(".renameAction")!.addEventListener("click", this.rename.bind(this))
     return dispHead
@@ -372,16 +373,27 @@ class NodeDisplay {
     }
   }
 
+  removeNameChangeAlert() {
+    const ne = this.htmlDisplay?.querySelector(".displayName") as HTMLInputElement
+    ne.classList.remove("changeAlert")
+  }
+
   rename(e: Event) {
     var t: HTMLElement
     e.preventDefault()
     if (e.type === 'click') {
       t = (e.target as HTMLDivElement).parentElement!
     } else {
-      t = e.target as HTMLFormElement
+      t = (e.target as HTMLFormElement).parentElement!
     }
     const i = t.querySelector(".displayName") as HTMLInputElement
     console.log(`Rename from ${this.name} to ${i.value}`)
+
+    const na = t.querySelector(".nodeActions") as HTMLDivElement
+    const ra = t.querySelector(".renameAction") as HTMLDivElement
+    na.style.display = "block"
+    ra.style.display = "none"
+    i.blur()
 
     ask(msgKinds.Rename, this.ID, i.value,
       (r) => {
@@ -418,12 +430,17 @@ class NodeDisplay {
   }
 
   update(displayData: any) {
+    if (displayData.Head.Name !== this.name) {
+      const nn = displayData.Head.Name
+      console.log("name changed", displayData.Head.Name, this.name)
+      const ne = this.htmlDisplay?.querySelector(".displayName") as HTMLInputElement
+      ne.setAttribute("value", `${nn}`)
+      this.name = nn
+      ne.classList.add("changeAlert")
+    } 
     if (this.parms) {
       this.parms.update(displayData.Parms)
     }
-    // if (this.infos) {
-      //   this.infos.update(parms)
-      // }
   }
 }
 

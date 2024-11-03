@@ -37,9 +37,4 @@ export var nodeKinds;
     nodeKinds[nodeKinds["Account"] = 3] = "Account";
     nodeKinds[nodeKinds["Broker"] = 4] = "Broker";
 })(nodeKinds || (nodeKinds = {}));
-// export enum payloadKinds {
-//   Empty = 0,
-//   UserNode,
-//   Parms,
-// }
 export let NodeKindName = ["root", "group", "user", "broker", "account", "broker", "pocket"];

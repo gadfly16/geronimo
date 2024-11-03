@@ -64,7 +64,7 @@ class GUI {
         if (off > this.heart_interval + this.roundtrip && this.last_srv_beat != 0) {
             console.log("connection to server lost.", off);
         }
-        // console.log("Sending heartbeat to gui")
+        console.log("Sending heartbeat to gui");
         this.socket.send(JSON.stringify({
             Kind: WSMsg.Heartbeat,
             GUIID: this.guiID,
@@ -310,6 +310,7 @@ class NodeDisplay {
       </div>
     `);
         dispHead.querySelector(".displayName").addEventListener("input", this.nameChange.bind(this));
+        dispHead.querySelector(".displayName").addEventListener("animationend", this.removeNameChangeAlert.bind(this));
         dispHead.querySelector(".renameForm").addEventListener("submit", this.rename.bind(this));
         dispHead.querySelector(".renameAction").addEventListener("click", this.rename.bind(this));
         return dispHead;
@@ -328,6 +329,11 @@ class NodeDisplay {
             ra.style.display = "none";
         }
     }
+    removeNameChangeAlert() {
+        var _a;
+        const ne = (_a = this.htmlDisplay) === null || _a === void 0 ? void 0 : _a.querySelector(".displayName");
+        ne.classList.remove("changeAlert");
+    }
     rename(e) {
         var t;
         e.preventDefault();
@@ -335,10 +341,15 @@ class NodeDisplay {
             t = e.target.parentElement;
         }
         else {
-            t = e.target;
+            t = e.target.parentElement;
         }
         const i = t.querySelector(".displayName");
         console.log(`Rename from ${this.name} to ${i.value}`);
+        const na = t.querySelector(".nodeActions");
+        const ra = t.querySelector(".renameAction");
+        na.style.display = "block";
+        ra.style.display = "none";
+        i.blur();
         ask(msgKinds.Rename, this.ID, i.value, (r) => {
             console.log(r);
         });
@@ -369,12 +380,18 @@ class NodeDisplay {
         });
     }
     update(displayData) {
+        var _a;
+        if (displayData.Head.Name !== this.name) {
+            const nn = displayData.Head.Name;
+            console.log("name changed", displayData.Head.Name, this.name);
+            const ne = (_a = this.htmlDisplay) === null || _a === void 0 ? void 0 : _a.querySelector(".displayName");
+            ne.setAttribute("value", `${nn}`);
+            this.name = nn;
+            ne.classList.add("changeAlert");
+        }
         if (this.parms) {
             this.parms.update(displayData.Parms);
         }
-        // if (this.infos) {
-        //   this.infos.update(parms)
-        // }
     }
 }
 class UserDisplay extends NodeDisplay {

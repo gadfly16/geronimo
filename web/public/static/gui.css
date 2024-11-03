@@ -113,11 +113,11 @@ data:hover::after {
     align-items: center;
     background-color: cadetblue;
     color: #c7e9eb;
-    padding: 0.5em;
-    padding-right: 1.4em;
+    padding: 0.25em 1.4em 0.25em 0.5em;
 }
 
 .displayName {
+    border: 0.15em solid #af0a0a00;
     font-size: 1.7em;
     display: block;
     margin-left: 0.5em;
@@ -129,7 +129,7 @@ data:hover::after {
 }
 
 .displayName:focus {
-    border: none;
+    border: 0.15em solid #af0a0a00;
     background-color: #589294;
     outline: none;
 }
