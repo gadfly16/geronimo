@@ -1,4 +1,4 @@
-package node
+package core
 
 import (
 	"errors"
@@ -6,21 +6,20 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/gadfly16/geronimo/msg"
 	"gorm.io/gorm"
 )
 
-var commonMsgHandlers map[msg.Kind]func(*Head, *msg.Msg) *msg.Msg
-var nodeMsgHandlers = map[Kind]map[msg.Kind]func(Node, *msg.Msg) *msg.Msg{}
+var commonMsgHandlers map[MsgKind]func(*Head, *Msg) *Msg
+var nodeMsgHandlers = map[Kind]map[MsgKind]func(Node, *Msg) *Msg{}
 
 func init() {
-	commonMsgHandlers = map[msg.Kind]func(*Head, *msg.Msg) *msg.Msg{
-		msg.CreateKind:      createHandler,
-		msg.StopKind:        stopHandler,
-		msg.GetTreeKind:     getTreeHandler,
-		msg.SubscribeKind:   subscribeHandler,
-		msg.UnsubscribeKind: unsubscribeHandler,
-		msg.RenameKind:      renameHandler,
+	commonMsgHandlers = map[MsgKind]func(*Head, *Msg) *Msg{
+		CreateMsgKind:      createHandler,
+		StopMsgKind:        stopHandler,
+		GetTreeMsgKind:     getTreeHandler,
+		SubscribeMsgKind:   subscribeHandler,
+		UnsubscribeMsgKind: unsubscribeHandler,
+		RenameMsgKind:      renameHandler,
 	}
 }
 
@@ -33,19 +32,19 @@ type Head struct {
 	Name     string
 	Kind     Kind
 	ParentID int
-	OwnerID  int      `gorm:"-"`
-	In       msg.Pipe `gorm:"-"`
+	OwnerID  int  `gorm:"-"`
+	In       Pipe `gorm:"-"`
 
 	path     string
-	parent   msg.Pipe
-	children map[string]msg.Pipe
+	parent   Pipe
+	children map[string]Pipe
 
-	subs map[int]msg.Pipe
+	subs map[int]Pipe
 }
 
 type SubscribePayload struct {
 	ID   int
-	Node msg.Pipe
+	Node Pipe
 }
 
 func (h *Head) getName() string {
@@ -60,9 +59,9 @@ func (h *Head) setParentID(pid int) {
 	h.ParentID = pid
 }
 
-func (h *Head) load() (in msg.Pipe, err error) {
-	h.In = make(msg.Pipe)
-	h.children = make(map[string]msg.Pipe)
+func (h *Head) load() (in Pipe, err error) {
+	h.In = make(Pipe)
+	h.children = make(map[string]Pipe)
 	if h.Kind == UserKind {
 		h.OwnerID = h.ID
 	}
@@ -79,7 +78,7 @@ func (h *Head) load() (in msg.Pipe, err error) {
 		ch.parent = h.In
 		ch.path = h.path + "/" + ch.Name
 		ch.OwnerID = h.OwnerID
-		var chin msg.Pipe
+		var chin Pipe
 		chin, err = ch.load()
 		if err != nil {
 			return
@@ -87,25 +86,18 @@ func (h *Head) load() (in msg.Pipe, err error) {
 		h.children[ch.Name] = chin
 		ch.parent = h.In
 	}
-
-	Tree.NodeLock.Lock()
-	Tree.Nodes[h.ID] = h.In
-	Tree.NodeLock.Unlock()
-
+	Tree.PutNode(h.ID, h.In)
 	go n.run()
-
 	return h.In, err
 }
 
 func (h *Head) initNew() {
-	h.children = make(map[string]msg.Pipe)
-	h.In = make(msg.Pipe)
-	Tree.NodeLock.Lock()
-	Tree.Nodes[h.ID] = h.In
-	Tree.NodeLock.Unlock()
+	h.children = make(map[string]Pipe)
+	h.In = make(Pipe)
+	Tree.PutNode(h.ID, h.In)
 }
 
-func (h *Head) handleMsg(n Node, m *msg.Msg) (r *msg.Msg) {
+func (h *Head) handleMsg(n Node, m *Msg) (r *Msg) {
 	chf, ok := commonMsgHandlers[m.Kind]
 	if ok {
 		return chf(h, m)
@@ -115,16 +107,16 @@ func (h *Head) handleMsg(n Node, m *msg.Msg) (r *msg.Msg) {
 		return nhf(n, m)
 	}
 	slog.Error("No appropriate handler found.", "path", h.path, "msg_kind", m.KindName())
-	return msg.NewErrorMsg(fmt.Errorf("no appropriate handler found for %s on %s", m.KindName(), h.KindName()))
+	return NewErrorMsg(fmt.Errorf("no appropriate handler found for %s on %s", m.KindName(), h.KindName()))
 }
 
-func createHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
+func createHandler(h *Head, m *Msg) (r *Msg) {
 	n := m.Payload.(Node)
 	if n.getName() == "" {
 		n.setName("NewNode")
 	}
 	if _, ok := h.children[n.getName()]; ok {
-		return msg.NewErrorMsg(fmt.Errorf("node '%s' already exists", n.getName()))
+		return NewErrorMsg(fmt.Errorf("node '%s' already exists", n.getName()))
 	}
 	n.setParentID(h.ID)
 	switch pl := m.Payload.(type) {
@@ -135,21 +127,21 @@ func createHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
 	}
 	nin, err := n.create(h)
 	if err != nil {
-		return msg.NewErrorMsg(err)
+		return NewErrorMsg(err)
 	}
 	h.children[n.getName()] = nin
-	return &msg.OK
+	return &OKMsg
 }
 
-func stopHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
+func stopHandler(h *Head, m *Msg) (r *Msg) {
 	slog.Info("Stopping children.", "name", h.Name)
 	h.askChildren(m)
-	return &msg.Stopped
+	return &StoppedMsg
 }
 
-func (h *Head) askChildren(m *msg.Msg) {
+func (h *Head) askChildren(m *Msg) {
 	rp := m.Resp
-	m.Resp = make(msg.Pipe)
+	m.Resp = make(Pipe)
 	for _, ch := range h.children {
 		ch <- m
 	}
@@ -159,10 +151,10 @@ func (h *Head) askChildren(m *msg.Msg) {
 	m.Resp = rp
 }
 
-func getTreeHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
+func getTreeHandler(h *Head, m *Msg) (r *Msg) {
 	if m.UserID != h.OwnerID && !m.Admin {
 		slog.Debug("unauthorized tree request", "path", h.path, "user", m.UserID, "owner", h.OwnerID, "admin", m.Admin)
-		return msg.NewErrorMsg(fmt.Errorf("unathorized tree request"))
+		return NewErrorMsg(fmt.Errorf("unathorized tree request"))
 	}
 	tree := &TreeEntry{
 		ID:   h.ID,
@@ -171,7 +163,7 @@ func getTreeHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
 	}
 
 	chm := *m
-	chm.Resp = make(msg.Pipe)
+	chm.Resp = make(Pipe)
 	for _, ch := range h.children {
 		ch <- &chm
 	}
@@ -179,7 +171,7 @@ func getTreeHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
 	var cherr bool
 	for range len(h.children) {
 		chr := <-chm.Resp
-		if chr.Kind == msg.ErrorKind {
+		if chr.Kind == ErrorMsgKind {
 			cherr = true
 		} else {
 			slog.Debug("Children gave back tree")
@@ -188,48 +180,52 @@ func getTreeHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
 	}
 
 	if cherr {
-		return msg.NewErrorMsg(fmt.Errorf("unathorized tree request downstream"))
+		return NewErrorMsg(fmt.Errorf("unathorized tree request downstream"))
 	}
 
-	r = &msg.Msg{
-		Kind:    msg.TreeKind,
+	r = &Msg{
+		Kind:    TreeMsgKind,
 		Payload: tree}
 	return
 }
 
-func subscribeHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
+func subscribeHandler(h *Head, m *Msg) (r *Msg) {
 	if h.subs == nil {
-		h.subs = make(map[int]msg.Pipe)
+		h.subs = make(map[int]Pipe)
 	}
 	gui := m.Payload.(SubscribePayload)
 	h.subs[gui.ID] = gui.Node
 	slog.Debug("GUI subscribed", "node", h.path, "gui", gui.ID)
-	return &msg.OK
+	return &OKMsg
 }
 
-func unsubscribeHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
+func unsubscribeHandler(h *Head, m *Msg) (r *Msg) {
 	guiid := m.Payload.(int)
 	_, ok := h.subs[guiid]
 	if !ok {
 		slog.Error("Can't unscrubsibe GUI that's not subscribed", "node", h.path, "gui", guiid)
-		return msg.NewErrorMsg(errors.New("ettempt to unscrubscribe non-subscribed GUI"))
+		return NewErrorMsg(errors.New("ettempt to unscrubscribe non-subscribed GUI"))
 	}
 	delete(h.subs, guiid)
 	slog.Debug("GUI unsubscribed", "node", h.path, "gui", guiid)
-	return &msg.OK
+	return &OKMsg
 }
 
-func renameHandler(h *Head, m *msg.Msg) (r *msg.Msg) {
+func renameHandler(h *Head, m *Msg) (r *Msg) {
 	nn, ok := m.Payload.(string)
 	if !ok {
-		return msg.NewErrorMsg(errors.New("unusable payload for rename"))
+		return NewErrorMsg(errors.New("unusable payload for rename"))
 	}
 	dbr := Db.Model(h).Where("id = ?", h.ID).Update("name", nn)
 	if dbr.Error != nil {
-		return msg.NewErrorMsg(fmt.Errorf("database error during rename: %w", dbr.Error))
+		return NewErrorMsg(fmt.Errorf("database error during rename: %w", dbr.Error))
 	}
 	h.updateGUIs()
-	return &msg.OK
+	Tree.TreeUpdater.Ask(Msg{
+		Kind:    UpdateMsgKind,
+		Payload: h.ID,
+	})
+	return &OKMsg
 }
 
 func (h *Head) display() display {
@@ -249,6 +245,6 @@ func (h *Head) display() display {
 func (h *Head) updateGUIs() {
 	for id, g := range h.subs {
 		slog.Debug("sending updated msg to GUI", "gui_id", id)
-		g <- &msg.Msg{Kind: msg.UpdatedKind, Payload: h.ID}
+		g <- &Msg{Kind: UpdatedMsgKind, Payload: h.ID}
 	}
 }

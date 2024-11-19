@@ -7,12 +7,12 @@ import (
 	"runtime"
 	"runtime/pprof"
 
-	"github.com/gadfly16/geronimo/node"
+	"github.com/gadfly16/geronimo/core"
 	"github.com/spf13/cobra"
 )
 
 var (
-	rp           node.RootParms
+	rp           core.RootParms
 	sdb          string
 	userEmail    string
 	userPassword string
@@ -41,7 +41,7 @@ var rootCmd = &cobra.Command{
 	Long:  `Geronimo is a web application to track, manage and automate crypto investments.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		slog.Info("Inside root command's persistent pre run.")
-		l := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: node.LogLevel})
+		l := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: core.LogLevel})
 		slog.SetDefault(slog.New(l))
 		if prof_cpu {
 			var err error

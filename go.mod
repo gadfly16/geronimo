@@ -23,5 +23,4 @@ require (
 	github.com/spf13/cobra v1.8.1
 	golang.org/x/crypto v0.24.0
 	gorm.io/driver/sqlite v1.5.6
-	nhooyr.io/websocket v1.8.17
 )

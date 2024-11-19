@@ -84,7 +84,7 @@ class GUI {
     if (off > this.heart_interval + this.roundtrip && this.last_srv_beat != 0) {
       console.log("connection to server lost.", off)
     }
-    console.log("Sending heartbeat to gui")
+    // console.log("Sending heartbeat to gui")
     this.socket.send(
       JSON.stringify({
         Kind: WSMsg.Heartbeat,

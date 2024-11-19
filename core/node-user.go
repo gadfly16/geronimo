@@ -1,4 +1,4 @@
-package node
+package core
 
 import (
 	"encoding/json"
@@ -6,17 +6,16 @@ import (
 	"io"
 	"log/slog"
 
-	"github.com/gadfly16/geronimo/msg"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 func init() {
-	nodeMsgHandlers[UserKind] = map[msg.Kind]func(Node, *msg.Msg) *msg.Msg{
-		msg.UpdateKind:     userUpdateHandler,
-		msg.GetParmsKind:   userGetParmsHandler,
-		msg.GetCopyKind:    userGetNodeCopyHandler,
-		msg.GetDisplayKind: userGetDisplayHandler,
+	nodeMsgHandlers[UserKind] = map[MsgKind]func(Node, *Msg) *Msg{
+		UpdateMsgKind:     userUpdateHandler,
+		GetParmsMsgKind:   userGetParmsHandler,
+		GetCopyMsgKind:    userGetNodeCopyHandler,
+		GetDisplayMsgKind: userGetDisplayHandler,
 	}
 }
 
@@ -39,7 +38,7 @@ func (n *UserNode) run() {
 		r := n.Head.handleMsg(n, q)
 		q.Answer(r)
 		slog.Debug("Message answered.", "node", n.path, "kind", r.KindName())
-		if r.Kind == msg.StoppedKind {
+		if r.Kind == StoppedMsgKind {
 			break
 		}
 	}
@@ -57,7 +56,7 @@ func (t *UserNode) loadBody(h *Head) (n Node, err error) {
 	return un, nil
 }
 
-func (n *UserNode) create(p *Head) (in msg.Pipe, err error) {
+func (n *UserNode) create(p *Head) (in Pipe, err error) {
 	n.OwnerID = n.ID
 	n.Head.path = p.path + "/" + n.Name
 	n.Parms.Password, err = bcrypt.GenerateFromPassword(n.Parms.Password, 14)
@@ -83,8 +82,8 @@ func (n *UserNode) create(p *Head) (in msg.Pipe, err error) {
 	return n.Head.In, nil
 }
 
-func (n *UserNode) UnmarshalMsg(b io.ReadCloser) (m msg.Msg, err error) {
-	m = msg.Msg{
+func (n *UserNode) UnmarshalMsg(b io.ReadCloser) (m Msg, err error) {
+	m = Msg{
 		Payload: UserNode{},
 	}
 	d := json.NewDecoder(b)
@@ -92,27 +91,27 @@ func (n *UserNode) UnmarshalMsg(b io.ReadCloser) (m msg.Msg, err error) {
 	return
 }
 
-func userGetParmsHandler(ni Node, _ *msg.Msg) *msg.Msg {
+func userGetParmsHandler(ni Node, _ *Msg) *Msg {
 	n := ni.(*UserNode)
-	return &msg.Msg{
-		Kind:    msg.ParmsKind,
+	return &Msg{
+		Kind:    ParmsMsgKind,
 		Payload: *n.Parms,
 	}
 }
 
-func userGetNodeCopyHandler(ni Node, _ *msg.Msg) *msg.Msg {
+func userGetNodeCopyHandler(ni Node, _ *Msg) *Msg {
 	ncp := *ni.(*UserNode)
-	return &msg.Msg{
-		Kind:    msg.ParmsKind,
+	return &Msg{
+		Kind:    ParmsMsgKind,
 		Payload: ncp,
 	}
 }
 
-func userUpdateHandler(ni Node, m *msg.Msg) (r *msg.Msg) {
+func userUpdateHandler(ni Node, m *Msg) (r *Msg) {
 	n := ni.(*UserNode)
 	if m.UserID != n.OwnerID && !m.Admin {
 		slog.Debug("unauthorized update request", "path", n.path, "user", m.UserID, "owner", n.OwnerID, "admin", m.Admin)
-		return msg.NewErrorMsg(fmt.Errorf("unathorized update request"))
+		return NewErrorMsg(fmt.Errorf("unathorized update request"))
 	}
 	slog.Debug("user node update", "payload", m.Payload)
 	pl := m.Payload.(map[string]any)
@@ -128,18 +127,18 @@ func userUpdateHandler(ni Node, m *msg.Msg) (r *msg.Msg) {
 		return
 	})
 	if err != nil {
-		return msg.NewErrorMsg(err)
+		return NewErrorMsg(err)
 	}
 	n.Parms = np
 	n.Head.updateGUIs()
-	return &msg.OK
+	return &OKMsg
 }
 
 // func (n *RootNode) setLogLevel() {
 // 	LogLevel.Set(slog.Level(n.Parms.LogLevel))
 // }
 
-func userGetDisplayHandler(ni Node, _ *msg.Msg) *msg.Msg {
+func userGetDisplayHandler(ni Node, _ *Msg) *Msg {
 	n := ni.(*UserNode)
 	d := n.Head.display()
 	d["Parms"] = display{
@@ -147,8 +146,8 @@ func userGetDisplayHandler(ni Node, _ *msg.Msg) *msg.Msg {
 		"Admin":        n.Parms.Admin,
 	}
 	// slog.Debug("Display data returned by user node", "displayData", d)
-	r := &msg.Msg{
-		Kind:    msg.DisplayKind,
+	r := &Msg{
+		Kind:    DisplayMsgKind,
 		Payload: d,
 	}
 	return r

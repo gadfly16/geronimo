@@ -18,8 +18,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 
-	"github.com/gadfly16/geronimo/msg"
-	"github.com/gadfly16/geronimo/node"
+	"github.com/gadfly16/geronimo/core"
 )
 
 const (
@@ -40,9 +39,9 @@ const (
 )
 
 func Serve(sdb string) (err error) {
-	node.Tree.Load(sdb)
+	core.Tree.Load(sdb)
 
-	rp := node.Tree.Root.Ask(msg.GetParms).Payload.(node.RootParms)
+	rp := core.Tree.Root.Ask(core.GetParmsMsg).Payload.(core.RootParms)
 	slog.Debug("Server settings received")
 
 	server := &http.Server{Addr: rp.HTTPAddr, Handler: service()}
@@ -89,7 +88,7 @@ func Serve(sdb string) (err error) {
 	// Wait for server context to be stopped
 	<-serverCtx.Done()
 
-	node.Tree.Root.Ask(msg.Stop)
+	core.Tree.Root.Ask(core.StopMsg)
 
 	slog.Info("Exiting server.")
 	return
@@ -167,7 +166,7 @@ func authPage(next http.Handler) http.Handler {
 		}
 
 		token, err := jwt.ParseWithClaims(et.Value, &claims{}, func(token *jwt.Token) (interface{}, error) {
-			return node.JwtKey, nil
+			return core.JwtKey, nil
 		})
 		if err != nil {
 			slog.Error("Unable to parse cookie", "URL", r.URL)
@@ -198,7 +197,7 @@ func authFetch(next http.Handler) http.Handler {
 		}
 
 		token, err := jwt.ParseWithClaims(et.Value, &claims{}, func(token *jwt.Token) (interface{}, error) {
-			return node.JwtKey, nil
+			return core.JwtKey, nil
 		})
 		if err != nil {
 			slog.Error("Unable to parse cookie", "URL", r.URL)
@@ -242,12 +241,12 @@ func apiMsgHandler(w http.ResponseWriter, q *http.Request) {
 
 	slog.Debug("API message call.",
 		"targetID", tid,
-		"msgKind", msg.KindNames[mk],
+		"msgKind", core.MsgKindNames[mk],
 		"uid", uid,
 		"admin", cls.Admin,
 	)
 
-	m, err := node.UnmarshalMsg(mk, q.Body)
+	m, err := core.UnmarshalMsg(mk, q.Body)
 	if err != nil {
 		slog.Error("can't unmarshal message payload", "error", err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -255,13 +254,13 @@ func apiMsgHandler(w http.ResponseWriter, q *http.Request) {
 	}
 
 	switch m.Kind {
-	case msg.GetTreeKind:
+	case core.GetTreeMsgKind:
 		if cls.Admin {
 			tid = 1
 		}
 	}
 
-	t, ok := node.Tree.Nodes[tid]
+	t, ok := core.Tree.GetNode(tid)
 	if !ok {
 		slog.Error("target node doesn't exists", "target", tid)
 		w.WriteHeader(http.StatusNotFound)
@@ -278,21 +277,29 @@ func apiMsgHandler(w http.ResponseWriter, q *http.Request) {
 
 func signupHandler(w http.ResponseWriter, r *http.Request) {
 	slog.Info("New singup")
-	n := &node.UserNode{}
+	n := &core.UserNode{}
 	d := json.NewDecoder(r.Body)
 	if err := d.Decode(n); err != nil {
 		slog.Error("Can't unmarshall new user node", "error", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	m := msg.Msg{
-		Kind:    msg.CreateKind,
+	m := core.Msg{
+		Kind:    core.CreateMsgKind,
 		Payload: n,
 	}
-	mr := node.Tree.Nodes[2].Ask(m)
-	if mr.Kind == msg.ErrorKind {
+	// Magic number must be replaced with a stored pipe on Tree
+	u, ok := core.Tree.GetNode(2)
+	if !ok {
+		slog.Error("Users node can not be found")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	mr := u.Ask(m)
+	if mr.Kind == core.ErrorMsgKind {
 		slog.Error("User creation failed", "error", mr.ErrorMsg())
 		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 	w.WriteHeader(http.StatusOK)
 	slog.Info("New user created", "name", n.Head.Name)
@@ -300,21 +307,28 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 
 func loginHandler(w http.ResponseWriter, q *http.Request) {
 	slog.Info("New login")
-	n := &node.UserNode{}
+	n := &core.UserNode{}
 	d := json.NewDecoder(q.Body)
 	if err := d.Decode(n); err != nil {
 		slog.Error("Can't unmarshall login user node", "error", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	r := node.Tree.Nodes[2].Ask(msg.Msg{Kind: msg.AuthUserKind, Payload: n})
-	if r.Kind == msg.ErrorKind {
+	// Magic number must be replaced with a stored pipe on Tree
+	u, ok := core.Tree.GetNode(2)
+	if !ok {
+		slog.Error("Users node can not be found")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	r := u.Ask(core.Msg{Kind: core.AuthUserMsgKind, Payload: n})
+	if r.Kind == core.ErrorMsgKind {
 		slog.Error("user authentication failed", "error", r.ErrorMsg())
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	up := r.Payload.(node.UserNode)
+	up := r.Payload.(core.UserNode)
 	exp := time.Now().Add(expirationDuration)
 	claims := &claims{
 		Admin: up.Parms.Admin,
@@ -324,7 +338,7 @@ func loginHandler(w http.ResponseWriter, q *http.Request) {
 		},
 	}
 
-	st, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(node.JwtKey)
+	st, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(core.JwtKey)
 	if err != nil {
 		slog.Error("user authentication failed", "error", r.ErrorMsg())
 		w.WriteHeader(http.StatusInternalServerError)

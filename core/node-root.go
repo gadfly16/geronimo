@@ -1,19 +1,18 @@
-package node
+package core
 
 import (
 	"crypto/rand"
 	"log/slog"
 
-	"github.com/gadfly16/geronimo/msg"
 	"gorm.io/gorm"
 )
 
 var JwtKey []byte
 
 func init() {
-	nodeMsgHandlers[RootKind] = map[msg.Kind]func(Node, *msg.Msg) *msg.Msg{
+	nodeMsgHandlers[RootKind] = map[MsgKind]func(Node, *Msg) *Msg{
 		// msg.UpdateKind:   rootUpdateHandler,
-		msg.GetParmsKind: rootGetParmsHandler,
+		GetParmsMsgKind: rootGetParmsHandler,
 	}
 }
 
@@ -45,7 +44,7 @@ func (n *RootNode) run() {
 		r := n.Head.handleMsg(n, q)
 		q.Answer(r)
 		slog.Debug("Message answered.", "node", n.Name, "kind", r.KindName())
-		if r.Kind == msg.StoppedKind {
+		if r.Kind == StoppedMsgKind {
 			break
 		}
 	}
@@ -65,7 +64,7 @@ func (nt *RootNode) loadBody(h *Head) (n Node, err error) {
 	return rn, nil
 }
 
-func (n *RootNode) create(p *Head) (in msg.Pipe, err error) {
+func (n *RootNode) create(p *Head) (in Pipe, err error) {
 	n.OwnerID = p.OwnerID
 	n.Head.path = p.path + "/" + n.Head.Name
 	n.Parms.JwtKey = make([]byte, 14)
@@ -106,15 +105,15 @@ func InitRootNode(rp *RootParms) (err error) {
 	return err
 }
 
-func rootGetParmsHandler(ni Node, m *msg.Msg) (r *msg.Msg) {
+func rootGetParmsHandler(ni Node, m *Msg) (r *Msg) {
 	n := ni.(*RootNode)
-	return &msg.Msg{
-		Kind:    msg.ParmsKind,
+	return &Msg{
+		Kind:    ParmsMsgKind,
 		Payload: *n.Parms,
 	}
 }
 
-// func rootUpdateHandler(ni Node, m *msg.Msg) (r *msg.Msg) {
+// func rootUpdateHandler(ni Node, m *Msg) (r *Msg) {
 // if v, ok := m.Payload["parms"]; ok {
 // 	if n.Parms, ok = v.(*RootParms); !ok {
 // 		return fmt.Errorf("update failed: wrong parms type %T", n.Parms)

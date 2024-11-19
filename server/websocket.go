@@ -10,8 +10,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 
-	"github.com/gadfly16/geronimo/msg"
-	"github.com/gadfly16/geronimo/node"
+	"github.com/gadfly16/geronimo/core"
 )
 
 const (
@@ -28,7 +27,7 @@ type GUIClient struct {
 	id     int
 	otp    string
 	conn   *websocket.Conn
-	in     msg.Pipe
+	in     core.Pipe
 	wsin   chan wsmsg
 	userID int
 	subs   map[int]bool
@@ -44,9 +43,9 @@ type wsmsg struct {
 func newGuiClient(conn *websocket.Conn, uid int) (client *GUIClient) {
 	client = &GUIClient{
 		conn:   conn,
-		id:     node.NextID(),
+		id:     core.NextID(),
 		otp:    generateOTP(),
-		in:     make(msg.Pipe),
+		in:     make(core.Pipe),
 		wsin:   make(chan wsmsg),
 		userID: uid,
 		subs:   make(map[int]bool),
@@ -93,7 +92,7 @@ func socketHandler(w http.ResponseWriter, q *http.Request) {
 }
 
 func generateOTP() string {
-	otp, _ := node.GenerateSecret(16)
+	otp, _ := core.GenerateSecret(16)
 	for i, b := range otp {
 		otp[i] = b%94 + 33
 	}
@@ -141,9 +140,9 @@ func (gui *GUIClient) receiver() {
 }
 
 func (gui *GUIClient) run() {
-	node.Tree.TreeUpdater.Ask(msg.Msg{
-		Kind: msg.SubscribeKind,
-		Payload: node.SubscribePayload{
+	core.Tree.TreeUpdater.Ask(core.Msg{
+		Kind: core.SubscribeMsgKind,
+		Payload: core.SubscribePayload{
 			ID:   gui.userID,
 			Node: gui.in,
 		},
@@ -159,14 +158,14 @@ out:
 			case WSMsg_Error:
 				break out
 			case WSMsg_Subscribe:
-				n, ok := node.Tree.Nodes[wm.NodeID]
+				n, ok := core.Tree.GetNode(wm.NodeID)
 				if !ok {
 					slog.Error("subscribing to nonexisting node", "node_id", wm.NodeID)
 					break out
 				}
-				m := msg.Msg{
-					Kind: msg.SubscribeKind,
-					Payload: node.SubscribePayload{
+				m := core.Msg{
+					Kind: core.SubscribeMsgKind,
+					Payload: core.SubscribePayload{
 						ID:   gui.id,
 						Node: gui.in,
 					},
@@ -176,13 +175,13 @@ out:
 				gui.subs[wm.NodeID] = true
 				slog.Debug("subscribed to node", "node_id", wm.NodeID)
 			case WSMsq_Unsubscribe:
-				n, ok := node.Tree.Nodes[wm.NodeID]
+				n, ok := core.Tree.GetNode(wm.NodeID)
 				if !ok {
 					slog.Error("unsubscribing from nonexisting node", "node_id", wm.NodeID)
 					break out
 				}
-				m := msg.Msg{
-					Kind:    msg.UnsubscribeKind,
+				m := core.Msg{
+					Kind:    core.UnsubscribeMsgKind,
 					Payload: gui.id,
 					UserID:  gui.userID,
 				}
@@ -217,21 +216,21 @@ out:
 	}
 	slog.Debug("GUI stopped reading messages for client: ", "gui", gui.id)
 	for nid := range gui.subs {
-		n, ok := node.Tree.Nodes[nid]
+		n, ok := core.Tree.GetNode(nid)
 		if !ok {
 			slog.Error("GUI unsubscribing from nonexisting node", "node_id", nid)
 		}
-		n.Ask(msg.Msg{
-			Kind:    msg.UnsubscribeKind,
+		n.Ask(core.Msg{
+			Kind:    core.UnsubscribeMsgKind,
 			Payload: gui.id,
 			UserID:  gui.userID,
 		})
 	}
 	slog.Debug("GUI unsubscribed from nodes: ", "gui", gui.id)
 
-	node.Tree.TreeUpdater.Ask(msg.Msg{
-		Kind: msg.UnsubscribeKind,
-		Payload: node.SubscribePayload{
+	core.Tree.TreeUpdater.Ask(core.Msg{
+		Kind: core.UnsubscribeMsgKind,
+		Payload: core.SubscribePayload{
 			ID:   gui.userID,
 			Node: gui.in,
 		},
