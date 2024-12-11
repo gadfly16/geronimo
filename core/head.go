@@ -4,23 +4,22 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
 )
 
-var commonMsgHandlers map[MsgKind]func(*Head, *Msg) *Msg
 var nodeMsgHandlers = map[Kind]map[MsgKind]func(Node, *Msg) *Msg{}
 
-func init() {
-	commonMsgHandlers = map[MsgKind]func(*Head, *Msg) *Msg{
-		CreateMsgKind:      createHandler,
-		StopMsgKind:        stopHandler,
-		GetTreeMsgKind:     getTreeHandler,
-		SubscribeMsgKind:   subscribeHandler,
-		UnsubscribeMsgKind: unsubscribeHandler,
-		RenameMsgKind:      renameHandler,
-	}
+var commonMsgHandlers = map[MsgKind]func(*Head, *Msg) *Msg{
+	CreateMsgKind:      createHandler,
+	StopMsgKind:        stopHandler,
+	GetTreeMsgKind:     getTreeHandler,
+	SubscribeMsgKind:   subscribeHandler,
+	UnsubscribeMsgKind: unsubscribeHandler,
+	RenameMsgKind:      renameHandler,
+	UpdatePathMsgKind:  updatePathHandler,
 }
 
 type Head struct {
@@ -36,7 +35,6 @@ type Head struct {
 	In       Pipe `gorm:"-"`
 
 	path     string
-	parent   Pipe
 	children map[string]Pipe
 
 	subs map[int]Pipe
@@ -75,7 +73,6 @@ func (h *Head) load() (in Pipe, err error) {
 		return
 	}
 	for _, ch := range chs {
-		ch.parent = h.In
 		ch.path = h.path + "/" + ch.Name
 		ch.OwnerID = h.OwnerID
 		var chin Pipe
@@ -84,7 +81,6 @@ func (h *Head) load() (in Pipe, err error) {
 			return
 		}
 		h.children[ch.Name] = chin
-		ch.parent = h.In
 	}
 	Tree.PutNode(h.ID, h.In)
 	go n.run()
@@ -149,6 +145,10 @@ func (h *Head) askChildren(m *Msg) {
 		<-m.Resp
 	}
 	m.Resp = rp
+}
+
+func updatePathHandler(h *Head, m *Msg) (r *Msg) {
+	return
 }
 
 func getTreeHandler(h *Head, m *Msg) (r *Msg) {
@@ -216,14 +216,18 @@ func renameHandler(h *Head, m *Msg) (r *Msg) {
 	if !ok {
 		return NewErrorMsg(errors.New("unusable payload for rename"))
 	}
+	slog.Debug("Updating path of renamed node from:", "path", h.path)
+	h.path = strings.TrimSuffix(h.path, h.Name) + nn
+	slog.Debug("Updating path of renamed node to:", "path", h.path)
+
 	dbr := Db.Model(h).Where("id = ?", h.ID).Update("name", nn)
 	if dbr.Error != nil {
 		return NewErrorMsg(fmt.Errorf("database error during rename: %w", dbr.Error))
 	}
 	h.updateGUIs()
-	Tree.TreeUpdater.Ask(Msg{
-		Kind:    UpdateMsgKind,
-		Payload: h.ID,
+	Tree.TreeUpdater.Notify(Msg{
+		Kind:    TreeNodeRenameMsgKind,
+		Payload: *h,
 	})
 	return &OKMsg
 }
@@ -245,6 +249,6 @@ func (h *Head) display() display {
 func (h *Head) updateGUIs() {
 	for id, g := range h.subs {
 		slog.Debug("sending updated msg to GUI", "gui_id", id)
-		g <- &Msg{Kind: UpdatedMsgKind, Payload: h.ID}
+		g.Notify(Msg{Kind: NodeUpdateMsgKind, Payload: h.ID})
 	}
 }

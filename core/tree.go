@@ -25,7 +25,7 @@ type nodeTree struct {
 
 type treeUpdater struct {
 	in   Pipe
-	guis map[int]map[Pipe]bool
+	guis map[int]map[Pipe]bool // Maps a user id to a gui
 }
 
 func (t *nodeTree) Load(sdb string) (err error) {
@@ -53,22 +53,33 @@ func (t *nodeTree) Load(sdb string) (err error) {
 
 func (tu *treeUpdater) run() {
 	slog.Debug("Running tree updater.")
-	for q := range tu.in {
-		switch q.Kind {
+	for m := range tu.in {
+		switch m.Kind {
 		case SubscribeMsgKind:
-			tupl := q.Payload.(SubscribePayload)
-			_, ok := tu.guis[tupl.ID]
+			spl := m.Payload.(SubscribePayload)
+			_, ok := tu.guis[spl.ID]
 			if !ok {
-				tu.guis[tupl.ID] = make(map[Pipe]bool, 0)
+				tu.guis[spl.ID] = make(map[Pipe]bool, 0)
 			}
-			tu.guis[tupl.ID][tupl.Node] = true
+			tu.guis[spl.ID][spl.Node] = true
 			slog.Debug("registered new GUI for tree updates", "guis", tu.guis)
-			q.Answer(&OKMsg)
+			m.Answer(&OKMsg)
 		case UnsubscribeMsgKind:
-			tupl := q.Payload.(SubscribePayload)
+			tupl := m.Payload.(SubscribePayload)
 			delete(tu.guis[tupl.ID], tupl.Node)
 			slog.Debug("unregistered new GUI for tree updates", "guis", tu.guis)
-			q.Answer(&OKMsg)
+			m.Answer(&OKMsg)
+		case TreeNodeRenameMsgKind:
+			h := m.Payload.(Head)
+			for g := range tu.guis[h.OwnerID] {
+				g.Notify(*m)
+				slog.Debug("GUI notified about tree node rename", "GUI", h.OwnerID)
+			}
+			for g := range tu.guis[0] {
+				g.Notify(*m)
+				slog.Debug("Admin GUI notified about tree node rename", "GUI", h.OwnerID)
+			}
+			slog.Debug("Tree node rename reveived", "user", h.OwnerID)
 		default:
 			slog.Debug("Unhandled msg received by treeUpdater.")
 		}

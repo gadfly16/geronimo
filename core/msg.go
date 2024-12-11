@@ -22,29 +22,32 @@ const (
 	DisplayMsgKind
 	SubscribeMsgKind
 	UnsubscribeMsgKind
-	UpdatedMsgKind
+	NodeUpdateMsgKind
 	RenameMsgKind
+	TreeNodeRenameMsgKind
+	UpdatePathMsgKind
 )
 
 var MsgKindNames = map[MsgKind]string{
-	OKMsgKind:          "OK",
-	ErrorMsgKind:       "Error",
-	StopMsgKind:        "Stop",
-	StoppedMsgKind:     "Stopped",
-	UpdateMsgKind:      "Update",
-	ParmsMsgKind:       "Parms",
-	GetParmsMsgKind:    "GetParms",
-	CreateMsgKind:      "Create",
-	AuthUserMsgKind:    "AuthUser",
-	GetTreeMsgKind:     "GetTree",
-	TreeMsgKind:        "Tree",
-	GetCopyMsgKind:     "GetCopy",
-	GetDisplayMsgKind:  "GetDisplay",
-	DisplayMsgKind:     "Display",
-	SubscribeMsgKind:   "Subscribe",
-	UnsubscribeMsgKind: "Unsubscribe",
-	UpdatedMsgKind:     "Updated",
-	RenameMsgKind:      "Rename",
+	OKMsgKind:             "OK",
+	ErrorMsgKind:          "Error",
+	StopMsgKind:           "Stop",
+	StoppedMsgKind:        "Stopped",
+	UpdateMsgKind:         "Update",
+	ParmsMsgKind:          "Parms",
+	GetParmsMsgKind:       "GetParms",
+	CreateMsgKind:         "Create",
+	AuthUserMsgKind:       "AuthUser",
+	GetTreeMsgKind:        "GetTree",
+	TreeMsgKind:           "Tree",
+	GetCopyMsgKind:        "GetCopy",
+	GetDisplayMsgKind:     "GetDisplay",
+	DisplayMsgKind:        "Display",
+	SubscribeMsgKind:      "Subscribe",
+	UnsubscribeMsgKind:    "Unsubscribe",
+	NodeUpdateMsgKind:     "NodeUpdate",
+	RenameMsgKind:         "Rename",
+	TreeNodeRenameMsgKind: "TreeNodeRename",
 }
 
 var (
@@ -55,7 +58,7 @@ var (
 	GetCopyMsg    = Msg{Kind: GetCopyMsgKind}
 	GetTreeMsg    = Msg{Kind: GetTreeMsgKind}
 	GetDisplayMsg = Msg{Kind: GetDisplayMsgKind}
-	UpdatedMsg    = Msg{Kind: UpdatedMsgKind}
+	UpdatedMsg    = Msg{Kind: NodeUpdateMsgKind}
 )
 
 type Pipe chan *Msg

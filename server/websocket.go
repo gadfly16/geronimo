@@ -21,6 +21,7 @@ const (
 	WSMsg_Error
 	WSMsg_ClientShutdown
 	WSMsg_Heartbeat
+	WSMsg_TreeNodeRename
 )
 
 type GUIClient struct {
@@ -30,17 +31,19 @@ type GUIClient struct {
 	in     core.Pipe
 	wsin   chan wsmsg
 	userID int
+	admin  bool
 	subs   map[int]bool
 }
 
 type wsmsg struct {
-	Kind   int
-	OTP    string
-	GUIID  int
-	NodeID int
+	Kind     int
+	OTP      string
+	GUIID    int
+	NodeID   int
+	NodeName string
 }
 
-func newGuiClient(conn *websocket.Conn, uid int) (client *GUIClient) {
+func newGuiClient(conn *websocket.Conn, uid int, admin bool) (client *GUIClient) {
 	client = &GUIClient{
 		conn:   conn,
 		id:     core.NextID(),
@@ -48,6 +51,7 @@ func newGuiClient(conn *websocket.Conn, uid int) (client *GUIClient) {
 		in:     make(core.Pipe),
 		wsin:   make(chan wsmsg),
 		userID: uid,
+		admin:  admin,
 		subs:   make(map[int]bool),
 	}
 	return
@@ -70,7 +74,7 @@ func socketHandler(w http.ResponseWriter, q *http.Request) {
 	}
 	defer c.CloseNow()
 
-	gui := newGuiClient(c, uid)
+	gui := newGuiClient(c, uid, cls.Admin)
 	msg := &wsmsg{
 		Kind:  WSMsg_Credentials,
 		GUIID: gui.id,
@@ -140,16 +144,20 @@ func (gui *GUIClient) receiver() {
 }
 
 func (gui *GUIClient) run() {
+	euid := gui.userID
+	if gui.admin {
+		euid = 0
+	}
 	core.Tree.TreeUpdater.Ask(core.Msg{
 		Kind: core.SubscribeMsgKind,
 		Payload: core.SubscribePayload{
-			ID:   gui.userID,
+			ID:   euid,
 			Node: gui.in,
 		},
 	})
 
 	go gui.receiver()
-	slog.Debug("gui receiver started", "gui", gui.id)
+	slog.Debug("GUI started", "gui", gui.id)
 out:
 	for {
 		select {
@@ -163,15 +171,14 @@ out:
 					slog.Error("subscribing to nonexisting node", "node_id", wm.NodeID)
 					break out
 				}
-				m := core.Msg{
+				n.Ask(core.Msg{
 					Kind: core.SubscribeMsgKind,
 					Payload: core.SubscribePayload{
 						ID:   gui.id,
 						Node: gui.in,
 					},
 					UserID: gui.userID,
-				}
-				n.Ask(m)
+				})
 				gui.subs[wm.NodeID] = true
 				slog.Debug("subscribed to node", "node_id", wm.NodeID)
 			case WSMsq_Unsubscribe:
@@ -180,12 +187,11 @@ out:
 					slog.Error("unsubscribing from nonexisting node", "node_id", wm.NodeID)
 					break out
 				}
-				m := core.Msg{
+				n.Ask(core.Msg{
 					Kind:    core.UnsubscribeMsgKind,
 					Payload: gui.id,
 					UserID:  gui.userID,
-				}
-				n.Ask(m)
+				})
 				delete(gui.subs, wm.NodeID)
 				slog.Debug("unsubscribed to node", "node_id", wm.NodeID)
 			case WSMsg_Heartbeat:
@@ -194,24 +200,37 @@ out:
 					slog.Error("Couldn't send client credentials, closing connection", "error", err)
 					break out
 				}
-				// slog.Debug("Heartbeat sent.", "gui_id", gui.id)
 			default:
 				slog.Error("GUI unknown websocket message", "wsmsg_kind", wm.Kind)
 				break out
 			}
 		case m := <-gui.in:
-			slog.Debug("GUI received msg from node", "msg", m)
-			nid := m.Payload.(int)
-			wsm := &wsmsg{
-				Kind:   WSMsg_Update,
-				NodeID: nid,
+			switch m.Kind {
+			case core.NodeUpdateMsgKind:
+				nid := m.Payload.(int)
+				err := gui.sendMessage(&wsmsg{
+					Kind:   WSMsg_Update,
+					NodeID: nid,
+				})
+				if err != nil {
+					slog.Error("GUI couldn't send update msg", "error", err)
+					break out
+				}
+				slog.Debug("GUI sent update to client", "gui", gui.id, "node_id", nid)
+			case core.TreeNodeRenameMsgKind:
+				slog.Debug("GUI received a tree node rename msg", "msg", m)
+				h := m.Payload.(core.Head)
+				err := gui.sendMessage(&wsmsg{
+					Kind:     WSMsg_TreeNodeRename,
+					NodeID:   h.ID,
+					NodeName: h.Name,
+				})
+				if err != nil {
+					slog.Error("GUI couldn't send tree update msg", "error", err)
+					break out
+				}
+				slog.Debug("GUI sent tree update to client", "gui", gui.id)
 			}
-			err := gui.sendMessage(wsm)
-			if err != nil {
-				slog.Error("GUI couldn't send update msg", "error", err)
-				break out
-			}
-			slog.Debug("GUI sent update to client", "gui", gui.id, "node_id", nid)
 		}
 	}
 	slog.Debug("GUI stopped reading messages for client: ", "gui", gui.id)

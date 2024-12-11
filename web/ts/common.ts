@@ -1,17 +1,17 @@
 export interface msg {
-  Kind: number,
-  Payload: any,
+  Kind: number
+  Payload: any
 }
 
 export enum msgKinds {
   OK = 0,
-	Error,
-	Stop,
-	Stopped,
-	Update,
-	Parms,
-	GetParms,
-	Create,
+  Error,
+  Stop,
+  Stopped,
+  Update,
+  Parms,
+  GetParms,
+  Create,
   AuthUser,
   GetTree,
   Tree,
@@ -20,26 +20,36 @@ export enum msgKinds {
   Display,
   Subscribe,
   Unsubscribe,
-  Updated,
+  NodeUpdate,
   Rename,
+  TreeNodeRename,
 }
 
 export enum WSMsg {
-    Credentials = 0,
-    Subscribe,
-    Unsubscribe,
-    Update,
-    Error,
-    ClientShutdown,
-    Heartbeat,
-  }
+  Credentials = 0,
+  Subscribe,
+  Unsubscribe,
+  Update,
+  Error,
+  ClientShutdown,
+  Heartbeat,
+  TreeNodeRename,
+}
 
 export enum nodeKinds {
-	Root = 0,
+  Root = 0,
   Group,
-	User,
+  User,
   Account,
   Broker,
 }
 
-export let NodeKindName = ["root", "group", "user", "broker", "account", "broker", "pocket"]
+export let NodeKindName = [
+  "root",
+  "group",
+  "user",
+  "broker",
+  "account",
+  "broker",
+  "pocket",
+]

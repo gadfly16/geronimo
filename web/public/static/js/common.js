@@ -16,8 +16,9 @@ export var msgKinds;
     msgKinds[msgKinds["Display"] = 13] = "Display";
     msgKinds[msgKinds["Subscribe"] = 14] = "Subscribe";
     msgKinds[msgKinds["Unsubscribe"] = 15] = "Unsubscribe";
-    msgKinds[msgKinds["Updated"] = 16] = "Updated";
+    msgKinds[msgKinds["NodeUpdate"] = 16] = "NodeUpdate";
     msgKinds[msgKinds["Rename"] = 17] = "Rename";
+    msgKinds[msgKinds["TreeNodeRename"] = 18] = "TreeNodeRename";
 })(msgKinds || (msgKinds = {}));
 export var WSMsg;
 (function (WSMsg) {
@@ -28,6 +29,7 @@ export var WSMsg;
     WSMsg[WSMsg["Error"] = 4] = "Error";
     WSMsg[WSMsg["ClientShutdown"] = 5] = "ClientShutdown";
     WSMsg[WSMsg["Heartbeat"] = 6] = "Heartbeat";
+    WSMsg[WSMsg["TreeNodeRename"] = 7] = "TreeNodeRename";
 })(WSMsg || (WSMsg = {}));
 export var nodeKinds;
 (function (nodeKinds) {
@@ -37,4 +39,12 @@ export var nodeKinds;
     nodeKinds[nodeKinds["Account"] = 3] = "Account";
     nodeKinds[nodeKinds["Broker"] = 4] = "Broker";
 })(nodeKinds || (nodeKinds = {}));
-export let NodeKindName = ["root", "group", "user", "broker", "account", "broker", "pocket"];
+export let NodeKindName = [
+    "root",
+    "group",
+    "user",
+    "broker",
+    "account",
+    "broker",
+    "pocket",
+];

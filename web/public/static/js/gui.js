@@ -15,7 +15,7 @@ function ask(mk, tid, pl, f) {
             if (resp.status === 401) {
                 window.location.replace("/static/login.html" + new URL(location.href).search);
             }
-            throw 'http error';
+            throw "http error";
         }
         return resp.json();
     })
@@ -30,8 +30,8 @@ let gui;
 // This is not jQuery, but a helper function to turn a html string into a HTMLElement
 let _dollarRegexp = /^\s+|\s+$|(?<=\>)\s+(?=\<)/gm;
 function $(html) {
-    const template = document.createElement('template');
-    template.innerHTML = html.replace(_dollarRegexp, '');
+    const template = document.createElement("template");
+    template.innerHTML = html.replace(_dollarRegexp, "");
     const result = template.content.firstElementChild;
     return result;
 }
@@ -73,10 +73,10 @@ class GUI {
     }
     socketMessageHandler(event) {
         const wsm = JSON.parse(event.data);
-        console.log("Socket message received:", wsm);
         switch (wsm.Kind) {
             case WSMsg.Heartbeat:
                 this.last_srv_beat = Date.now();
+                console.log("Heartbeat received.");
                 break;
             case WSMsg.Credentials:
                 this.guiID = wsm.GUIID;
@@ -86,13 +86,18 @@ class GUI {
                 break;
             case WSMsg.Update:
                 console.log(`Update needed for node id: ${wsm.NodeID}`);
-                let node = this.nodes.get(wsm.NodeID.toString());
+                let node = this.nodes.get(wsm.NodeID);
                 if (node) {
                     node.updateDisplay();
                 }
                 else {
                     console.log(`Update requested for unknown node id: ${wsm.NodeID}`);
                 }
+                break;
+            case WSMsg.TreeNodeRename:
+                console.log(`Tree node rename received. id=${wsm.NodeID}, name='${wsm.NodeName}'`);
+                gui.nodes.get(wsm.NodeID).rename(wsm.NodeName);
+                break;
         }
     }
     subscribe(id) {
@@ -112,7 +117,7 @@ class GUI {
         }));
     }
     addNode(node) {
-        this.nodes.set(node.ID.toString(), node);
+        this.nodes.set(node.ID, node);
     }
     fetchTree(nodeID) {
         ask(msgKinds.GetTree, nodeID, null, (treeData) => {
@@ -160,8 +165,8 @@ class GUI {
         for (let nid of newSelection) {
             const id = parseInt(nid);
             if (!Number.isNaN(id)) {
-                if (!(this.selection.has(id))) {
-                    let node = this.nodes.get(nid);
+                if (!this.selection.has(id)) {
+                    let node = this.nodes.get(id);
                     if (node != undefined) {
                         this.selection.set(id, node);
                         node.select();
@@ -216,6 +221,15 @@ class Node {
         }
         this.htmlTreeElem = e;
         return e;
+    }
+    rename(newName) {
+        console.log(`Renaming tree element "${this.Name}" to "${newName}".`);
+        if (this.children.length) {
+            this.htmlTreeElem.querySelector("summary").textContent = newName;
+        }
+        else {
+            this.htmlTreeElem.querySelector("li").textContent = newName;
+        }
     }
     updateDisplay() {
         console.log(`Updating node ${this.ID}.`);
@@ -309,17 +323,24 @@ class NodeDisplay {
         </div>
       </div>
     `);
-        dispHead.querySelector(".displayName").addEventListener("input", this.nameChange.bind(this));
-        dispHead.querySelector(".displayName").addEventListener("animationend", this.removeNameChangeAlert.bind(this));
-        dispHead.querySelector(".renameForm").addEventListener("submit", this.rename.bind(this));
-        dispHead.querySelector(".renameAction").addEventListener("click", this.rename.bind(this));
+        dispHead
+            .querySelector(".displayName")
+            .addEventListener("input", this.nameChange.bind(this));
+        dispHead
+            .querySelector(".displayName")
+            .addEventListener("animationend", this.removeNameChangeAlert.bind(this));
+        dispHead
+            .querySelector(".renameForm")
+            .addEventListener("submit", this.rename.bind(this));
+        dispHead
+            .querySelector(".renameAction")
+            .addEventListener("click", this.rename.bind(this));
         return dispHead;
     }
     nameChange(event) {
         const target = event.target;
         const na = this.htmlDisplay.querySelector(".nodeActions");
         const ra = this.htmlDisplay.querySelector(".renameAction");
-        // console.log("name changed, nam:", target.value, this.name)
         if (target.value !== this.name) {
             na.style.display = "none";
             ra.style.display = "block";
@@ -337,14 +358,13 @@ class NodeDisplay {
     rename(e) {
         var t;
         e.preventDefault();
-        if (e.type === 'click') {
+        if (e.type === "click") {
             t = e.target.parentElement;
         }
         else {
             t = e.target.parentElement;
         }
         const i = t.querySelector(".displayName");
-        console.log(`Rename from ${this.name} to ${i.value}`);
         const na = t.querySelector(".nodeActions");
         const ra = t.querySelector(".renameAction");
         na.style.display = "block";
@@ -368,7 +388,9 @@ class NodeDisplay {
         </div>
       </div>
     `);
-        const mis = elem.querySelector(".newChildrenMenu").addEventListener("click", this.newChildClick.bind(this));
+        const mis = elem
+            .querySelector(".newChildrenMenu")
+            .addEventListener("click", this.newChildClick.bind(this));
         return elem;
     }
     newChildClick(ev) {
@@ -383,7 +405,6 @@ class NodeDisplay {
         var _a;
         if (displayData.Head.Name !== this.name) {
             const nn = displayData.Head.Name;
-            console.log("name changed", displayData.Head.Name, this.name);
             const ne = (_a = this.htmlDisplay) === null || _a === void 0 ? void 0 : _a.querySelector(".displayName");
             ne.setAttribute("value", `${nn}`);
             this.name = nn;
@@ -441,18 +462,18 @@ class ParameterForm {
         for (const [name, parm] of this.parms) {
             const value = formData.get(parm.name);
             switch (parm.inputType) {
-                case 'number':
+                case "number":
                     newParms[parm.name] = Number(value);
                     break;
-                case 'checkbox':
+                case "checkbox":
                     newParms[parm.name] = Boolean(value);
                     break;
-                case 'text':
+                case "text":
                     newParms[parm.name] = String(value);
                     break;
             }
         }
-        console.log('newParms:', newParms);
+        console.log("newParms:", newParms);
         ask(msgKinds.Update, this.nodeDisplay.ID, newParms, (response) => {
             var _a;
             const diffs = this.htmlParmForm.querySelectorAll(".changed");
@@ -469,7 +490,7 @@ class ParameterForm {
         <div class="parameterFormHeadBox">
             <div class="parameterFormTitle">Parameters:</div>
             <button class="parameterFormSubmit">Submit Parameters</button>
-        </div>        
+        </div>
       </form>
     `);
         this.htmlParmForm.addEventListener("submit", this.submitParms.bind(this));
@@ -520,7 +541,8 @@ class Parameter {
         />
       </div>
     `);
-        (_a = this.htmlParm.querySelector("input")) === null || _a === void 0 ? void 0 : _a.addEventListener("input", this.valueChange.bind(this));
+        (_a = this.htmlParm
+            .querySelector("input")) === null || _a === void 0 ? void 0 : _a.addEventListener("input", this.valueChange.bind(this));
         this.htmlParm.addEventListener("animationend", this.removeChangedAlert.bind(this), false);
         return this.htmlParm;
     }
@@ -555,7 +577,7 @@ class Parameter {
         else {
             this.value = target.value;
         }
-        this.changed = (this.value != this.origValue);
+        this.changed = this.value != this.origValue;
         if (this.changed) {
             (_a = this.htmlParm) === null || _a === void 0 ? void 0 : _a.classList.add("changed");
         }
