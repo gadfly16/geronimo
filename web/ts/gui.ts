@@ -375,6 +375,9 @@ class NodeDisplay {
       .querySelector(".displayName")!
       .addEventListener("animationend", this.removeNameChangeAlert.bind(this))
     dispHead
+      .querySelector(".displayPath")!
+      .addEventListener("animationend", this.removePathChangeAlert.bind(this))
+    dispHead
       .querySelector(".renameForm")!
       .addEventListener("submit", this.rename.bind(this))
     dispHead
@@ -402,6 +405,11 @@ class NodeDisplay {
     const ne = this.htmlDisplay?.querySelector(
       ".displayName",
     ) as HTMLInputElement
+    ne.classList.remove("changeAlert")
+  }
+
+  removePathChangeAlert() {
+    const ne = this.htmlDisplay?.querySelector(".displayPath") as HTMLDivElement
     ne.classList.remove("changeAlert")
   }
 
@@ -463,6 +471,14 @@ class NodeDisplay {
       ne.setAttribute("value", `${nn}`)
       this.name = nn
       ne.classList.add("changeAlert")
+    }
+    if (displayData.Head.Path !== this.path) {
+      const pe = this.htmlDisplay!.querySelector(
+        ".displayPath",
+      ) as HTMLDivElement
+      this.path = displayData.Head.Path
+      pe.textContent = displayData.Head.Path
+      pe.classList.add("changeAlert")
     }
     if (this.parms) {
       this.parms.update(displayData.Parms)

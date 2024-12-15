@@ -136,19 +136,24 @@ func stopHandler(h *Head, m *Msg) (r *Msg) {
 }
 
 func (h *Head) askChildren(m *Msg) {
-	rp := m.Resp
-	m.Resp = make(Pipe)
+	chm := *m
+	chm.Resp = make(Pipe)
 	for _, ch := range h.children {
-		ch <- m
+		ch <- &chm
 	}
 	for range len(h.children) {
-		<-m.Resp
+		<-chm.Resp
 	}
-	m.Resp = rp
 }
 
 func updatePathHandler(h *Head, m *Msg) (r *Msg) {
-	return
+	h.path = m.Payload.(string) + "/" + h.Name
+	h.askChildren(&Msg{
+		Kind:    UpdatePathMsgKind,
+		Payload: h.path,
+	})
+	h.updateGUIs()
+	return &OKMsg
 }
 
 func getTreeHandler(h *Head, m *Msg) (r *Msg) {
@@ -216,14 +221,16 @@ func renameHandler(h *Head, m *Msg) (r *Msg) {
 	if !ok {
 		return NewErrorMsg(errors.New("unusable payload for rename"))
 	}
-	slog.Debug("Updating path of renamed node from:", "path", h.path)
-	h.path = strings.TrimSuffix(h.path, h.Name) + nn
-	slog.Debug("Updating path of renamed node to:", "path", h.path)
-
+	on := h.Name
 	dbr := Db.Model(h).Where("id = ?", h.ID).Update("name", nn)
 	if dbr.Error != nil {
 		return NewErrorMsg(fmt.Errorf("database error during rename: %w", dbr.Error))
 	}
+	h.path = strings.TrimSuffix(h.path, on) + nn
+	h.askChildren(&Msg{
+		Kind:    UpdatePathMsgKind,
+		Payload: h.path,
+	})
 	h.updateGUIs()
 	Tree.TreeUpdater.Notify(Msg{
 		Kind:    TreeNodeRenameMsgKind,

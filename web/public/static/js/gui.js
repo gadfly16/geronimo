@@ -330,6 +330,9 @@ class NodeDisplay {
             .querySelector(".displayName")
             .addEventListener("animationend", this.removeNameChangeAlert.bind(this));
         dispHead
+            .querySelector(".displayPath")
+            .addEventListener("animationend", this.removePathChangeAlert.bind(this));
+        dispHead
             .querySelector(".renameForm")
             .addEventListener("submit", this.rename.bind(this));
         dispHead
@@ -353,6 +356,11 @@ class NodeDisplay {
     removeNameChangeAlert() {
         var _a;
         const ne = (_a = this.htmlDisplay) === null || _a === void 0 ? void 0 : _a.querySelector(".displayName");
+        ne.classList.remove("changeAlert");
+    }
+    removePathChangeAlert() {
+        var _a;
+        const ne = (_a = this.htmlDisplay) === null || _a === void 0 ? void 0 : _a.querySelector(".displayPath");
         ne.classList.remove("changeAlert");
     }
     rename(e) {
@@ -409,6 +417,11 @@ class NodeDisplay {
             ne.setAttribute("value", `${nn}`);
             this.name = nn;
             ne.classList.add("changeAlert");
+        }
+        if (displayData.Head.Path !== this.path) {
+            const pe = this.htmlDisplay.querySelector(".displayPath");
+            pe.textContent = displayData.Head.Path;
+            pe.classList.add("changeAlert");
         }
         if (this.parms) {
             this.parms.update(displayData.Parms);
