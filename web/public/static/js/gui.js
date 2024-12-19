@@ -25,6 +25,10 @@ function ask(mk, tid, pl, f) {
         alert(`${e} at line: ${e.lineNumber}`);
     });
 }
+function removeChangeAlert(e) {
+    const t = e.target;
+    t.classList.remove("changeAlert");
+}
 // UI Globals
 let gui;
 // This is not jQuery, but a helper function to turn a html string into a HTMLElement
@@ -96,7 +100,7 @@ class GUI {
                 break;
             case WSMsg.TreeNodeRename:
                 console.log(`Tree node rename received. id=${wsm.NodeID}, name='${wsm.NodeName}'`);
-                gui.nodes.get(wsm.NodeID).rename(wsm.NodeName);
+                gui.nodes.get(wsm.NodeID).renameTreeElement(wsm.NodeName);
                 break;
         }
     }
@@ -222,14 +226,18 @@ class Node {
         this.htmlTreeElem = e;
         return e;
     }
-    rename(newName) {
+    renameTreeElement(newName) {
         console.log(`Renaming tree element "${this.Name}" to "${newName}".`);
+        let e;
         if (this.children.length) {
-            this.htmlTreeElem.querySelector("summary").textContent = newName;
+            e = this.htmlTreeElem.querySelector("summary");
         }
         else {
-            this.htmlTreeElem.querySelector("li").textContent = newName;
+            e = this.htmlTreeElem.querySelector("li");
         }
+        e.textContent = newName;
+        e.classList.add("changeAlert");
+        e.addEventListener("animationend", removeChangeAlert);
     }
     updateDisplay() {
         console.log(`Updating node ${this.ID}.`);
@@ -328,10 +336,10 @@ class NodeDisplay {
             .addEventListener("input", this.nameChange.bind(this));
         dispHead
             .querySelector(".displayName")
-            .addEventListener("animationend", this.removeNameChangeAlert.bind(this));
+            .addEventListener("animationend", removeChangeAlert);
         dispHead
             .querySelector(".displayPath")
-            .addEventListener("animationend", this.removePathChangeAlert.bind(this));
+            .addEventListener("animationend", removeChangeAlert);
         dispHead
             .querySelector(".renameForm")
             .addEventListener("submit", this.rename.bind(this));
@@ -352,16 +360,6 @@ class NodeDisplay {
             na.style.display = "block";
             ra.style.display = "none";
         }
-    }
-    removeNameChangeAlert() {
-        var _a;
-        const ne = (_a = this.htmlDisplay) === null || _a === void 0 ? void 0 : _a.querySelector(".displayName");
-        ne.classList.remove("changeAlert");
-    }
-    removePathChangeAlert() {
-        var _a;
-        const ne = (_a = this.htmlDisplay) === null || _a === void 0 ? void 0 : _a.querySelector(".displayPath");
-        ne.classList.remove("changeAlert");
     }
     rename(e) {
         var t;

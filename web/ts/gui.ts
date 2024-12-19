@@ -38,6 +38,11 @@ function ask(mk: number, tid: number, pl: any, f: (r: any) => any) {
     })
 }
 
+function removeChangeAlert(e: Event) {
+  const t = e.target as HTMLElement
+  t.classList.remove("changeAlert")
+}
+
 // UI Globals
 let gui: GUI
 
@@ -123,7 +128,7 @@ class GUI {
         console.log(
           `Tree node rename received. id=${wsm.NodeID}, name='${wsm.NodeName}'`,
         )
-        gui.nodes.get(wsm.NodeID)!.rename(wsm.NodeName)
+        gui.nodes.get(wsm.NodeID)!.renameTreeElement(wsm.NodeName)
         break
     }
   }
@@ -259,13 +264,17 @@ class Node {
     return e
   }
 
-  rename(newName: string) {
+  renameTreeElement(newName: string) {
     console.log(`Renaming tree element "${this.Name}" to "${newName}".`)
+    let e: HTMLElement
     if (this.children.length) {
-      this.htmlTreeElem!.querySelector("summary")!.textContent = newName
+      e = this.htmlTreeElem!.querySelector("summary")!
     } else {
-      this.htmlTreeElem!.querySelector("li")!.textContent = newName
+      e = this.htmlTreeElem!.querySelector("li")!
     }
+    e.textContent = newName
+    e.classList.add("changeAlert")
+    e.addEventListener("animationend", removeChangeAlert)
   }
 
   updateDisplay() {
@@ -373,10 +382,10 @@ class NodeDisplay {
       .addEventListener("input", this.nameChange.bind(this))
     dispHead
       .querySelector(".displayName")!
-      .addEventListener("animationend", this.removeNameChangeAlert.bind(this))
+      .addEventListener("animationend", removeChangeAlert)
     dispHead
       .querySelector(".displayPath")!
-      .addEventListener("animationend", this.removePathChangeAlert.bind(this))
+      .addEventListener("animationend", removeChangeAlert)
     dispHead
       .querySelector(".renameForm")!
       .addEventListener("submit", this.rename.bind(this))
@@ -399,18 +408,6 @@ class NodeDisplay {
       na.style.display = "block"
       ra.style.display = "none"
     }
-  }
-
-  removeNameChangeAlert() {
-    const ne = this.htmlDisplay?.querySelector(
-      ".displayName",
-    ) as HTMLInputElement
-    ne.classList.remove("changeAlert")
-  }
-
-  removePathChangeAlert() {
-    const ne = this.htmlDisplay?.querySelector(".displayPath") as HTMLDivElement
-    ne.classList.remove("changeAlert")
   }
 
   rename(e: Event) {

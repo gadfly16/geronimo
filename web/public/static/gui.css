@@ -38,7 +38,7 @@ body {
     background: #e9c79b;
     grid-column: 1 / 2;
     grid-row: 2 / 3;
-    padding: 1em;
+    padding: 0em;
     white-space: nowrap;
     overflow: hidden;
 }
@@ -188,15 +188,12 @@ data:hover::after {
 }
 
 .changeAlert {
-    animation: 2s 1 forwards redBorderFadeout;
+    animation: 1.5s 1 forwards redTextFadeout;
 }
 
-@keyframes redBorderFadeout {
-    from {
-        border: 0.15em solid rgba(175, 10, 10, 1);
-    }
-    to {
-        border: 0.15em solid rgba(175, 10, 10, 0);
+@keyframes redTextFadeout {
+    10% {
+        color: rgb(175, 10, 10);
     }
 }
 

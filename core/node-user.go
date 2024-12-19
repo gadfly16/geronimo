@@ -57,7 +57,6 @@ func (t *UserNode) loadBody(h *Head) (n Node, err error) {
 }
 
 func (n *UserNode) create(p *Head) (in Pipe, err error) {
-	n.OwnerID = n.ID
 	n.Head.path = p.path + "/" + n.Name
 	n.Parms.Password, err = bcrypt.GenerateFromPassword(n.Parms.Password, 14)
 	if err != nil {
@@ -76,6 +75,7 @@ func (n *UserNode) create(p *Head) (in Pipe, err error) {
 	if err != nil {
 		return
 	}
+	n.OwnerID = n.ID
 	go n.run()
 	n.Head.initNew()
 	slog.Info("Created User node.", "path", n.path)
