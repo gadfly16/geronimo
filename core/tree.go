@@ -28,8 +28,11 @@ type treeUpdater struct {
 	guis map[int]map[Pipe]bool // Maps a user id to a gui
 }
 
-func (t *nodeTree) Load(sdb string) (err error) {
-	ConnectDB(sdb)
+func (t *nodeTree) LoadAndRun(sdb string) (err error) {
+	if err = ConnectDB(sdb); err != nil {
+		return
+	}
+
 	rootHead := &Head{}
 	if err = Db.First(rootHead, 1).Error; err != nil {
 		return
@@ -56,18 +59,18 @@ func (tu *treeUpdater) run() {
 	for m := range tu.in {
 		switch m.Kind {
 		case SubscribeMsgKind:
-			spl := m.Payload.(SubscribePayload)
-			_, ok := tu.guis[spl.ID]
+			t := m.Payload.(Tag)
+			_, ok := tu.guis[t.ID]
 			if !ok {
-				tu.guis[spl.ID] = make(map[Pipe]bool, 0)
+				tu.guis[t.ID] = make(map[Pipe]bool, 0)
 			}
-			tu.guis[spl.ID][spl.Node] = true
-			slog.Debug("registered new GUI for tree updates", "guis", tu.guis)
+			tu.guis[t.ID][t.Node] = true
+			slog.Debug("TU registered new GUI for updates.", "guis", tu.guis)
 			m.Answer(&OKMsg)
 		case UnsubscribeMsgKind:
-			tupl := m.Payload.(SubscribePayload)
-			delete(tu.guis[tupl.ID], tupl.Node)
-			slog.Debug("unregistered new GUI for tree updates", "guis", tu.guis)
+			t := m.Payload.(Tag)
+			delete(tu.guis[t.ID], t.Node)
+			slog.Debug("TU unregistered GUI from updates.", "guis", tu.guis)
 			m.Answer(&OKMsg)
 		case TreeNodeRenameMsgKind:
 			h := m.Payload.(Head)

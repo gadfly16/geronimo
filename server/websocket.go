@@ -150,7 +150,7 @@ func (gui *GUIClient) run() {
 	}
 	core.Tree.TreeUpdater.Ask(core.Msg{
 		Kind: core.SubscribeMsgKind,
-		Payload: core.SubscribePayload{
+		Payload: core.Tag{
 			ID:   euid,
 			Node: gui.in,
 		},
@@ -173,14 +173,13 @@ out:
 				}
 				n.Ask(core.Msg{
 					Kind: core.SubscribeMsgKind,
-					Payload: core.SubscribePayload{
+					Payload: core.Tag{
 						ID:   gui.id,
 						Node: gui.in,
 					},
 					UserID: gui.userID,
 				})
 				gui.subs[wm.NodeID] = true
-				slog.Debug("subscribed to node", "node_id", wm.NodeID)
 			case WSMsq_Unsubscribe:
 				n, ok := core.Tree.GetNode(wm.NodeID)
 				if !ok {
@@ -193,7 +192,6 @@ out:
 					UserID:  gui.userID,
 				})
 				delete(gui.subs, wm.NodeID)
-				slog.Debug("unsubscribed to node", "node_id", wm.NodeID)
 			case WSMsg_Heartbeat:
 				err := gui.sendMessage(&wsmsg{Kind: WSMsg_Heartbeat})
 				if err != nil {
@@ -249,8 +247,8 @@ out:
 
 	core.Tree.TreeUpdater.Ask(core.Msg{
 		Kind: core.UnsubscribeMsgKind,
-		Payload: core.SubscribePayload{
-			ID:   gui.userID,
+		Payload: core.Tag{
+			ID:   euid,
 			Node: gui.in,
 		},
 	})

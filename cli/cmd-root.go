@@ -52,6 +52,7 @@ var rootCmd = &cobra.Command{
 			}
 			if err := pprof.StartCPUProfile(cpuProf); err != nil {
 				slog.Error("Could not start CPU profile. Exiting!", "error", err)
+				return
 			}
 		}
 	},

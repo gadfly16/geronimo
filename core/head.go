@@ -40,7 +40,7 @@ type Head struct {
 	subs map[int]Pipe
 }
 
-type SubscribePayload struct {
+type Tag struct {
 	ID   int
 	Node Pipe
 }
@@ -179,7 +179,6 @@ func getTreeHandler(h *Head, m *Msg) (r *Msg) {
 		if chr.Kind == ErrorMsgKind {
 			cherr = true
 		} else {
-			slog.Debug("Children gave back tree")
 			tree.Children = append(tree.Children, chr.Payload.(*TreeEntry))
 		}
 	}
@@ -198,7 +197,7 @@ func subscribeHandler(h *Head, m *Msg) (r *Msg) {
 	if h.subs == nil {
 		h.subs = make(map[int]Pipe)
 	}
-	gui := m.Payload.(SubscribePayload)
+	gui := m.Payload.(Tag)
 	h.subs[gui.ID] = gui.Node
 	slog.Debug("GUI subscribed", "node", h.path, "gui", gui.ID)
 	return &OKMsg

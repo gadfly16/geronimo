@@ -420,6 +420,7 @@ class NodeDisplay {
         }
         if (displayData.Head.Path !== this.path) {
             const pe = this.htmlDisplay.querySelector(".displayPath");
+            this.path = displayData.Head.Path;
             pe.textContent = displayData.Head.Path;
             pe.classList.add("changeAlert");
         }

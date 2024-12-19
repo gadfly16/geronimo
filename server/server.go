@@ -39,22 +39,22 @@ const (
 )
 
 func Serve(sdb string) (err error) {
-	core.Tree.Load(sdb)
-
+	if err = core.Tree.LoadAndRun(sdb); err != nil {
+		slog.Error("Tree loading failed. Quitting.", "error", err)
+		return
+	}
 	rp := core.Tree.Root.Ask(core.GetParmsMsg).Payload.(core.RootParms)
 	slog.Debug("Server settings received")
-
-	server := &http.Server{Addr: rp.HTTPAddr, Handler: service()}
-
-	// Server run context
+	srv := &http.Server{Addr: rp.HTTPAddr, Handler: service()}
 	serverCtx, serverStopCtx := context.WithCancel(context.Background())
 
 	// Listen for syscall signals for process to interrupt/quit
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	go func() {
-		<-sig
+		s := <-sig
 
+		slog.Info("Termination signal received.", "signal", s)
 		// Shutdown signal with grace period of 30 seconds
 		shutdownCtx, cancel := context.WithTimeout(serverCtx, shutdown_timout)
 		defer cancel()
@@ -68,7 +68,7 @@ func Serve(sdb string) (err error) {
 		}()
 
 		// Trigger graceful shutdown
-		err := server.Shutdown(shutdownCtx)
+		err := srv.Shutdown(shutdownCtx)
 		if err != nil {
 			slog.Error(err.Error())
 			os.Exit(1)
@@ -79,7 +79,7 @@ func Serve(sdb string) (err error) {
 	slog.Info("Starting http server.", "HTTPAddress", rp.HTTPAddr)
 
 	// Run the server
-	err = server.ListenAndServe()
+	err = srv.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		slog.Error(err.Error())
 		os.Exit(1)
@@ -150,17 +150,17 @@ func reqLogger(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 		next.ServeHTTP(ww, r)
-		slog.Info("HTTP Request:", "status", ww.Status(), "URL", r.URL)
+		slog.Info("HTTP Request served.", "status", ww.Status(), "URL", r.URL)
 	})
 }
 
 func authPage(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		slog.Debug("Authenticating page request")
+		// slog.Debug("HTTP authenticating page request.")
 		ctx := r.Context()
 		et, err := r.Cookie(authCookie)
 		if err != nil {
-			slog.Error("Auth request without cookie", "URL", r.URL)
+			slog.Error("HTTP page auth request without cookie.", "URL", r.URL)
 			http.Redirect(w, r, "/static/login.html", http.StatusTemporaryRedirect)
 			return
 		}
@@ -169,7 +169,7 @@ func authPage(next http.Handler) http.Handler {
 			return core.JwtKey, nil
 		})
 		if err != nil {
-			slog.Error("Unable to parse cookie", "URL", r.URL)
+			slog.Error("HTTP unable to parse cookie.", "URL", r.URL)
 			http.Redirect(w, r, "/static/login.html", http.StatusTemporaryRedirect)
 			return
 		}
@@ -180,18 +180,18 @@ func authPage(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		slog.Error("Rejected page authorization", "URL", r.URL)
+		slog.Error("HTTP rejected page authorization.", "URL", r.URL)
 		http.Redirect(w, r, "/static/login.html", http.StatusTemporaryRedirect)
 	})
 }
 
 func authFetch(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		slog.Debug("Authenticating fetch request")
+		// slog.Debug("HTTP authenticating fetch request.")
 		ctx := r.Context()
 		et, err := r.Cookie(authCookie)
 		if err != nil {
-			slog.Error("Auth request without cookie", "URL", r.URL)
+			slog.Error("HTTP fetch auth request without cookie.", "URL", r.URL)
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -200,7 +200,7 @@ func authFetch(next http.Handler) http.Handler {
 			return core.JwtKey, nil
 		})
 		if err != nil {
-			slog.Error("Unable to parse cookie", "URL", r.URL)
+			slog.Error("HTTP unable to parse cookie.", "URL", r.URL)
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
@@ -211,7 +211,7 @@ func authFetch(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		slog.Error("Rejected fetch authorization", "URL", r.URL)
+		slog.Error("HTTP rejected fetch authorization.", "URL", r.URL)
 		w.WriteHeader(http.StatusUnauthorized)
 	})
 }
@@ -239,7 +239,7 @@ func apiMsgHandler(w http.ResponseWriter, q *http.Request) {
 		return
 	}
 
-	slog.Debug("API message call.",
+	slog.Debug("HTTP API message call.",
 		"targetID", tid,
 		"msgKind", core.MsgKindNames[mk],
 		"uid", uid,
@@ -280,7 +280,7 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 	n := &core.UserNode{}
 	d := json.NewDecoder(r.Body)
 	if err := d.Decode(n); err != nil {
-		slog.Error("Can't unmarshall new user node", "error", err)
+		slog.Error("SIGNUP can't unmarshall new user node.", "error", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -291,22 +291,22 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 	// Magic number must be replaced with a stored pipe on Tree
 	u, ok := core.Tree.GetNode(2)
 	if !ok {
-		slog.Error("Users node can not be found")
+		slog.Error("Users node can not be found.")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	mr := u.Ask(m)
 	if mr.Kind == core.ErrorMsgKind {
-		slog.Error("User creation failed", "error", mr.ErrorMsg())
+		slog.Error("SIGNUP user creation failed.", "error", mr.ErrorMsg())
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	slog.Info("New user created", "name", n.Head.Name)
+	slog.Info("SIGNUP created a new user.", "name", n.Head.Name)
 }
 
 func loginHandler(w http.ResponseWriter, q *http.Request) {
-	slog.Info("New login")
+	slog.Info("LOGIN new attempt.")
 	n := &core.UserNode{}
 	d := json.NewDecoder(q.Body)
 	if err := d.Decode(n); err != nil {
@@ -323,7 +323,7 @@ func loginHandler(w http.ResponseWriter, q *http.Request) {
 	}
 	r := u.Ask(core.Msg{Kind: core.AuthUserMsgKind, Payload: n})
 	if r.Kind == core.ErrorMsgKind {
-		slog.Error("user authentication failed", "error", r.ErrorMsg())
+		slog.Error("LOGIN user authentication failed.", "error", r.ErrorMsg())
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -340,7 +340,7 @@ func loginHandler(w http.ResponseWriter, q *http.Request) {
 
 	st, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(core.JwtKey)
 	if err != nil {
-		slog.Error("user authentication failed", "error", r.ErrorMsg())
+		slog.Error("LOGIN user authentication failed.", "error", r.ErrorMsg())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -355,5 +355,5 @@ func loginHandler(w http.ResponseWriter, q *http.Request) {
 		SameSite: http.SameSiteStrictMode,
 	})
 	w.WriteHeader(http.StatusOK)
-	slog.Info("Successful login", "name", n.Head.Name)
+	slog.Info("LOGIN successful.", "name", n.Head.Name)
 }

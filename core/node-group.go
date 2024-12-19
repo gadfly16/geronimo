@@ -34,10 +34,10 @@ func (n *GroupNode) run() {
 	slog.Info("Running Group node.", "name", n.Head.Name)
 	for q := range n.Head.In {
 		slog.Info("Message received.", "node", n.path, "kind", q.KindName())
-		r := n.Head.handleMsg(n, q)
-		q.Answer(r)
-		slog.Info("Message answered.", "node", n.path, "kind", r.KindName())
-		if r.Kind == StoppedMsgKind {
+		a := n.Head.handleMsg(n, q)
+		q.Answer(a)
+		slog.Info("Message answered.", "node", n.path, "reqKind", q.KindName(), "ansKind", a.KindName())
+		if a.Kind == StoppedMsgKind {
 			break
 		}
 	}

@@ -41,10 +41,10 @@ func (n *RootNode) run() {
 	slog.Info("Running Root node.", "name", n.Head.Name, "logLevel", n.Parms.LogLevel)
 	for q := range n.In {
 		slog.Debug("Message received.", "node", n.Name, "kind", q.KindName())
-		r := n.Head.handleMsg(n, q)
-		q.Answer(r)
-		slog.Debug("Message answered.", "node", n.Name, "kind", r.KindName())
-		if r.Kind == StoppedMsgKind {
+		a := n.Head.handleMsg(n, q)
+		q.Answer(a)
+		slog.Debug("Message answered.", "node", n.Name, "reqKind", q.KindName(), "ansKind", a.KindName())
+		if a.Kind == StoppedMsgKind {
 			break
 		}
 	}
