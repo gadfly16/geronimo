@@ -231,7 +231,7 @@ func renameHandler(h *Head, m *Msg) (r *Msg) {
 		Payload: h.path,
 	})
 	h.updateGUIs()
-	Tree.TreeUpdater.Notify(Msg{
+	Tree.Sys.TreeUpdater.Notify(Msg{
 		Kind:    TreeNodeRenameMsgKind,
 		Payload: *h,
 	})

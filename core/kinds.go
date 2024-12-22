@@ -8,6 +8,7 @@ const (
 	UserKind
 	AccountKind
 	BrokerKind
+	TreeUpdaterKind
 )
 
 var Kinds = map[Kind]Node{

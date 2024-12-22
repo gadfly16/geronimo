@@ -43,7 +43,7 @@ func Serve(sdb string) (err error) {
 		slog.Error("Tree loading failed. Quitting.", "error", err)
 		return
 	}
-	rp := core.Tree.Root.Ask(core.GetParmsMsg).Payload.(core.RootParms)
+	rp := core.Tree.Sys.Root.Ask(core.GetParmsMsg).Payload.(core.RootParms)
 	slog.Debug("Server settings received")
 	srv := &http.Server{Addr: rp.HTTPAddr, Handler: service()}
 	serverCtx, serverStopCtx := context.WithCancel(context.Background())
@@ -88,7 +88,7 @@ func Serve(sdb string) (err error) {
 	// Wait for server context to be stopped
 	<-serverCtx.Done()
 
-	core.Tree.Root.Ask(core.StopMsg)
+	core.Tree.Sys.Root.Ask(core.StopMsg)
 
 	slog.Info("Exiting server.")
 	return
@@ -289,13 +289,7 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 		Payload: n,
 	}
 	// Magic number must be replaced with a stored pipe on Tree
-	u, ok := core.Tree.GetNode(2)
-	if !ok {
-		slog.Error("Users node can not be found.")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	mr := u.Ask(m)
+	mr := core.Tree.Sys.Users.Ask(m)
 	if mr.Kind == core.ErrorMsgKind {
 		slog.Error("SIGNUP user creation failed.", "error", mr.ErrorMsg())
 		w.WriteHeader(http.StatusBadRequest)
@@ -315,13 +309,7 @@ func loginHandler(w http.ResponseWriter, q *http.Request) {
 		return
 	}
 	// Magic number must be replaced with a stored pipe on Tree
-	u, ok := core.Tree.GetNode(2)
-	if !ok {
-		slog.Error("Users node can not be found")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	r := u.Ask(core.Msg{Kind: core.AuthUserMsgKind, Payload: n})
+	r := core.Tree.Sys.Users.Ask(core.Msg{Kind: core.AuthUserMsgKind, Payload: n})
 	if r.Kind == core.ErrorMsgKind {
 		slog.Error("LOGIN user authentication failed.", "error", r.ErrorMsg())
 		w.WriteHeader(http.StatusBadRequest)

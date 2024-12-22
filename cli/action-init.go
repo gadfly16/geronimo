@@ -44,7 +44,7 @@ var initCmd = &cobra.Command{
 			slog.Error("Failed to create root node. Exiting.", "error", err.Error())
 			return
 		}
-		r := core.Tree.Root.Ask(
+		r := core.Tree.Sys.Root.Ask(
 			core.Msg{
 				Kind: core.CreateMsgKind,
 				Payload: &core.GroupNode{
@@ -59,7 +59,7 @@ var initCmd = &cobra.Command{
 		}
 		slog.Info("Waiting for goroutines to start. TODO")
 		time.Sleep(time.Millisecond * 100)
-		core.Tree.Root.Ask(core.StopMsg)
+		core.Tree.Sys.Root.Ask(core.StopMsg)
 		if err := core.CloseDB(); err != nil {
 			slog.Error("State db connection close failed.", "error", err)
 		}

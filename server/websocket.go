@@ -148,7 +148,7 @@ func (gui *GUIClient) run() {
 	if gui.admin {
 		euid = 0
 	}
-	core.Tree.TreeUpdater.Ask(core.Msg{
+	core.Tree.Sys.TreeUpdater.Ask(core.Msg{
 		Kind: core.SubscribeMsgKind,
 		Payload: core.Tag{
 			ID:   euid,
@@ -245,7 +245,7 @@ out:
 	}
 	slog.Debug("GUI unsubscribed from nodes: ", "gui", gui.id)
 
-	core.Tree.TreeUpdater.Ask(core.Msg{
+	core.Tree.Sys.TreeUpdater.Ask(core.Msg{
 		Kind: core.UnsubscribeMsgKind,
 		Payload: core.Tag{
 			ID:   euid,

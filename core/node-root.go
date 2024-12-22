@@ -87,7 +87,7 @@ func (n *RootNode) create(p *Head) (in Pipe, err error) {
 	n.setLogLevel()
 	go n.run()
 	n.Head.initNew()
-	Tree.Root = n.Head.In
+	Tree.Sys.Root = n.Head.In
 	JwtKey = n.Parms.JwtKey
 	slog.Info("Created Root node.", "path", n.Head.path)
 	return n.Head.In, nil

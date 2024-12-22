@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"log/slog"
 	"sync"
 )
@@ -17,10 +18,15 @@ type TreeEntry struct {
 }
 
 type nodeTree struct {
-	nodesLock   sync.RWMutex
-	nodes       map[int]Pipe
+	nodesLock sync.RWMutex
+	nodes     map[int]Pipe
+	Sys       runtime
+}
+
+type runtime struct {
 	Root        Pipe
 	TreeUpdater Pipe
+	Users       Pipe
 }
 
 type treeUpdater struct {
@@ -38,16 +44,23 @@ func (t *nodeTree) LoadAndRun(sdb string) (err error) {
 		return
 	}
 	rootHead.path = "/Root"
-	Tree.Root, err = rootHead.load()
+	Tree.Sys.Root, err = rootHead.load()
 	if err != nil {
 		return
+	}
+
+	// Still not very nice..
+	var ok bool
+	Tree.Sys.Users, ok = Tree.GetNode(2)
+	if !ok {
+		return errors.New("users node can not be found")
 	}
 
 	tu := &treeUpdater{
 		in:   make(Pipe),
 		guis: make(map[int]map[Pipe]bool),
 	}
-	Tree.TreeUpdater = tu.in
+	Tree.Sys.TreeUpdater = tu.in
 	go tu.run()
 
 	slog.Info("Node tree initialized.", "nnodes", Tree.LenNodes())
