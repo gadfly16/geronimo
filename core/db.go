@@ -10,7 +10,7 @@ import (
 
 var Db *gorm.DB
 
-func ConnectDB(path string) (err error) {
+func connectDB(path string) (err error) {
 	Db, err = gorm.Open(sqlite.Open(path), &gorm.Config{})
 	return
 }
@@ -24,7 +24,7 @@ func CloseDB() (err error) {
 	return sqldb.Close()
 }
 
-func InitDb(path string) error {
+func initDb(path string) error {
 	if FileExists(path) {
 		return errors.New("database already exists")
 	}

@@ -93,7 +93,7 @@ func (n *RootNode) create(p *Head) (in Pipe, err error) {
 	return n.Head.In, nil
 }
 
-func InitRootNode(rp *RootParms) (err error) {
+func initRootNode(rp *RootParms) (err error) {
 	root := &RootNode{
 		Head: &Head{
 			Name: "Root",

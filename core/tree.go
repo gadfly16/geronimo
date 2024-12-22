@@ -35,7 +35,7 @@ type treeUpdater struct {
 }
 
 func (t *nodeTree) LoadAndRun(sdb string) (err error) {
-	if err = ConnectDB(sdb); err != nil {
+	if err = connectDB(sdb); err != nil {
 		return
 	}
 
