@@ -80,17 +80,17 @@ func socketHandler(w http.ResponseWriter, q *http.Request) {
 		GUIID: gui.id,
 		OTP:   gui.otp,
 	}
-	err = gui.sendMessage(msg)
+	err = gui.sendWSMessage(msg)
 	if err != nil {
 		slog.Error("Couldn't send client credentials, closing connection", "error", err)
 		return
 	}
 
-	_, err = gui.receiveMessage()
+	_, err = gui.receiveWSMessage()
 	if err != nil {
 		slog.Error("Error during client id affirmation", "error", err)
 	}
-	slog.Debug("GUI affirmation received", "gui_id", gui.id)
+	slog.Debug("GUI credential affirmation received.", "gui_id", gui.id)
 
 	gui.run()
 }
@@ -103,7 +103,7 @@ func generateOTP() string {
 	return string(otp)
 }
 
-func (gui *GUIClient) sendMessage(msg *wsmsg) (err error) {
+func (gui *GUIClient) sendWSMessage(msg *wsmsg) (err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
@@ -114,7 +114,7 @@ func (gui *GUIClient) sendMessage(msg *wsmsg) (err error) {
 	return nil
 }
 
-func (gui *GUIClient) receiveMessage() (msg *wsmsg, err error) {
+func (gui *GUIClient) receiveWSMessage() (msg *wsmsg, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
@@ -193,7 +193,7 @@ out:
 				})
 				delete(gui.subs, wm.NodeID)
 			case WSMsg_Heartbeat:
-				err := gui.sendMessage(&wsmsg{Kind: WSMsg_Heartbeat})
+				err := gui.sendWSMessage(&wsmsg{Kind: WSMsg_Heartbeat})
 				if err != nil {
 					slog.Error("Couldn't send client credentials, closing connection", "error", err)
 					break out
@@ -206,7 +206,7 @@ out:
 			switch m.Kind {
 			case core.NodeUpdateMsgKind:
 				nid := m.Payload.(int)
-				err := gui.sendMessage(&wsmsg{
+				err := gui.sendWSMessage(&wsmsg{
 					Kind:   WSMsg_Update,
 					NodeID: nid,
 				})
@@ -218,7 +218,7 @@ out:
 			case core.TreeNodeRenameMsgKind:
 				slog.Debug("GUI received a tree node rename msg", "msg", m)
 				h := m.Payload.(core.Head)
-				err := gui.sendMessage(&wsmsg{
+				err := gui.sendWSMessage(&wsmsg{
 					Kind:     WSMsg_TreeNodeRename,
 					NodeID:   h.ID,
 					NodeName: h.Name,

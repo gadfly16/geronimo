@@ -33,11 +33,8 @@ func (t *GroupNode) loadBody(h *Head) (n Node, err error) {
 func (n *GroupNode) run() {
 	slog.Info("Running Group node.", "name", n.Head.Name)
 	for q := range n.Head.In {
-		slog.Info("Message received.", "node", n.path, "kind", q.KindName())
 		a := n.Head.handleMsg(n, q)
-		q.Answer(a)
-		slog.Info("Message answered.", "node", n.path, "reqKind", q.KindName(), "ansKind", a.KindName())
-		if a.Kind == StoppedMsgKind {
+		if a != nil && a.Kind == StoppedMsgKind {
 			break
 		}
 	}

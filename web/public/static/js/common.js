@@ -19,6 +19,8 @@ export var msgKinds;
     msgKinds[msgKinds["NodeUpdate"] = 16] = "NodeUpdate";
     msgKinds[msgKinds["Rename"] = 17] = "Rename";
     msgKinds[msgKinds["TreeNodeRename"] = 18] = "TreeNodeRename";
+    msgKinds[msgKinds["UpdatePath"] = 19] = "UpdatePath";
+    msgKinds[msgKinds["RenameChild"] = 20] = "RenameChild";
 })(msgKinds || (msgKinds = {}));
 export var WSMsg;
 (function (WSMsg) {
@@ -38,13 +40,6 @@ export var nodeKinds;
     nodeKinds[nodeKinds["User"] = 2] = "User";
     nodeKinds[nodeKinds["Account"] = 3] = "Account";
     nodeKinds[nodeKinds["Broker"] = 4] = "Broker";
+    nodeKinds[nodeKinds["TreeUpdater"] = 5] = "TreeUpdater";
 })(nodeKinds || (nodeKinds = {}));
-export let NodeKindName = [
-    "root",
-    "group",
-    "user",
-    "broker",
-    "account",
-    "broker",
-    "pocket",
-];
+export let nodeKindName = ["root", "group", "user", "account", "broker", "tree updater"];

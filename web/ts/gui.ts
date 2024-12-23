@@ -1,4 +1,4 @@
-import { WSMsg, nodeKinds, NodeKindName, msgKinds } from "./common.js"
+import { WSMsg, nodeKinds, nodeKindName, msgKinds } from "./common.js"
 
 interface socketMessage {
   Kind: number
@@ -23,9 +23,7 @@ function ask(mk: number, tid: number, pl: any, f: (r: any) => any) {
       // console.log('Msg resonse: ', resp)
       if (!resp.ok) {
         if (resp.status === 401) {
-          window.location.replace(
-            "/static/login.html" + new URL(location.href).search,
-          )
+          window.location.replace("/static/login.html" + new URL(location.href).search)
         }
         throw "http error"
       }
@@ -125,9 +123,7 @@ class GUI {
         }
         break
       case WSMsg.TreeNodeRename:
-        console.log(
-          `Tree node rename received. id=${wsm.NodeID}, name='${wsm.NodeName}'`,
-        )
+        console.log(`Tree node rename received. id=${wsm.NodeID}, name='${wsm.NodeName}'`)
         gui.nodes.get(wsm.NodeID)!.renameTreeElement(wsm.NodeName)
         break
     }
@@ -230,6 +226,7 @@ class Node {
   constructor(nodeData: any = null, parentID: number = 0) {
     if (nodeData == null) return
     this.ID = nodeData.ID
+    this.ParentID = parentID
     this.Name = nodeData.Name
     this.Kind = nodeData.Kind
     if ("Children" in nodeData) {
@@ -304,6 +301,13 @@ class Node {
           break
         case nodeKinds.Group:
           this.display = new GroupDisplay(displayData)
+          break
+        case nodeKinds.TreeUpdater:
+          this.display = new TreeUpdaterDisplay(displayData)
+          break
+        case nodeKinds.Root:
+          this.display = new RootDisplay(displayData)
+          break
       }
       gui.htmlDisplayView.appendChild(this.display!.render())
       gui.subscribe(this.ID)
@@ -352,9 +356,9 @@ class NodeDisplay {
   renderHead(): HTMLElement {
     let dispHead = $(`
       <div class="nodeDisplay">
-        <div class="nodeKindBox ${NodeKindName[this.kind]}">
+        <div class="nodeKindBox ${nodeKindName[this.kind].replace(/\s/g, "")}">
           <div class="nodeKindText">
-            ${NodeKindName[this.kind]}
+            ${nodeKindName[this.kind]}
           </div>
         </div>
         <div class="nodeDetailsBox">
@@ -377,30 +381,18 @@ class NodeDisplay {
         </div>
       </div>
     `)
-    dispHead
-      .querySelector(".displayName")!
-      .addEventListener("input", this.nameChange.bind(this))
-    dispHead
-      .querySelector(".displayName")!
-      .addEventListener("animationend", removeChangeAlert)
-    dispHead
-      .querySelector(".displayPath")!
-      .addEventListener("animationend", removeChangeAlert)
-    dispHead
-      .querySelector(".renameForm")!
-      .addEventListener("submit", this.rename.bind(this))
-    dispHead
-      .querySelector(".renameAction")!
-      .addEventListener("click", this.rename.bind(this))
+    dispHead.querySelector(".displayName")!.addEventListener("input", this.nameChange.bind(this))
+    dispHead.querySelector(".displayName")!.addEventListener("animationend", removeChangeAlert)
+    dispHead.querySelector(".displayPath")!.addEventListener("animationend", removeChangeAlert)
+    dispHead.querySelector(".renameForm")!.addEventListener("submit", this.rename.bind(this))
+    dispHead.querySelector(".renameAction")!.addEventListener("click", this.rename.bind(this))
     return dispHead
   }
 
   nameChange(event: Event) {
     const target = event.target as HTMLInputElement
     const na = this.htmlDisplay!.querySelector(".nodeActions") as HTMLDivElement
-    const ra = this.htmlDisplay!.querySelector(
-      ".renameAction",
-    ) as HTMLDivElement
+    const ra = this.htmlDisplay!.querySelector(".renameAction") as HTMLDivElement
     if (target.value !== this.name) {
       na.style.display = "none"
       ra.style.display = "block"
@@ -425,9 +417,14 @@ class NodeDisplay {
     ra.style.display = "none"
     i.blur()
 
-    ask(msgKinds.Rename, this.ID, i.value, (r) => {
-      console.log(r)
-    })
+    ask(
+      msgKinds.RenameChild,
+      gui.nodes.get(this.ID)!.ParentID,
+      { Name: this.name, NewName: i.value },
+      (a) => {
+        console.log(a)
+      },
+    )
   }
 
   renderChildren(): HTMLElement {
@@ -462,17 +459,13 @@ class NodeDisplay {
   update(displayData: any) {
     if (displayData.Head.Name !== this.name) {
       const nn = displayData.Head.Name
-      const ne = this.htmlDisplay?.querySelector(
-        ".displayName",
-      ) as HTMLInputElement
+      const ne = this.htmlDisplay?.querySelector(".displayName") as HTMLInputElement
       ne.setAttribute("value", `${nn}`)
       this.name = nn
       ne.classList.add("changeAlert")
     }
     if (displayData.Head.Path !== this.path) {
-      const pe = this.htmlDisplay!.querySelector(
-        ".displayPath",
-      ) as HTMLDivElement
+      const pe = this.htmlDisplay!.querySelector(".displayPath") as HTMLDivElement
       this.path = displayData.Head.Path
       pe.textContent = displayData.Head.Path
       pe.classList.add("changeAlert")
@@ -519,6 +512,24 @@ class GroupDisplay extends NodeDisplay {
   }
 }
 
+class TreeUpdaterDisplay extends NodeDisplay {
+  // infoNames = ["Last Modified"]
+
+  constructor(displayData: any) {
+    super(displayData)
+    // this.infos = new InfoList(parmDict, this.infoNames)
+  }
+}
+
+class RootDisplay extends NodeDisplay {
+  // infoNames = ["Last Modified"]
+
+  constructor(displayData: any) {
+    super(displayData)
+    // this.infos = new InfoList(parmDict, this.infoNames)
+  }
+}
+
 class ParameterForm {
   parms = new Map<string, Parameter>()
   htmlParmForm: HTMLFormElement | null = null
@@ -529,10 +540,7 @@ class ParameterForm {
     this.nodeDisplay = nodeDisplay
     if ("Parms" in displayData) {
       for (const parmName in displayData.Parms) {
-        this.parms.set(
-          parmName,
-          new Parameter(parmName, displayData.Parms[parmName], this),
-        )
+        this.parms.set(parmName, new Parameter(parmName, displayData.Parms[parmName], this))
       }
     }
   }
@@ -612,11 +620,7 @@ class Parameter {
   changed: boolean
   htmlParm: HTMLElement | null = null
 
-  constructor(
-    name: string,
-    value: number | string | boolean,
-    parmForm: ParameterForm,
-  ) {
+  constructor(name: string, value: number | string | boolean, parmForm: ParameterForm) {
     this.name = name
     this.value = value
     this.origValue = value
@@ -638,14 +642,8 @@ class Parameter {
         />
       </div>
     `)
-    this.htmlParm
-      .querySelector("input")
-      ?.addEventListener("input", this.valueChange.bind(this))
-    this.htmlParm.addEventListener(
-      "animationend",
-      this.removeChangedAlert.bind(this),
-      false,
-    )
+    this.htmlParm.querySelector("input")?.addEventListener("input", this.valueChange.bind(this))
+    this.htmlParm.addEventListener("animationend", this.removeChangedAlert.bind(this), false)
     return this.htmlParm
   }
 
@@ -657,12 +655,7 @@ class Parameter {
   update(newValue: number | string | boolean) {
     console.log("update request for parm", newValue)
     if (this.origValue != newValue) {
-      console.log(
-        "update needed for parameter",
-        this.inputType,
-        newValue,
-        typeof newValue,
-      )
+      console.log("update needed for parameter", this.inputType, newValue, typeof newValue)
       this.value = newValue
       this.origValue = newValue
       const htmlInput = this.htmlParm?.querySelector("input")!
@@ -756,9 +749,7 @@ class Info {
 }
 
 window.onload = () => {
-  let userID = parseInt(
-    document.getElementById("user-id")!.getAttribute("value")!,
-  )
+  let userID = parseInt(document.getElementById("user-id")!.getAttribute("value")!)
   console.log("UserID: ", userID)
 
   // Select user node in URL if nothing else is selected

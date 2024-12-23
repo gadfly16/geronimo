@@ -1,4 +1,4 @@
-import { WSMsg, nodeKinds, NodeKindName, msgKinds } from "./common.js";
+import { WSMsg, nodeKinds, nodeKindName, msgKinds } from "./common.js";
 const newNodes = {
     User: { Kind: nodeKinds.User },
     Group: { Kind: nodeKinds.Group },
@@ -193,6 +193,7 @@ class Node {
         if (nodeData == null)
             return;
         this.ID = nodeData.ID;
+        this.ParentID = parentID;
         this.Name = nodeData.Name;
         this.Kind = nodeData.Kind;
         if ("Children" in nodeData) {
@@ -266,6 +267,13 @@ class Node {
                     break;
                 case nodeKinds.Group:
                     this.display = new GroupDisplay(displayData);
+                    break;
+                case nodeKinds.TreeUpdater:
+                    this.display = new TreeUpdaterDisplay(displayData);
+                    break;
+                case nodeKinds.Root:
+                    this.display = new RootDisplay(displayData);
+                    break;
             }
             gui.htmlDisplayView.appendChild(this.display.render());
             gui.subscribe(this.ID);
@@ -306,9 +314,9 @@ class NodeDisplay {
     renderHead() {
         let dispHead = $(`
       <div class="nodeDisplay">
-        <div class="nodeKindBox ${NodeKindName[this.kind]}">
+        <div class="nodeKindBox ${nodeKindName[this.kind].replace(/\s/g, "")}">
           <div class="nodeKindText">
-            ${NodeKindName[this.kind]}
+            ${nodeKindName[this.kind]}
           </div>
         </div>
         <div class="nodeDetailsBox">
@@ -331,21 +339,11 @@ class NodeDisplay {
         </div>
       </div>
     `);
-        dispHead
-            .querySelector(".displayName")
-            .addEventListener("input", this.nameChange.bind(this));
-        dispHead
-            .querySelector(".displayName")
-            .addEventListener("animationend", removeChangeAlert);
-        dispHead
-            .querySelector(".displayPath")
-            .addEventListener("animationend", removeChangeAlert);
-        dispHead
-            .querySelector(".renameForm")
-            .addEventListener("submit", this.rename.bind(this));
-        dispHead
-            .querySelector(".renameAction")
-            .addEventListener("click", this.rename.bind(this));
+        dispHead.querySelector(".displayName").addEventListener("input", this.nameChange.bind(this));
+        dispHead.querySelector(".displayName").addEventListener("animationend", removeChangeAlert);
+        dispHead.querySelector(".displayPath").addEventListener("animationend", removeChangeAlert);
+        dispHead.querySelector(".renameForm").addEventListener("submit", this.rename.bind(this));
+        dispHead.querySelector(".renameAction").addEventListener("click", this.rename.bind(this));
         return dispHead;
     }
     nameChange(event) {
@@ -376,8 +374,8 @@ class NodeDisplay {
         na.style.display = "block";
         ra.style.display = "none";
         i.blur();
-        ask(msgKinds.Rename, this.ID, i.value, (r) => {
-            console.log(r);
+        ask(msgKinds.RenameChild, gui.nodes.get(this.ID).ParentID, { Name: this.name, NewName: i.value }, (a) => {
+            console.log(a);
         });
     }
     renderChildren() {
@@ -449,6 +447,20 @@ class AccountDisplay extends NodeDisplay {
     }
 }
 class GroupDisplay extends NodeDisplay {
+    // infoNames = ["Last Modified"]
+    constructor(displayData) {
+        super(displayData);
+        // this.infos = new InfoList(parmDict, this.infoNames)
+    }
+}
+class TreeUpdaterDisplay extends NodeDisplay {
+    // infoNames = ["Last Modified"]
+    constructor(displayData) {
+        super(displayData);
+        // this.infos = new InfoList(parmDict, this.infoNames)
+    }
+}
+class RootDisplay extends NodeDisplay {
     // infoNames = ["Last Modified"]
     constructor(displayData) {
         super(displayData);
@@ -553,8 +565,7 @@ class Parameter {
         />
       </div>
     `);
-        (_a = this.htmlParm
-            .querySelector("input")) === null || _a === void 0 ? void 0 : _a.addEventListener("input", this.valueChange.bind(this));
+        (_a = this.htmlParm.querySelector("input")) === null || _a === void 0 ? void 0 : _a.addEventListener("input", this.valueChange.bind(this));
         this.htmlParm.addEventListener("animationend", this.removeChangedAlert.bind(this), false);
         return this.htmlParm;
     }

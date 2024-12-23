@@ -34,11 +34,8 @@ type UserNode struct {
 func (n *UserNode) run() {
 	slog.Debug("Running User node.", "name", n.Head.Name)
 	for q := range n.In {
-		slog.Debug("Message received.", "node", n.path, "kind", q.KindName())
 		a := n.Head.handleMsg(n, q)
-		q.Answer(a)
-		slog.Debug("Message answered.", "node", n.path, "reqKind", q.KindName(), "ansKind", a.KindName())
-		if a.Kind == StoppedMsgKind {
+		if a != nil && a.Kind == StoppedMsgKind {
 			break
 		}
 	}

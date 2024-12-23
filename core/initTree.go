@@ -30,8 +30,20 @@ func InitTree(sdb string, rp RootParms) (err error) {
 			},
 		})
 	if r.Kind == ErrorMsgKind {
-		slog.Error("User group creation failed. Exiting!", "error", r.ErrorMsg())
 		return errors.New("init: user group creation failed")
+	}
+	r = Tree.Sys.Root.Ask(
+		Msg{
+			Kind: CreateMsgKind,
+			Payload: &GroupNode{
+				Head: &Head{
+					Name: "System",
+					Kind: GroupKind,
+				},
+			},
+		})
+	if r.Kind == ErrorMsgKind {
+		return errors.New("init: system group creation failed")
 	}
 	return nil
 }

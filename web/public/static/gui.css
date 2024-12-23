@@ -102,6 +102,14 @@ data:hover::after {
     background-color: rgb(134, 55, 179);
 }
 
+.treeupdater {
+    background-color: rgb(50, 168, 82);
+}
+
+.root {
+    background-color: rgb(0, 153, 255);
+}
+
 .nodeDetailsBox {
     grid-column: 2 / 3;
     grid-row: 1 / 3;

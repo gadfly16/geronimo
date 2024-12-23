@@ -27,11 +27,7 @@ type runtime struct {
 	Root        Pipe
 	TreeUpdater Pipe
 	Users       Pipe
-}
-
-type treeUpdater struct {
-	in   Pipe
-	guis map[int]map[Pipe]bool // Maps a user id to a gui
+	System      Pipe
 }
 
 func (t *nodeTree) LoadAndRun(sdb string) (err error) {
@@ -56,50 +52,29 @@ func (t *nodeTree) LoadAndRun(sdb string) (err error) {
 		return errors.New("users node can not be found")
 	}
 
-	tu := &treeUpdater{
-		in:   make(Pipe),
-		guis: make(map[int]map[Pipe]bool),
+	Tree.Sys.System, ok = Tree.GetNode(3)
+	if !ok {
+		return errors.New("users node can not be found")
 	}
-	Tree.Sys.TreeUpdater = tu.in
-	go tu.run()
+
+	a := Tree.Sys.System.Ask(
+		Msg{
+			Kind: CreateMsgKind,
+			Payload: &TreeUpdaterNode{
+				Head: &Head{
+					Name: "TreeUpdater",
+					Kind: TreeUpdaterKind,
+				},
+			},
+		})
+	if a.Kind == ErrorMsgKind {
+		return errors.New("startup: tree updater creation creation failed")
+	}
+	tu := a.Payload.(Pipe)
+	Tree.Sys.TreeUpdater = tu
 
 	slog.Info("Node tree initialized.", "nnodes", Tree.LenNodes())
 	return
-}
-
-func (tu *treeUpdater) run() {
-	slog.Debug("Running tree updater.")
-	for m := range tu.in {
-		switch m.Kind {
-		case SubscribeMsgKind:
-			t := m.Payload.(Tag)
-			_, ok := tu.guis[t.ID]
-			if !ok {
-				tu.guis[t.ID] = make(map[Pipe]bool, 0)
-			}
-			tu.guis[t.ID][t.Node] = true
-			slog.Debug("TU registered new GUI for updates.", "guis", tu.guis)
-			m.Answer(&OKMsg)
-		case UnsubscribeMsgKind:
-			t := m.Payload.(Tag)
-			delete(tu.guis[t.ID], t.Node)
-			slog.Debug("TU unregistered GUI from updates.", "guis", tu.guis)
-			m.Answer(&OKMsg)
-		case TreeNodeRenameMsgKind:
-			h := m.Payload.(Head)
-			for g := range tu.guis[h.OwnerID] {
-				g.Notify(*m)
-				slog.Debug("GUI notified about tree node rename", "GUI", h.OwnerID)
-			}
-			for g := range tu.guis[0] {
-				g.Notify(*m)
-				slog.Debug("Admin GUI notified about tree node rename", "GUI", h.OwnerID)
-			}
-			slog.Debug("Tree node rename reveived", "user", h.OwnerID)
-		default:
-			slog.Debug("Unhandled msg received by treeUpdater.")
-		}
-	}
 }
 
 func (tr *nodeTree) GetNode(id int) (Pipe, bool) {

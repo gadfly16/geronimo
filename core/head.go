@@ -20,6 +20,7 @@ var commonMsgHandlers = map[MsgKind]func(*Head, *Msg) *Msg{
 	UnsubscribeMsgKind: unsubscribeHandler,
 	RenameMsgKind:      renameHandler,
 	UpdatePathMsgKind:  updatePathHandler,
+	RenameChildMsgKind: renameChildHandler,
 }
 
 type Head struct {
@@ -43,18 +44,6 @@ type Head struct {
 type Tag struct {
 	ID   int
 	Node Pipe
-}
-
-func (h *Head) getName() string {
-	return h.Name
-}
-
-func (h *Head) setName(n string) {
-	h.Name = n
-}
-
-func (h *Head) setParentID(pid int) {
-	h.ParentID = pid
 }
 
 func (h *Head) load() (in Pipe, err error) {
@@ -93,17 +82,32 @@ func (h *Head) initNew() {
 	Tree.PutNode(h.ID, h.In)
 }
 
-func (h *Head) handleMsg(n Node, m *Msg) (r *Msg) {
-	chf, ok := commonMsgHandlers[m.Kind]
+func (h *Head) handleMsg(n Node, q *Msg) (a *Msg) {
+	nhf, ok := nodeMsgHandlers[h.Kind][q.Kind]
 	if ok {
-		return chf(h, m)
+		a = nhf(n, q)
+		if a != nil {
+			q.Answer(a)
+			slog.Debug("NODE message answered.", "node", n.getPath(), "reqKind", q.KindName(), "ansKind", a.KindName())
+		} else {
+			slog.Debug("NODE notifycation handled.", "node", n.getPath(), "reqKind", q.KindName())
+		}
+		return
 	}
-	nhf, ok := nodeMsgHandlers[h.Kind][m.Kind]
+	slog.Debug("Message received.", "node", n.getPath(), "kind", q.KindName())
+	chf, ok := commonMsgHandlers[q.Kind]
 	if ok {
-		return nhf(n, m)
+		a = chf(h, q)
+		if a != nil {
+			q.Answer(a)
+			slog.Debug("NODE common message answered.", "node", n.getPath(), "reqKind", q.KindName(), "ansKind", a.KindName())
+		} else {
+			slog.Debug("NODE common notifycation handled.", "node", n.getPath(), "reqKind", q.KindName())
+		}
+		return
 	}
-	slog.Error("No appropriate handler found.", "path", h.path, "msg_kind", m.KindName())
-	return NewErrorMsg(fmt.Errorf("no appropriate handler found for %s on %s", m.KindName(), h.KindName()))
+	slog.Error("No appropriate handler found.", "path", h.path, "msg_kind", q.KindName())
+	return NewErrorMsg(fmt.Errorf("no appropriate handler found for %s on %s", q.KindName(), h.KindName()))
 }
 
 func createHandler(h *Head, m *Msg) (r *Msg) {
@@ -126,7 +130,7 @@ func createHandler(h *Head, m *Msg) (r *Msg) {
 		return NewErrorMsg(err)
 	}
 	h.children[n.getName()] = nin
-	return &OKMsg
+	return &Msg{Kind: OKMsgKind, Payload: nin}
 }
 
 func stopHandler(h *Head, m *Msg) (r *Msg) {
@@ -208,13 +212,35 @@ func unsubscribeHandler(h *Head, m *Msg) (r *Msg) {
 	_, ok := h.subs[guiid]
 	if !ok {
 		slog.Error("Can't unscrubsibe GUI that's not subscribed", "node", h.path, "gui", guiid)
-		return NewErrorMsg(errors.New("ettempt to unscrubscribe non-subscribed GUI"))
+		return NewErrorMsg(errors.New("attempt to unscrubscribe non-subscribed GUI"))
 	}
 	delete(h.subs, guiid)
 	slog.Debug("GUI unsubscribed", "node", h.path, "gui", guiid)
 	return &OKMsg
 }
 
+func renameChildHandler(h *Head, m *Msg) (r *Msg) {
+	rchpl := m.Payload.(*renameChildPayload)
+	ch, ok := h.children[rchpl.Name]
+	if !ok {
+		return NewErrorMsg(fmt.Errorf("node has no children named '%s'", rchpl.Name))
+	}
+	if _, ok := h.children[rchpl.NewName]; ok {
+		return NewErrorMsg(fmt.Errorf("node already has a children named '%s'", rchpl.NewName))
+	}
+
+	a := ch.Ask(Msg{
+		Kind:    RenameMsgKind,
+		Payload: rchpl.NewName,
+	})
+	if a.Kind == ErrorMsgKind {
+		return &a
+	}
+
+	h.children[rchpl.NewName] = ch
+	delete(h.children, rchpl.Name)
+	return &OKMsg
+}
 func renameHandler(h *Head, m *Msg) (r *Msg) {
 	nn, ok := m.Payload.(string)
 	if !ok {

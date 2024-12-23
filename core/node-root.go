@@ -12,7 +12,8 @@ var JwtKey []byte
 func init() {
 	nodeMsgHandlers[RootKind] = map[MsgKind]func(Node, *Msg) *Msg{
 		// msg.UpdateKind:   rootUpdateHandler,
-		GetParmsMsgKind: rootGetParmsHandler,
+		GetParmsMsgKind:   rootGetParmsHandler,
+		GetDisplayMsgKind: rootGetDisplayHandler,
 	}
 }
 
@@ -40,11 +41,8 @@ var LogLevelNames = map[string]slog.Level{
 func (n *RootNode) run() {
 	slog.Info("Running Root node.", "name", n.Head.Name, "logLevel", n.Parms.LogLevel)
 	for q := range n.In {
-		slog.Debug("Message received.", "node", n.Name, "kind", q.KindName())
 		a := n.Head.handleMsg(n, q)
-		q.Answer(a)
-		slog.Debug("Message answered.", "node", n.Name, "reqKind", q.KindName(), "ansKind", a.KindName())
-		if a.Kind == StoppedMsgKind {
+		if a != nil && a.Kind == StoppedMsgKind {
 			break
 		}
 	}
@@ -111,6 +109,21 @@ func rootGetParmsHandler(ni Node, m *Msg) (r *Msg) {
 		Kind:    ParmsMsgKind,
 		Payload: *n.Parms,
 	}
+}
+
+func rootGetDisplayHandler(ni Node, _ *Msg) *Msg {
+	n := ni.(*RootNode)
+	d := n.Head.display()
+	// d["Parms"] = display{
+	// 	"Display Name": n.Parms.DisplayName,
+	// 	"Admin":        n.Parms.Admin,
+	// }
+	// slog.Debug("Display data returned by user node", "displayData", d)
+	r := &Msg{
+		Kind:    DisplayMsgKind,
+		Payload: d,
+	}
+	return r
 }
 
 // func rootUpdateHandler(ni Node, m *Msg) (r *Msg) {

@@ -271,6 +271,11 @@ func apiMsgHandler(w http.ResponseWriter, q *http.Request) {
 	m.Admin = cls.Admin
 
 	r := t.Ask(*m)
+	if r.Kind == core.ErrorMsgKind {
+		slog.Error("HTTP API message resulted in error.", "error", r.Payload.(string))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
 	render.JSON(w, q, r.Payload)
 }

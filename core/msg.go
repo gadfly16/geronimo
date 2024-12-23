@@ -26,6 +26,7 @@ const (
 	RenameMsgKind
 	TreeNodeRenameMsgKind
 	UpdatePathMsgKind
+	RenameChildMsgKind
 )
 
 var MsgKindNames = map[MsgKind]string{
@@ -48,6 +49,8 @@ var MsgKindNames = map[MsgKind]string{
 	NodeUpdateMsgKind:     "NodeUpdate",
 	RenameMsgKind:         "Rename",
 	TreeNodeRenameMsgKind: "TreeNodeRename",
+	UpdatePathMsgKind:     "UpdatePath",
+	RenameChildMsgKind:    "RenameChild",
 }
 
 var (
@@ -72,6 +75,15 @@ type Msg struct {
 
 	UserID int
 	Admin  bool
+}
+
+type renameChildPayload struct {
+	Name    string
+	NewName string
+}
+
+func (p Pipe) MarshalJSON() ([]byte, error) {
+	return json.Marshal("Pipe")
 }
 
 func (q *Msg) Answer(m *Msg) {
@@ -110,8 +122,8 @@ func UnmarshalMsg(mk MsgKind, b io.ReadCloser) (m *Msg, err error) {
 		m.Payload = map[string]interface{}{}
 	case CreateMsgKind:
 		m.Payload = &Head{}
-	case RenameMsgKind:
-		m.Payload = ""
+	case RenameChildMsgKind:
+		m.Payload = &renameChildPayload{}
 	default:
 		m.Payload = nil
 	}
