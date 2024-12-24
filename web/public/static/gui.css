@@ -47,14 +47,11 @@ body {
     padding-left: 1em;
 }
 
-#sidebar li {
-    width: 15.5em;
-    list-style-position: inside;
-    overflow: hidden;
-    text-overflow: ellipsis;
+#sidebar details:not([open]) > summary {
+    list-style-type: none;
+    text-indent: 0.9em;
 }
 
-#tree-view .selected > li,
 #tree-view .selected > summary {
     color: #3d6566;
 }

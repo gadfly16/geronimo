@@ -205,24 +205,19 @@ class Node {
     }
     renderTree() {
         let e;
-        if (this.children.length) {
-            e = $(`
-        <details open="true">
-          <summary data-id="${this.ID}">${this.Name}</summary>
-          <ul></ul>
-        </details>
-      `);
-            let ule = e.querySelector("ul");
-            for (let n of this.children) {
-                ule.appendChild(n.renderTree());
-            }
+        let state = 'open="true"';
+        if (this.children.length == 0) {
+            state = "";
         }
-        else {
-            e = $(`
-        <div>
-          <li data-id="${this.ID}">${this.Name}</li>
-        </div>
-      `);
+        e = $(`
+      <details ${state}>
+        <summary data-id="${this.ID}">${this.Name}</summary>
+        <ul></ul>
+      </details>
+    `);
+        let ule = e.querySelector("ul");
+        for (let n of this.children) {
+            ule.appendChild(n.renderTree());
         }
         this.htmlTreeElem = e;
         return e;
@@ -230,12 +225,7 @@ class Node {
     renameTreeElement(newName) {
         console.log(`Renaming tree element "${this.Name}" to "${newName}".`);
         let e;
-        if (this.children.length) {
-            e = this.htmlTreeElem.querySelector("summary");
-        }
-        else {
-            e = this.htmlTreeElem.querySelector("li");
-        }
+        e = this.htmlTreeElem.querySelector("summary");
         e.textContent = newName;
         e.classList.add("changeAlert");
         e.addEventListener("animationend", removeChangeAlert);
