@@ -129,7 +129,7 @@ data:hover::after {
     margin-bottom: 0.05em;
     background-color: #00000000;
     color: #c7e9eb;
-    width: auto;
+    /* width: auto; */
     text-align: left;
 }
 
