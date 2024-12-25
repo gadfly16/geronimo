@@ -246,7 +246,7 @@ class Node {
             if (displayData.error)
                 throw new Error(displayData.error);
             switch (displayData.Head.Kind) {
-                case nodeKinds.Broker:
+                case nodeKinds.Trader:
                     this.display = new BrokerDisplay(displayData);
                     break;
                 case nodeKinds.Account:
@@ -330,10 +330,10 @@ class NodeDisplay {
       </div>
     `);
         dispHead.querySelector(".displayName").addEventListener("input", this.nameChange.bind(this));
-        dispHead.querySelector(".displayName").addEventListener("animationend", removeChangeAlert);
-        dispHead.querySelector(".displayPath").addEventListener("animationend", removeChangeAlert);
         dispHead.querySelector(".renameForm").addEventListener("submit", this.rename.bind(this));
         dispHead.querySelector(".renameAction").addEventListener("click", this.rename.bind(this));
+        dispHead.querySelector(".displayName").addEventListener("animationend", removeChangeAlert);
+        dispHead.querySelector(".displayPath").addEventListener("animationend", removeChangeAlert);
         return dispHead;
     }
     nameChange(event) {

@@ -43,7 +43,7 @@ export enum nodeKinds {
   Group,
   User,
   Account,
-  Broker,
+  Trader,
   TreeUpdater,
 }
 

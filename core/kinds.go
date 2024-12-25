@@ -7,7 +7,7 @@ const (
 	GroupKind
 	UserKind
 	AccountKind
-	BrokerKind
+	TraderKind
 	TreeUpdaterKind
 )
 
@@ -16,7 +16,7 @@ var Kinds = map[Kind]Node{
 	GroupKind:       &GroupNode{},
 	UserKind:        &UserNode{},
 	AccountKind:     nil,
-	BrokerKind:      nil,
+	TraderKind:      nil,
 	TreeUpdaterKind: &TreeUpdaterNode{},
 }
 
@@ -25,7 +25,7 @@ var kindNames = map[Kind]string{
 	GroupKind:       "Group",
 	UserKind:        "User",
 	AccountKind:     "Account",
-	BrokerKind:      "Broker",
+	TraderKind:      "Broker",
 	TreeUpdaterKind: "TreeUpdater",
 }
 

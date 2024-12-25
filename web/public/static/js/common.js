@@ -39,7 +39,7 @@ export var nodeKinds;
     nodeKinds[nodeKinds["Group"] = 1] = "Group";
     nodeKinds[nodeKinds["User"] = 2] = "User";
     nodeKinds[nodeKinds["Account"] = 3] = "Account";
-    nodeKinds[nodeKinds["Broker"] = 4] = "Broker";
+    nodeKinds[nodeKinds["Trader"] = 4] = "Trader";
     nodeKinds[nodeKinds["TreeUpdater"] = 5] = "TreeUpdater";
 })(nodeKinds || (nodeKinds = {}));
 export let nodeKindName = ["root", "group", "user", "account", "broker", "tree updater"];
