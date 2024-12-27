@@ -1,31 +1,34 @@
-import {nodeKinds} from "./common.js"
+import { nodeKinds } from "./common.js"
 
-window.onload = function() {
-    // Attach handlers
-    document.getElementById("login-form")!.onsubmit = login;
+window.onload = function () {
+  // Attach handlers
+  document.getElementById("login-form")!.onsubmit = login
 }
 
 function login(e: SubmitEvent) {
-    const data = new FormData(e.target as HTMLFormElement)
-    let userCredentials = {
-        Kind: nodeKinds.User,
-        Name: data.get("Email"),
-        Parms: {
-            Password: btoa(data.get("Password") as string),
-        }
-    }
+  const fd = new FormData(e.target as HTMLFormElement)
+  let ucn = {
+    Kind: nodeKinds.User,
+    Name: fd.get("Name"),
+    Parms: {
+      Password: btoa(fd.get("Password") as string),
+    },
+  }
 
-    fetch("/login", {
-        method: 'post',
-        body: JSON.stringify(userCredentials),
-        mode: 'same-origin',
-    }).then((response) => {
-        if (response.ok) {
-            window.location.replace("/gui")
-        } else {
-            throw 'unauthorized';
-        }
-    }).catch((e) => { alert(e) });
-    return false;
+  fetch("/login", {
+    method: "post",
+    body: JSON.stringify(ucn),
+    mode: "same-origin",
+  })
+    .then((response) => {
+      if (response.ok) {
+        window.location.replace("/gui")
+      } else {
+        throw "unauthorized"
+      }
+    })
+    .catch((e) => {
+      alert(e)
+    })
+  return false
 }
-

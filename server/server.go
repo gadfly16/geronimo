@@ -224,14 +224,12 @@ func apiMsgHandler(w http.ResponseWriter, q *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
 	tid, err := strconv.Atoi(chi.URLParam(q, "target_id"))
 	if err != nil {
 		slog.Error("invalid target node ID")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
 	mk, err := strconv.Atoi(chi.URLParam(q, "msg_kind"))
 	if err != nil {
 		slog.Error("invalid message kind")
@@ -289,14 +287,12 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	m := core.Msg{
-		Kind:    core.CreateMsgKind,
+	a := core.Tree.Sys.Users.Ask(core.Msg{
+		Kind:    core.CreateUserMsgKind,
 		Payload: n,
-	}
-	// Magic number must be replaced with a stored pipe on Tree
-	mr := core.Tree.Sys.Users.Ask(m)
-	if mr.Kind == core.ErrorMsgKind {
-		slog.Error("SIGNUP user creation failed.", "error", mr.ErrorMsg())
+	})
+	if a.Kind == core.ErrorMsgKind {
+		slog.Error("SIGNUP user creation failed.", "error", a.ErrorMsg())
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -306,15 +302,16 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 
 func loginHandler(w http.ResponseWriter, q *http.Request) {
 	slog.Info("LOGIN new attempt.")
-	n := &core.UserNode{}
+	ucn := core.NewNodeKind(core.UserKind).(*core.UserNode)
 	d := json.NewDecoder(q.Body)
-	if err := d.Decode(n); err != nil {
+	if err := d.Decode(ucn); err != nil {
 		slog.Error("Can't unmarshall login user node", "error", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	slog.Debug("AUTH unmarshalled credentials user node", "Name", ucn.Head.Name)
 	// Magic number must be replaced with a stored pipe on Tree
-	r := core.Tree.Sys.Users.Ask(core.Msg{Kind: core.AuthUserMsgKind, Payload: n})
+	r := core.Tree.Sys.Users.Ask(core.Msg{Kind: core.AuthUserMsgKind, Payload: ucn})
 	if r.Kind == core.ErrorMsgKind {
 		slog.Error("LOGIN user authentication failed.", "error", r.ErrorMsg())
 		w.WriteHeader(http.StatusBadRequest)
@@ -348,5 +345,5 @@ func loginHandler(w http.ResponseWriter, q *http.Request) {
 		SameSite: http.SameSiteStrictMode,
 	})
 	w.WriteHeader(http.StatusOK)
-	slog.Info("LOGIN successful.", "name", n.Head.Name)
+	slog.Info("LOGIN successful.", "name", ucn.Head.Name)
 }

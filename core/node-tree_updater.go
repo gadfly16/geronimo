@@ -7,10 +7,10 @@ import (
 func init() {
 	nodeMsgHandlers[TreeUpdaterKind] = map[MsgKind]func(Node, *Msg) *Msg{
 		// AuthUserMsgKind:   groupAuthUserHandler,
-		GetDisplayMsgKind:     treeUpdaterGetDisplayHandler,
-		SubscribeMsgKind:      treeUpdaterSubscribeHandler,
-		UnsubscribeMsgKind:    treeUpdaterUnsubscribeHandler,
-		TreeNodeRenameMsgKind: treeUpdaterTreeNodeRenameHandler,
+		GetDisplayMsgKind:      treeUpdaterGetDisplayHandler,
+		SubscribeTreeMsgKind:   subscribeTreeHandler,
+		UnsubscribeTreeMsgKind: unsubscribeTreeHandler,
+		TreeNodeRenameMsgKind:  treeNodeRenameHandler,
 		// msg.UpdateKind:   rootUpdateHandler,
 		// msg.GetParmsKind: rootGetParmsHandler,
 	}
@@ -41,10 +41,8 @@ func (n *TreeUpdaterNode) run() {
 	slog.Info("Stopped TreeUpdater node.", "node", n.path)
 }
 
-func (n *TreeUpdaterNode) create(p *Head) (in Pipe, err error) {
+func (n *TreeUpdaterNode) create() (in Pipe, err error) {
 	n.Head.ID = -NextID()
-	n.Head.OwnerID = p.OwnerID
-	n.Head.path = p.path + "/" + n.Head.Name
 	n.Head.initNew()
 	n.guis = make(map[int]map[Pipe]bool)
 	slog.Info("Created TreeUpdater node.", "node", n.Head.path)
@@ -67,7 +65,7 @@ func treeUpdaterGetDisplayHandler(ni Node, _ *Msg) *Msg {
 	return r
 }
 
-func treeUpdaterSubscribeHandler(ni Node, m *Msg) *Msg {
+func subscribeTreeHandler(ni Node, m *Msg) *Msg {
 	n := ni.(*TreeUpdaterNode)
 	t := m.Payload.(Tag)
 	_, ok := n.guis[t.ID]
@@ -79,7 +77,7 @@ func treeUpdaterSubscribeHandler(ni Node, m *Msg) *Msg {
 	return &OKMsg
 }
 
-func treeUpdaterUnsubscribeHandler(ni Node, m *Msg) *Msg {
+func unsubscribeTreeHandler(ni Node, m *Msg) *Msg {
 	n := ni.(*TreeUpdaterNode)
 	t := m.Payload.(Tag)
 	delete(n.guis[t.ID], t.Node)
@@ -87,7 +85,7 @@ func treeUpdaterUnsubscribeHandler(ni Node, m *Msg) *Msg {
 	return &OKMsg
 }
 
-func treeUpdaterTreeNodeRenameHandler(ni Node, m *Msg) *Msg {
+func treeNodeRenameHandler(ni Node, m *Msg) *Msg {
 	n := ni.(*TreeUpdaterNode)
 	h := m.Payload.(Head)
 	for g := range n.guis[h.OwnerID] {

@@ -22,24 +22,20 @@ func InitTree(sdb string, rp RootParms) (err error) {
 	r := Tree.Sys.Root.Ask(
 		Msg{
 			Kind: CreateMsgKind,
-			Payload: &GroupNode{
-				Head: &Head{
-					Name: "Users",
-					Kind: GroupKind,
-				},
+			Payload: &CreatePayload{
+				Name: "Users",
+				Kind: UsersKind,
 			},
 		})
 	if r.Kind == ErrorMsgKind {
-		return errors.New("init: user group creation failed")
+		return errors.New("init: users creation failed")
 	}
 	r = Tree.Sys.Root.Ask(
 		Msg{
 			Kind: CreateMsgKind,
-			Payload: &GroupNode{
-				Head: &Head{
-					Name: "System",
-					Kind: GroupKind,
-				},
+			Payload: &CreatePayload{
+				Name: "System",
+				Kind: GroupKind,
 			},
 		})
 	if r.Kind == ErrorMsgKind {

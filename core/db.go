@@ -38,6 +38,7 @@ func initDb(path string) error {
 		&Head{},
 		RootParms{},
 		UserParms{},
+		UsersParms{},
 	)
 
 	slog.Info("State database created.", "path", path)

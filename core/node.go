@@ -5,7 +5,7 @@ import (
 )
 
 type Node interface {
-	create(*Head) (Pipe, error)
+	create() (Pipe, error)
 	loadBody(*Head) (Node, error)
 	run()
 
@@ -13,8 +13,11 @@ type Node interface {
 	// embedded to every Node's struct, therefore declarations are in this file.
 	getName() string
 	setName(string)
-	setParentID(int)
 	getPath() string
+	setPath(string)
+	setParentID(int)
+	setKind(Kind)
+	setOwnerID(int)
 }
 
 type ParmModel struct {
@@ -23,7 +26,7 @@ type ParmModel struct {
 	HeadID    int
 }
 
-type display map[string]interface{}
+type H map[string]interface{}
 
 func (h *Head) getName() string {
 	return h.Name
@@ -33,10 +36,22 @@ func (h *Head) setName(n string) {
 	h.Name = n
 }
 
+func (h *Head) getPath() string {
+	return h.path
+}
+
+func (h *Head) setPath(p string) {
+	h.path = p
+}
+
 func (h *Head) setParentID(pid int) {
 	h.ParentID = pid
 }
 
-func (h *Head) getPath() string {
-	return h.path
+func (h *Head) setKind(k Kind) {
+	h.Kind = k
+}
+
+func (h *Head) setOwnerID(oid int) {
+	h.OwnerID = oid
 }

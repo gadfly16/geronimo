@@ -1,7 +1,9 @@
 import { WSMsg, nodeKinds, nodeKindName, msgKinds } from "./common.js";
-const newNodes = {
-    User: { Kind: nodeKinds.User },
-    Group: { Kind: nodeKinds.Group },
+const nodeKindIDs = {
+    Group: 1,
+    User: 2,
+    Account: 3,
+    Trader: 4,
 };
 function ask(mk, tid, pl, f) {
     return fetch(`/api/msg/${mk}/${tid}`, {
@@ -264,6 +266,9 @@ class Node {
                 case nodeKinds.Root:
                     this.display = new RootDisplay(displayData);
                     break;
+                case nodeKinds.Users:
+                    this.display = new UsersDisplay(displayData);
+                    break;
             }
             gui.htmlDisplayView.appendChild(this.display.render());
             gui.subscribe(this.ID);
@@ -389,9 +394,10 @@ class NodeDisplay {
     }
     newChildClick(ev) {
         const t = ev.target;
-        const n = newNodes[t.textContent];
+        const n = t.textContent;
+        const nk = nodeKindIDs[n];
         console.log("clicked create child:", n, this.ID);
-        ask(msgKinds.Create, this.ID, n, (r) => {
+        ask(msgKinds.Create, this.ID, { Kind: nk }, (r) => {
             console.log(r);
         });
     }
@@ -451,6 +457,13 @@ class TreeUpdaterDisplay extends NodeDisplay {
     }
 }
 class RootDisplay extends NodeDisplay {
+    // infoNames = ["Last Modified"]
+    constructor(displayData) {
+        super(displayData);
+        // this.infos = new InfoList(parmDict, this.infoNames)
+    }
+}
+class UsersDisplay extends NodeDisplay {
     // infoNames = ["Last Modified"]
     constructor(displayData) {
         super(displayData);

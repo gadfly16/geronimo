@@ -4,25 +4,29 @@ window.onload = function () {
     document.getElementById("login-form").onsubmit = login;
 };
 function login(e) {
-    const data = new FormData(e.target);
-    let userCredentials = {
+    const fd = new FormData(e.target);
+    let ucn = {
         Kind: nodeKinds.User,
-        Name: data.get("Email"),
+        Name: fd.get("Name"),
         Parms: {
-            Password: btoa(data.get("Password")),
-        }
+            Password: btoa(fd.get("Password")),
+        },
     };
     fetch("/login", {
-        method: 'post',
-        body: JSON.stringify(userCredentials),
-        mode: 'same-origin',
-    }).then((response) => {
+        method: "post",
+        body: JSON.stringify(ucn),
+        mode: "same-origin",
+    })
+        .then((response) => {
         if (response.ok) {
             window.location.replace("/gui");
         }
         else {
-            throw 'unauthorized';
+            throw "unauthorized";
         }
-    }).catch((e) => { alert(e); });
+    })
+        .catch((e) => {
+        alert(e);
+    });
     return false;
 }

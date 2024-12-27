@@ -1,16 +1,13 @@
 package core
 
 import (
-	"fmt"
 	"log/slog"
 
-	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 func init() {
 	nodeMsgHandlers[GroupKind] = map[MsgKind]func(Node, *Msg) *Msg{
-		AuthUserMsgKind:   groupAuthUserHandler,
 		GetDisplayMsgKind: groupGetDisplayHandler,
 		// msg.UpdateKind:   rootUpdateHandler,
 		// msg.GetParmsKind: rootGetParmsHandler,
@@ -41,9 +38,7 @@ func (n *GroupNode) run() {
 	slog.Info("Stopped Group node.", "node", n.path)
 }
 
-func (n *GroupNode) create(p *Head) (in Pipe, err error) {
-	n.OwnerID = p.OwnerID
-	n.Head.path = p.path + "/" + n.Head.Name
+func (n *GroupNode) create() (in Pipe, err error) {
 	err = Db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&n.Head).Error; err != nil {
 			return err
@@ -57,22 +52,6 @@ func (n *GroupNode) create(p *Head) (in Pipe, err error) {
 	slog.Info("Created Group node.", "node", n.Head.path)
 	go n.run()
 	return n.Head.In, nil
-}
-
-func groupAuthUserHandler(ni Node, m *Msg) (r *Msg) {
-	n := ni.(*GroupNode)
-	uc := m.Payload.(*UserNode)
-	slog.Debug("getting user from children", "user_credentials", uc)
-	u, ok := n.children[uc.Name]
-	if !ok {
-		return NewErrorMsg(fmt.Errorf("user not found"))
-	}
-	up := u.Ask(GetCopyMsg).Payload.(UserNode)
-	err := bcrypt.CompareHashAndPassword(up.Parms.Password, uc.Parms.Password)
-	if err != nil {
-		return NewErrorMsg(err)
-	}
-	return &Msg{Kind: ParmsMsgKind, Payload: up}
 }
 
 func groupGetDisplayHandler(ni Node, _ *Msg) *Msg {

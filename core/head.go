@@ -83,6 +83,7 @@ func (h *Head) initNew() {
 }
 
 func (h *Head) handleMsg(n Node, q *Msg) (a *Msg) {
+	slog.Debug("NODE message received.", "node", n.getPath(), "kind", q.KindName())
 	nhf, ok := nodeMsgHandlers[h.Kind][q.Kind]
 	if ok {
 		a = nhf(n, q)
@@ -94,7 +95,6 @@ func (h *Head) handleMsg(n Node, q *Msg) (a *Msg) {
 		}
 		return
 	}
-	slog.Debug("Message received.", "node", n.getPath(), "kind", q.KindName())
 	chf, ok := commonMsgHandlers[q.Kind]
 	if ok {
 		a = chf(h, q)
@@ -111,21 +111,29 @@ func (h *Head) handleMsg(n Node, q *Msg) (a *Msg) {
 }
 
 func createHandler(h *Head, m *Msg) (r *Msg) {
-	n := m.Payload.(Node)
-	if n.getName() == "" {
-		n.setName("NewNode")
+	cpl := m.Payload.(*CreatePayload)
+	if cpl.Kind == RootKind || cpl.Kind == UserKind {
+		return NewErrorMsg(fmt.Errorf("%s kind can not be created", kindNames[cpl.Kind]))
 	}
-	if _, ok := h.children[n.getName()]; ok {
-		return NewErrorMsg(fmt.Errorf("node '%s' already exists", n.getName()))
+	nn := cpl.Name
+	if nn == "" {
+		nn = ("New" + kindNames[cpl.Kind])
 	}
+	if _, ok := h.children[nn]; ok {
+		return NewErrorMsg(fmt.Errorf("node '%s' already exists", nn))
+	}
+	// n := Kinds[cpl.Kind]
+	n := NewNodeKind(cpl.Kind)
+	if n == nil {
+		return NewErrorMsg(fmt.Errorf("node kind '%s' not implemented yet", kindNames[cpl.Kind]))
+	}
+	n.setKind(cpl.Kind)
+	n.setName(nn)
 	n.setParentID(h.ID)
-	switch pl := m.Payload.(type) {
-	case *UserNode:
-		if len(h.children) == 0 {
-			pl.Parms.Admin = true
-		}
-	}
-	nin, err := n.create(h)
+	n.setPath(h.path + "/" + nn)
+	n.setOwnerID(h.OwnerID)
+
+	nin, err := n.create()
 	if err != nil {
 		return NewErrorMsg(err)
 	}
@@ -264,9 +272,9 @@ func renameHandler(h *Head, m *Msg) (r *Msg) {
 	return &OKMsg
 }
 
-func (h *Head) display() display {
-	d := display{
-		"Head": display{
+func (h *Head) display() H {
+	d := H{
+		"Head": H{
 			"ID":         h.ID,
 			"Name":       h.Name,
 			"Kind":       h.Kind,

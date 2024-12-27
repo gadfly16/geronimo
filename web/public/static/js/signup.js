@@ -7,23 +7,27 @@ function signup(e) {
     const data = new FormData(e.target);
     let newUser = {
         Kind: nodeKinds.User,
-        Name: data.get("Email"),
+        Name: data.get("Name"),
         Parms: {
-            DisplayName: data.get("Name"),
+            Email: data.get("Email"),
             Password: btoa(data.get("Password")),
-        }
+        },
     };
     fetch("/signup", {
-        method: 'post',
+        method: "post",
         body: JSON.stringify(newUser),
-        mode: 'same-origin',
-    }).then((response) => {
+        mode: "same-origin",
+    })
+        .then((response) => {
         if (response.ok) {
             window.location.replace("login.html");
         }
         else {
-            throw 'failed';
+            throw "failed";
         }
-    }).catch((e) => { alert(e); });
+    })
+        .catch((e) => {
+        alert(e);
+    });
     return false;
 }

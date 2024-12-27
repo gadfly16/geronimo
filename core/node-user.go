@@ -21,9 +21,9 @@ func init() {
 
 type UserParms struct {
 	ParmModel
-	Admin       bool
-	DisplayName string
-	Password    []byte
+	Admin    bool
+	Email    string
+	Password []byte
 }
 
 type UserNode struct {
@@ -53,12 +53,12 @@ func (t *UserNode) loadBody(h *Head) (n Node, err error) {
 	return un, nil
 }
 
-func (n *UserNode) create(p *Head) (in Pipe, err error) {
-	n.Head.path = p.path + "/" + n.Name
+func (n *UserNode) create() (in Pipe, err error) {
 	n.Parms.Password, err = bcrypt.GenerateFromPassword(n.Parms.Password, 14)
 	if err != nil {
 		return
 	}
+
 	err = Db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&n.Head).Error; err != nil {
 			return err
@@ -72,6 +72,7 @@ func (n *UserNode) create(p *Head) (in Pipe, err error) {
 	if err != nil {
 		return
 	}
+
 	n.OwnerID = n.ID
 	go n.run()
 	n.Head.initNew()
@@ -105,6 +106,7 @@ func userGetNodeCopyHandler(ni Node, _ *Msg) *Msg {
 }
 
 func userUpdateHandler(ni Node, m *Msg) (r *Msg) {
+	var err error
 	n := ni.(*UserNode)
 	if m.UserID != n.OwnerID && !m.Admin {
 		slog.Debug("unauthorized update request", "path", n.path, "user", m.UserID, "owner", n.OwnerID, "admin", m.Admin)
@@ -113,11 +115,17 @@ func userUpdateHandler(ni Node, m *Msg) (r *Msg) {
 	slog.Debug("user node update", "payload", m.Payload)
 	pl := m.Payload.(map[string]any)
 	np := &UserParms{
-		Admin:       pl["Admin"].(bool),
-		DisplayName: pl["Display Name"].(string),
-		Password:    n.Parms.Password,
+		Admin: pl["Admin"].(bool),
+		Email: pl["Email"].(string),
+		// Password: n.Parms.Password,
 	}
-	err := Db.Transaction(func(tx *gorm.DB) (err error) {
+	if _, ok := pl["Password"]; !ok {
+		np.Password, err = bcrypt.GenerateFromPassword(n.Parms.Password, 14)
+		if err != nil {
+			return NewErrorMsg(err)
+		}
+	}
+	err = Db.Transaction(func(tx *gorm.DB) (err error) {
 		if err = tx.Create(np).Error; err != nil {
 			return err
 		}
@@ -138,9 +146,9 @@ func userUpdateHandler(ni Node, m *Msg) (r *Msg) {
 func userGetDisplayHandler(ni Node, _ *Msg) *Msg {
 	n := ni.(*UserNode)
 	d := n.Head.display()
-	d["Parms"] = display{
-		"Display Name": n.Parms.DisplayName,
-		"Admin":        n.Parms.Admin,
+	d["Parms"] = H{
+		"Email": n.Parms.Email,
+		"Admin": n.Parms.Admin,
 	}
 	// slog.Debug("Display data returned by user node", "displayData", d)
 	r := &Msg{

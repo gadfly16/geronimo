@@ -25,6 +25,9 @@ export enum msgKinds {
   TreeNodeRename,
   UpdatePath,
   RenameChild,
+  CreateUser,
+  SubscribeTree,
+  UnsubscribeTree,
 }
 
 export enum WSMsg {
@@ -36,6 +39,7 @@ export enum WSMsg {
   ClientShutdown,
   Heartbeat,
   TreeNodeRename,
+  UsersKind,
 }
 
 export enum nodeKinds {
@@ -45,6 +49,7 @@ export enum nodeKinds {
   Account,
   Trader,
   TreeUpdater,
+  Users,
 }
 
-export let nodeKindName = ["root", "group", "user", "account", "broker", "tree updater"]
+export let nodeKindName = ["root", "group", "user", "account", "broker", "tree updater", "users"]

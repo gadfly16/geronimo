@@ -62,9 +62,7 @@ func (nt *RootNode) loadBody(h *Head) (n Node, err error) {
 	return rn, nil
 }
 
-func (n *RootNode) create(p *Head) (in Pipe, err error) {
-	n.OwnerID = p.OwnerID
-	n.Head.path = p.path + "/" + n.Head.Name
+func (n *RootNode) create() (in Pipe, err error) {
 	n.Parms.JwtKey = make([]byte, 14)
 	if _, err = rand.Read(n.Parms.JwtKey); err != nil {
 		return
@@ -92,14 +90,9 @@ func (n *RootNode) create(p *Head) (in Pipe, err error) {
 }
 
 func initRootNode(rp *RootParms) (err error) {
-	root := &RootNode{
-		Head: &Head{
-			Name: "Root",
-			Kind: RootKind,
-		},
-		Parms: rp,
-	}
-	_, err = root.create(&Head{path: ""})
+	root := NewNodeKind(RootKind).(*RootNode)
+	root.Parms = rp
+	_, err = root.create()
 	return err
 }
 
@@ -138,8 +131,8 @@ func rootGetDisplayHandler(ni Node, _ *Msg) *Msg {
 // 	return
 // }
 
-func (n *RootNode) getDisplay() (d display) {
-	d = display{
+func (n *RootNode) getDisplay() (d H) {
+	d = H{
 		"Parms": n.Parms,
 	}
 	return

@@ -27,30 +27,36 @@ const (
 	TreeNodeRenameMsgKind
 	UpdatePathMsgKind
 	RenameChildMsgKind
+	CreateUserMsgKind
+	SubscribeTreeMsgKind
+	UnsubscribeTreeMsgKind
 )
 
 var MsgKindNames = map[MsgKind]string{
-	OKMsgKind:             "OK",
-	ErrorMsgKind:          "Error",
-	StopMsgKind:           "Stop",
-	StoppedMsgKind:        "Stopped",
-	UpdateMsgKind:         "Update",
-	ParmsMsgKind:          "Parms",
-	GetParmsMsgKind:       "GetParms",
-	CreateMsgKind:         "Create",
-	AuthUserMsgKind:       "AuthUser",
-	GetTreeMsgKind:        "GetTree",
-	TreeMsgKind:           "Tree",
-	GetCopyMsgKind:        "GetCopy",
-	GetDisplayMsgKind:     "GetDisplay",
-	DisplayMsgKind:        "Display",
-	SubscribeMsgKind:      "Subscribe",
-	UnsubscribeMsgKind:    "Unsubscribe",
-	NodeUpdateMsgKind:     "NodeUpdate",
-	RenameMsgKind:         "Rename",
-	TreeNodeRenameMsgKind: "TreeNodeRename",
-	UpdatePathMsgKind:     "UpdatePath",
-	RenameChildMsgKind:    "RenameChild",
+	OKMsgKind:              "OK",
+	ErrorMsgKind:           "Error",
+	StopMsgKind:            "Stop",
+	StoppedMsgKind:         "Stopped",
+	UpdateMsgKind:          "Update",
+	ParmsMsgKind:           "Parms",
+	GetParmsMsgKind:        "GetParms",
+	CreateMsgKind:          "Create",
+	AuthUserMsgKind:        "AuthUser",
+	GetTreeMsgKind:         "GetTree",
+	TreeMsgKind:            "Tree",
+	GetCopyMsgKind:         "GetCopy",
+	GetDisplayMsgKind:      "GetDisplay",
+	DisplayMsgKind:         "Display",
+	SubscribeMsgKind:       "Subscribe",
+	UnsubscribeMsgKind:     "Unsubscribe",
+	NodeUpdateMsgKind:      "NodeUpdate",
+	RenameMsgKind:          "Rename",
+	TreeNodeRenameMsgKind:  "TreeNodeRename",
+	UpdatePathMsgKind:      "UpdatePath",
+	RenameChildMsgKind:     "RenameChild",
+	CreateUserMsgKind:      "CreateUser",
+	SubscribeTreeMsgKind:   "SubscribeTree",
+	UnsubscribeTreeMsgKind: "UnsubscribeTree",
 }
 
 var (
@@ -80,6 +86,11 @@ type Msg struct {
 type renameChildPayload struct {
 	Name    string
 	NewName string
+}
+
+type CreatePayload struct {
+	Kind Kind
+	Name string
 }
 
 func (p Pipe) MarshalJSON() ([]byte, error) {
@@ -121,7 +132,7 @@ func UnmarshalMsg(mk MsgKind, b io.ReadCloser) (m *Msg, err error) {
 	case UpdateMsgKind:
 		m.Payload = map[string]interface{}{}
 	case CreateMsgKind:
-		m.Payload = &Head{}
+		m.Payload = &CreatePayload{}
 	case RenameChildMsgKind:
 		m.Payload = &renameChildPayload{}
 	default:
@@ -135,17 +146,5 @@ func UnmarshalMsg(mk MsgKind, b io.ReadCloser) (m *Msg, err error) {
 		return nil, err
 	}
 	m.Kind = mk
-	if mk == CreateMsgKind {
-		switch m.Payload.(*Head).Kind {
-		case GroupKind:
-			m.Payload = &GroupNode{
-				Head: m.Payload.(*Head),
-			}
-		case UserKind:
-			m.Payload = &UserNode{
-				Head: m.Payload.(*Head),
-			}
-		}
-	}
 	return
 }

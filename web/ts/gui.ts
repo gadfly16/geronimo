@@ -8,9 +8,11 @@ interface socketMessage {
   NodeName: string
 }
 
-const newNodes: any = {
-  User: { Kind: nodeKinds.User },
-  Group: { Kind: nodeKinds.Group },
+const nodeKindIDs: { [name: string]: number } = {
+  Group: 1,
+  User: 2,
+  Account: 3,
+  Trader: 4,
 }
 
 function ask(mk: number, tid: number, pl: any, f: (r: any) => any) {
@@ -300,6 +302,9 @@ class Node {
         case nodeKinds.Root:
           this.display = new RootDisplay(displayData)
           break
+        case nodeKinds.Users:
+          this.display = new UsersDisplay(displayData)
+          break
       }
       gui.htmlDisplayView.appendChild(this.display!.render())
       gui.subscribe(this.ID)
@@ -441,9 +446,10 @@ class NodeDisplay {
 
   newChildClick(ev: Event) {
     const t = ev.target as HTMLElement
-    const n = newNodes[t.textContent!]
+    const n = t.textContent!
+    const nk = nodeKindIDs[n]
     console.log("clicked create child:", n, this.ID)
-    ask(msgKinds.Create, this.ID, n, (r) => {
+    ask(msgKinds.Create, this.ID, { Kind: nk }, (r) => {
       console.log(r)
     })
   }
@@ -514,6 +520,15 @@ class TreeUpdaterDisplay extends NodeDisplay {
 }
 
 class RootDisplay extends NodeDisplay {
+  // infoNames = ["Last Modified"]
+
+  constructor(displayData: any) {
+    super(displayData)
+    // this.infos = new InfoList(parmDict, this.infoNames)
+  }
+}
+
+class UsersDisplay extends NodeDisplay {
   // infoNames = ["Last Modified"]
 
   constructor(displayData: any) {
