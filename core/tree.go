@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"sync"
 )
@@ -31,6 +32,9 @@ type runtime struct {
 }
 
 func (t *nodeTree) LoadAndRun(sdb string) (err error) {
+	if ok := FileExists(sdb); !ok {
+		return fmt.Errorf("database '%s' doesn't exist", sdb)
+	}
 	if err = connectDB(sdb); err != nil {
 		return
 	}
