@@ -6,6 +6,8 @@ interface socketMessage {
   GUIID: number
   NodeID: number
   NodeName: string
+  NodeKind: number
+  NodeParentID: number
 }
 
 const nodeKindIDs: { [name: string]: number } = {
@@ -127,6 +129,17 @@ class GUI {
       case WSMsg.TreeNodeRename:
         console.log(`Tree node rename received. id=${wsm.NodeID}, name='${wsm.NodeName}'`)
         gui.nodes.get(wsm.NodeID)!.renameTreeElement(wsm.NodeName)
+        break
+      case WSMsg.TreeNodeCreate:
+        console.log(`Tree node create received. msg=${JSON.stringify(wsm)}'`)
+        const te = {
+          ID: wsm.NodeID,
+          Name: wsm.NodeName,
+          ParentID: wsm.NodeParentID,
+          Kind: wsm.NodeKind,
+        }
+        gui.nodes.get(te.ParentID)?.createTreeElement(te)
+        // gui.nodes.get(wsm.NodeID)!.renameTreeElement(wsm.NodeName)
         break
     }
   }
@@ -264,8 +277,23 @@ class Node {
     let e: HTMLElement
     e = this.htmlTreeElem!.querySelector("summary")!
     e.textContent = newName
-    e.classList.add("changeAlert")
     e.addEventListener("animationend", removeChangeAlert)
+    e.classList.add("changeAlert")
+  }
+
+  createTreeElement(nd: any) {
+    console.log(`Creating tree element under "${this.Name}".`)
+    const nn = new Node(nd, this.ID)
+    this.children.push(nn)
+    const de = nn.renderTree()
+    const s = de.querySelector("summary")!
+    s.addEventListener("animationend", removeChangeAlert)
+    // console.log(this.htmlTreeElem?.querySelector("ul"))
+    this.htmlTreeElem?.querySelector("ul")!.appendChild(de)
+    if (this.children.length === 1) {
+      this.htmlTreeElem!.setAttribute("open", "true")
+    }
+    s.classList.add("changeAlert")
   }
 
   updateDisplay() {

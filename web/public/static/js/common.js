@@ -24,6 +24,7 @@ export var msgKinds;
     msgKinds[msgKinds["CreateUser"] = 21] = "CreateUser";
     msgKinds[msgKinds["SubscribeTree"] = 22] = "SubscribeTree";
     msgKinds[msgKinds["UnsubscribeTree"] = 23] = "UnsubscribeTree";
+    msgKinds[msgKinds["TreeNodeCreate"] = 24] = "TreeNodeCreate";
 })(msgKinds || (msgKinds = {}));
 export var WSMsg;
 (function (WSMsg) {
@@ -35,7 +36,7 @@ export var WSMsg;
     WSMsg[WSMsg["ClientShutdown"] = 5] = "ClientShutdown";
     WSMsg[WSMsg["Heartbeat"] = 6] = "Heartbeat";
     WSMsg[WSMsg["TreeNodeRename"] = 7] = "TreeNodeRename";
-    WSMsg[WSMsg["UsersKind"] = 8] = "UsersKind";
+    WSMsg[WSMsg["TreeNodeCreate"] = 8] = "TreeNodeCreate";
 })(WSMsg || (WSMsg = {}));
 export var nodeKinds;
 (function (nodeKinds) {

@@ -28,6 +28,7 @@ export enum msgKinds {
   CreateUser,
   SubscribeTree,
   UnsubscribeTree,
+  TreeNodeCreate,
 }
 
 export enum WSMsg {
@@ -39,7 +40,7 @@ export enum WSMsg {
   ClientShutdown,
   Heartbeat,
   TreeNodeRename,
-  UsersKind,
+  TreeNodeCreate,
 }
 
 export enum nodeKinds {

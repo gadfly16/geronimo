@@ -22,7 +22,7 @@ func InitTree(sdb string, rp RootParms) (err error) {
 	r := Tree.Sys.Root.Ask(
 		Msg{
 			Kind: CreateMsgKind,
-			Payload: &CreatePayload{
+			Payload: &CreatePL{
 				Name: "Users",
 				Kind: UsersKind,
 			},
@@ -33,7 +33,7 @@ func InitTree(sdb string, rp RootParms) (err error) {
 	r = Tree.Sys.Root.Ask(
 		Msg{
 			Kind: CreateMsgKind,
-			Payload: &CreatePayload{
+			Payload: &CreatePL{
 				Name: "System",
 				Kind: GroupKind,
 			},

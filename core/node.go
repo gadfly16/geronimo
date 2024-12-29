@@ -11,6 +11,7 @@ type Node interface {
 
 	// These methods are common to all Nodes, they are defined on Head which is
 	// embedded to every Node's struct, therefore declarations are in this file.
+	getID() int
 	getName() string
 	setName(string)
 	getPath() string
@@ -27,6 +28,15 @@ type ParmModel struct {
 }
 
 type H map[string]interface{}
+
+type Tag struct {
+	ID   int
+	Node Pipe
+}
+
+func (h *Head) getID() int {
+	return h.ID
+}
 
 func (h *Head) getName() string {
 	return h.Name

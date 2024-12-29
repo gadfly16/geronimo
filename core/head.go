@@ -41,11 +41,6 @@ type Head struct {
 	subs map[int]Pipe
 }
 
-type Tag struct {
-	ID   int
-	Node Pipe
-}
-
 func (h *Head) load() (in Pipe, err error) {
 	h.In = make(Pipe)
 	h.children = make(map[string]Pipe)
@@ -111,16 +106,16 @@ func (h *Head) handleMsg(n Node, q *Msg) (a *Msg) {
 }
 
 func createHandler(h *Head, m *Msg) (r *Msg) {
-	cpl := m.Payload.(*CreatePayload)
+	cpl := m.Payload.(*CreatePL)
 	if cpl.Kind == RootKind || cpl.Kind == UserKind {
 		return NewErrorMsg(fmt.Errorf("%s kind can not be created", kindNames[cpl.Kind]))
 	}
-	nn := cpl.Name
-	if nn == "" {
-		nn = ("New" + kindNames[cpl.Kind])
+	nm := cpl.Name
+	if nm == "" {
+		nm = ("New" + kindNames[cpl.Kind])
 	}
-	if _, ok := h.children[nn]; ok {
-		return NewErrorMsg(fmt.Errorf("node '%s' already exists", nn))
+	if _, ok := h.children[nm]; ok {
+		return NewErrorMsg(fmt.Errorf("node '%s' already exists", nm))
 	}
 	// n := Kinds[cpl.Kind]
 	n := NewNodeKind(cpl.Kind)
@@ -128,16 +123,31 @@ func createHandler(h *Head, m *Msg) (r *Msg) {
 		return NewErrorMsg(fmt.Errorf("node kind '%s' not implemented yet", kindNames[cpl.Kind]))
 	}
 	n.setKind(cpl.Kind)
-	n.setName(nn)
+	n.setName(nm)
 	n.setParentID(h.ID)
-	n.setPath(h.path + "/" + nn)
+	n.setPath(h.path + "/" + nm)
 	n.setOwnerID(h.OwnerID)
 
 	nin, err := n.create()
 	if err != nil {
 		return NewErrorMsg(err)
 	}
-	h.children[n.getName()] = nin
+	h.children[nm] = nin
+
+	nnpl := &NewTreeNodePL{
+		ID:       n.getID(),
+		Name:     nm,
+		Kind:     cpl.Kind,
+		ParentID: h.ID,
+		OwnerID:  h.OwnerID,
+	}
+	if Tree.Sys.TreeUpdater != nil {
+		Tree.Sys.TreeUpdater.Notify(Msg{
+			Kind:    TreeNodeCreateMsgKind,
+			Payload: nnpl,
+		})
+	}
+
 	return &Msg{Kind: OKMsgKind, Payload: nin}
 }
 
@@ -228,7 +238,7 @@ func unsubscribeHandler(h *Head, m *Msg) (r *Msg) {
 }
 
 func renameChildHandler(h *Head, m *Msg) (r *Msg) {
-	rchpl := m.Payload.(*renameChildPayload)
+	rchpl := m.Payload.(*renameChildPL)
 	ch, ok := h.children[rchpl.Name]
 	if !ok {
 		return NewErrorMsg(fmt.Errorf("node has no children named '%s'", rchpl.Name))
@@ -249,6 +259,7 @@ func renameChildHandler(h *Head, m *Msg) (r *Msg) {
 	delete(h.children, rchpl.Name)
 	return &OKMsg
 }
+
 func renameHandler(h *Head, m *Msg) (r *Msg) {
 	nn, ok := m.Payload.(string)
 	if !ok {

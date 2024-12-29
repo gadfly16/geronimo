@@ -6,11 +6,11 @@ import (
 
 func init() {
 	nodeMsgHandlers[TreeUpdaterKind] = map[MsgKind]func(Node, *Msg) *Msg{
-		// AuthUserMsgKind:   groupAuthUserHandler,
 		GetDisplayMsgKind:      treeUpdaterGetDisplayHandler,
 		SubscribeTreeMsgKind:   subscribeTreeHandler,
 		UnsubscribeTreeMsgKind: unsubscribeTreeHandler,
 		TreeNodeRenameMsgKind:  treeNodeRenameHandler,
+		TreeNodeCreateMsgKind:  treeNodeCreateHandler,
 		// msg.UpdateKind:   rootUpdateHandler,
 		// msg.GetParmsKind: rootGetParmsHandler,
 	}
@@ -97,5 +97,20 @@ func treeNodeRenameHandler(ni Node, m *Msg) *Msg {
 		slog.Debug("TU notified admin GUIs about tree node rename.", "GUI", h.OwnerID)
 	}
 	slog.Debug("TU handled tree node rename.", "user", h.OwnerID)
+	return nil
+}
+
+func treeNodeCreateHandler(ni Node, m *Msg) *Msg {
+	n := ni.(*TreeUpdaterNode)
+	nnpl := m.Payload.(*NewTreeNodePL)
+	for g := range n.guis[nnpl.OwnerID] {
+		g.Notify(*m)
+		slog.Debug("TU notified user GUIs about new tree node.", "GUI", nnpl.OwnerID)
+	}
+	for g := range n.guis[0] {
+		g.Notify(*m)
+		slog.Debug("TU notified admin GUIs about new tree node.", "GUI", nnpl.OwnerID)
+	}
+	slog.Debug("TU handled new tree node.", "user", nnpl.OwnerID)
 	return nil
 }

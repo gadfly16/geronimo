@@ -22,6 +22,7 @@ const (
 	WSMsg_ClientShutdown
 	WSMsg_Heartbeat
 	WSMsg_TreeNodeRename
+	WSMsg_TreeNodeCreate
 )
 
 type GUIClient struct {
@@ -36,11 +37,13 @@ type GUIClient struct {
 }
 
 type wsmsg struct {
-	Kind     int
-	OTP      string
-	GUIID    int
-	NodeID   int
-	NodeName string
+	Kind         int
+	OTP          string
+	GUIID        int
+	NodeID       int
+	NodeName     string
+	NodeKind     core.Kind
+	NodeParentID int
 }
 
 func newGuiClient(conn *websocket.Conn, uid int, admin bool) (client *GUIClient) {
@@ -225,6 +228,21 @@ out:
 				})
 				if err != nil {
 					slog.Error("GUI couldn't send tree update msg", "error", err)
+					break out
+				}
+				slog.Debug("GUI sent tree update to client", "gui", gui.id)
+			case core.TreeNodeCreateMsgKind:
+				slog.Debug("GUI received a new tree node msg", "msg", m)
+				nnpl := m.Payload.(*core.NewTreeNodePL)
+				err := gui.sendWSMessage(&wsmsg{
+					Kind:         WSMsg_TreeNodeCreate,
+					NodeID:       nnpl.ID,
+					NodeName:     nnpl.Name,
+					NodeKind:     nnpl.Kind,
+					NodeParentID: nnpl.ParentID,
+				})
+				if err != nil {
+					slog.Error("GUI couldn't send tree create msg", "error", err)
 					break out
 				}
 				slog.Debug("GUI sent tree update to client", "gui", gui.id)

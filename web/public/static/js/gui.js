@@ -78,6 +78,7 @@ class GUI {
         }));
     }
     socketMessageHandler(event) {
+        var _a;
         const wsm = JSON.parse(event.data);
         switch (wsm.Kind) {
             case WSMsg.Heartbeat:
@@ -103,6 +104,17 @@ class GUI {
             case WSMsg.TreeNodeRename:
                 console.log(`Tree node rename received. id=${wsm.NodeID}, name='${wsm.NodeName}'`);
                 gui.nodes.get(wsm.NodeID).renameTreeElement(wsm.NodeName);
+                break;
+            case WSMsg.TreeNodeCreate:
+                console.log(`Tree node create received. msg=${JSON.stringify(wsm)}'`);
+                const te = {
+                    ID: wsm.NodeID,
+                    Name: wsm.NodeName,
+                    ParentID: wsm.NodeParentID,
+                    Kind: wsm.NodeKind,
+                };
+                (_a = gui.nodes.get(te.ParentID)) === null || _a === void 0 ? void 0 : _a.createTreeElement(te);
+                // gui.nodes.get(wsm.NodeID)!.renameTreeElement(wsm.NodeName)
                 break;
         }
     }
@@ -229,8 +241,23 @@ class Node {
         let e;
         e = this.htmlTreeElem.querySelector("summary");
         e.textContent = newName;
-        e.classList.add("changeAlert");
         e.addEventListener("animationend", removeChangeAlert);
+        e.classList.add("changeAlert");
+    }
+    createTreeElement(nd) {
+        var _a;
+        console.log(`Creating tree element under "${this.Name}".`);
+        const nn = new Node(nd, this.ID);
+        this.children.push(nn);
+        const de = nn.renderTree();
+        const s = de.querySelector("summary");
+        s.addEventListener("animationend", removeChangeAlert);
+        // console.log(this.htmlTreeElem?.querySelector("ul"))
+        (_a = this.htmlTreeElem) === null || _a === void 0 ? void 0 : _a.querySelector("ul").appendChild(de);
+        if (this.children.length === 1) {
+            this.htmlTreeElem.setAttribute("open", "true");
+        }
+        s.classList.add("changeAlert");
     }
     updateDisplay() {
         console.log(`Updating node ${this.ID}.`);
