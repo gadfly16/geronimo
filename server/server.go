@@ -43,8 +43,12 @@ func Serve(sdb string) (err error) {
 		slog.Error("Tree loading failed. Quitting.", "error", err)
 		return
 	}
-	rp := core.Tree.Sys.Root.Ask(core.GetParmsMsg).Payload.(core.RootParms)
+	rp := core.Tree.Sys.Root.Ask(core.Msg{
+		Kind:  core.GetParmsMsgKind,
+		Admin: true,
+	}).Payload.(core.RootParms)
 	slog.Debug("Server settings received")
+
 	srv := &http.Server{Addr: rp.HTTPAddr, Handler: service()}
 	serverCtx, serverStopCtx := context.WithCancel(context.Background())
 
@@ -88,8 +92,10 @@ func Serve(sdb string) (err error) {
 	// Wait for server context to be stopped
 	<-serverCtx.Done()
 
-	core.Tree.Sys.Root.Ask(core.StopMsg)
-
+	core.Tree.Sys.Root.Ask(core.Msg{
+		Kind:  core.StopMsgKind,
+		Admin: true,
+	})
 	slog.Info("Exiting server.")
 	return
 }
@@ -251,11 +257,8 @@ func apiMsgHandler(w http.ResponseWriter, q *http.Request) {
 		return
 	}
 
-	switch m.Kind {
-	case core.GetTreeMsgKind:
-		if cls.Admin {
-			tid = 1
-		}
+	if m.Kind == core.GetTreeMsgKind && cls.Admin {
+		tid = 1
 	}
 
 	t, ok := core.Tree.GetNode(tid)
@@ -289,6 +292,7 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	a := core.Tree.Sys.Users.Ask(core.Msg{
 		Kind:    core.CreateUserMsgKind,
+		Admin:   true,
 		Payload: n,
 	})
 	if a.Kind == core.ErrorMsgKind {
@@ -296,6 +300,15 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	nu := a.Payload.(core.Pipe)
+	a = nu.Ask(core.Msg{
+		Kind:  core.CreateMsgKind,
+		Admin: true,
+		Payload: &core.CreatePL{
+			Kind: core.GroupKind,
+			Name: "GUIs",
+		},
+	})
 	w.WriteHeader(http.StatusOK)
 	slog.Info("SIGNUP created a new user.", "name", n.Head.Name)
 }
@@ -311,7 +324,11 @@ func loginHandler(w http.ResponseWriter, q *http.Request) {
 	}
 	slog.Debug("AUTH unmarshalled credentials user node", "Name", ucn.Head.Name)
 	// Magic number must be replaced with a stored pipe on Tree
-	r := core.Tree.Sys.Users.Ask(core.Msg{Kind: core.AuthUserMsgKind, Payload: ucn})
+	r := core.Tree.Sys.Users.Ask(core.Msg{
+		Kind:    core.AuthUserMsgKind,
+		Admin:   true,
+		Payload: ucn,
+	})
 	if r.Kind == core.ErrorMsgKind {
 		slog.Error("LOGIN user authentication failed.", "error", r.ErrorMsg())
 		w.WriteHeader(http.StatusBadRequest)

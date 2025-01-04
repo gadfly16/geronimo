@@ -2,7 +2,6 @@ package core
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"log/slog"
 
@@ -108,11 +107,6 @@ func userGetNodeCopyHandler(ni Node, _ *Msg) *Msg {
 func userUpdateHandler(ni Node, m *Msg) (r *Msg) {
 	var err error
 	n := ni.(*UserNode)
-	if m.UserID != n.OwnerID && !m.Admin {
-		slog.Debug("unauthorized update request", "path", n.path, "user", m.UserID, "owner", n.OwnerID, "admin", m.Admin)
-		return NewErrorMsg(fmt.Errorf("unathorized update request"))
-	}
-	slog.Debug("user node update", "payload", m.Payload)
 	pl := m.Payload.(map[string]any)
 	np := &UserParms{
 		Admin: pl["Admin"].(bool),

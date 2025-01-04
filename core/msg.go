@@ -31,6 +31,7 @@ const (
 	SubscribeTreeMsgKind
 	UnsubscribeTreeMsgKind
 	TreeNodeCreateMsgKind
+	GetChildMsgKind
 )
 
 var MsgKindNames = map[MsgKind]string{
@@ -59,6 +60,7 @@ var MsgKindNames = map[MsgKind]string{
 	SubscribeTreeMsgKind:   "SubscribeTree",
 	UnsubscribeTreeMsgKind: "UnsubscribeTree",
 	TreeNodeCreateMsgKind:  "TreeNodeCreate",
+	GetChildMsgKind:        "GetChild",
 }
 
 var (

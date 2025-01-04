@@ -21,6 +21,7 @@ var commonMsgHandlers = map[MsgKind]func(*Head, *Msg) *Msg{
 	RenameMsgKind:      renameHandler,
 	UpdatePathMsgKind:  updatePathHandler,
 	RenameChildMsgKind: renameChildHandler,
+	GetChildMsgKind:    getChildHandler,
 }
 
 type Head struct {
@@ -78,6 +79,10 @@ func (h *Head) initNew() {
 }
 
 func (h *Head) handleMsg(n Node, q *Msg) (a *Msg) {
+	if q.UserID != h.OwnerID && !q.Admin {
+		slog.Debug("unauthorized request", "path", h.path, "user", q.UserID, "owner", h.OwnerID, "admin", q.Admin)
+		return NewErrorMsg(fmt.Errorf("unathorized request"))
+	}
 	slog.Debug("NODE message received.", "node", n.getPath(), "kind", q.KindName())
 	nhf, ok := nodeMsgHandlers[h.Kind][q.Kind]
 	if ok {
@@ -132,6 +137,7 @@ func createHandler(h *Head, m *Msg) (r *Msg) {
 	if err != nil {
 		return NewErrorMsg(err)
 	}
+	nm = n.getName()
 	h.children[nm] = nin
 
 	nnpl := &NewTreeNodePL{
@@ -178,11 +184,16 @@ func updatePathHandler(h *Head, m *Msg) (r *Msg) {
 	return &OKMsg
 }
 
-func getTreeHandler(h *Head, m *Msg) (r *Msg) {
-	if m.UserID != h.OwnerID && !m.Admin {
-		slog.Debug("unauthorized tree request", "path", h.path, "user", m.UserID, "owner", h.OwnerID, "admin", m.Admin)
-		return NewErrorMsg(fmt.Errorf("unathorized tree request"))
+func getChildHandler(h *Head, m *Msg) (r *Msg) {
+	chnm := m.Payload.(string)
+	ch, ok := h.children[chnm]
+	if !ok {
+		return NewErrorMsg(fmt.Errorf("children '%s' not found", chnm))
 	}
+	return &Msg{Kind: OKMsgKind, Payload: ch}
+}
+
+func getTreeHandler(h *Head, m *Msg) (r *Msg) {
 	tree := &TreeEntry{
 		ID:   h.ID,
 		Name: h.Name,

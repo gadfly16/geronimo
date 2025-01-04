@@ -109,9 +109,7 @@ func rootGetDisplayHandler(ni Node, _ *Msg) *Msg {
 	d := n.Head.display()
 	// d["Parms"] = display{
 	// 	"Display Name": n.Parms.DisplayName,
-	// 	"Admin":        n.Parms.Admin,
 	// }
-	// slog.Debug("Display data returned by user node", "displayData", d)
 	r := &Msg{
 		Kind:    DisplayMsgKind,
 		Payload: d,

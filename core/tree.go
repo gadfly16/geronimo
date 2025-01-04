@@ -63,7 +63,8 @@ func (t *nodeTree) LoadAndRun(sdb string) (err error) {
 
 	a := Tree.Sys.System.Ask(
 		Msg{
-			Kind: CreateMsgKind,
+			Kind:  CreateMsgKind,
+			Admin: true,
 			Payload: &CreatePL{
 				Name: "TreeUpdater",
 				Kind: TreeUpdaterKind,

@@ -10,6 +10,7 @@ const (
 	TraderKind
 	TreeUpdaterKind
 	UsersKind
+	GUIKind
 )
 
 var Kinds = map[Kind]Node{
@@ -20,6 +21,7 @@ var Kinds = map[Kind]Node{
 	TraderKind:      nil,
 	TreeUpdaterKind: &TreeUpdaterNode{},
 	UsersKind:       &UsersNode{},
+	GUIKind:         &GUINode{},
 }
 
 var kindNames = map[Kind]string{
@@ -30,6 +32,7 @@ var kindNames = map[Kind]string{
 	TraderKind:      "Broker",
 	TreeUpdaterKind: "TreeUpdater",
 	UsersKind:       "Users",
+	GUIKind:         "GUI",
 }
 
 func (h *Head) KindName() string {
@@ -52,6 +55,8 @@ func NewNodeKind(k Kind) Node {
 		return &TreeUpdaterNode{Head: &Head{Kind: TraderKind}}
 	case UsersKind:
 		return &UsersNode{Head: &Head{Kind: UsersKind}, Parms: &UsersParms{}}
+	case GUIKind:
+		return &GUINode{Head: &Head{Kind: GUIKind}}
 	default:
 		return nil
 	}

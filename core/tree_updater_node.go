@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"log/slog"
 )
 
@@ -22,12 +23,7 @@ type TreeUpdaterNode struct {
 }
 
 func (t *TreeUpdaterNode) loadBody(h *Head) (n Node, err error) {
-	// h.In = make(Pipe)
-	gn := &TreeUpdaterNode{
-		Head: h,
-	}
-
-	return gn, nil
+	return nil, fmt.Errorf("loading TreeUpdater node is not permitted")
 }
 
 func (n *TreeUpdaterNode) run() {

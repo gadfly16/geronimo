@@ -94,18 +94,36 @@ func createUserHandler(ni Node, m *Msg) (r *Msg) {
 		return NewErrorMsg(err)
 	}
 	n.Head.children[nu.Head.Name] = nin
+
+	nnpl := &NewTreeNodePL{
+		ID:       nu.Head.ID,
+		Name:     nu.Head.Name,
+		Kind:     nu.Head.Kind,
+		ParentID: nu.Head.ParentID,
+		OwnerID:  nu.Head.OwnerID,
+	}
+	Tree.Sys.TreeUpdater.Notify(Msg{
+		Kind:    TreeNodeCreateMsgKind,
+		Admin:   true,
+		Payload: nnpl,
+	})
+
 	return &Msg{Kind: OKMsgKind, Payload: nin}
 }
 
-func authUserHandler(ni Node, m *Msg) (r *Msg) {
+func authUserHandler(ni Node, q *Msg) (a *Msg) {
 	n := ni.(*UsersNode)
-	uc := m.Payload.(*UserNode)
+	uc := q.Payload.(*UserNode)
 	slog.Debug("AUTH getting User from children", "name", uc.Head.Name)
 	u, ok := n.children[uc.Head.Name]
 	if !ok {
 		return NewErrorMsg(fmt.Errorf("user not found"))
 	}
-	up := u.Ask(GetCopyMsg).Payload.(UserNode)
+	up := u.Ask(Msg{
+		Kind:  GetCopyMsgKind,
+		Admin: true,
+	}).Payload.(UserNode)
+
 	err := bcrypt.CompareHashAndPassword(up.Parms.Password, uc.Parms.Password)
 	if err != nil {
 		return NewErrorMsg(err)

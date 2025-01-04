@@ -77,7 +77,22 @@ func socketHandler(w http.ResponseWriter, q *http.Request) {
 	}
 	defer c.CloseNow()
 
+	un, ok := core.Tree.GetNode(uid)
+	if !ok {
+		slog.Error("invalid user ID")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	guis := un.Ask(core.Msg{
+		Kind:    core.GetChildMsgKind,
+		UserID:  uid,
+		Admin:   cls.Admin,
+		Payload: "GUIs",
+	})
+	slog.Debug("Got users's GUIs group.", "GUIs", guis)
+
 	gui := newGuiClient(c, uid, cls.Admin)
+
 	msg := &wsmsg{
 		Kind:  WSMsg_Credentials,
 		GUIID: gui.id,

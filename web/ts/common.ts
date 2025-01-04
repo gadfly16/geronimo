@@ -29,6 +29,7 @@ export enum msgKinds {
   SubscribeTree,
   UnsubscribeTree,
   TreeNodeCreate,
+  GetChild,
 }
 
 export enum WSMsg {

@@ -25,6 +25,7 @@ export var msgKinds;
     msgKinds[msgKinds["SubscribeTree"] = 22] = "SubscribeTree";
     msgKinds[msgKinds["UnsubscribeTree"] = 23] = "UnsubscribeTree";
     msgKinds[msgKinds["TreeNodeCreate"] = 24] = "TreeNodeCreate";
+    msgKinds[msgKinds["GetChild"] = 25] = "GetChild";
 })(msgKinds || (msgKinds = {}));
 export var WSMsg;
 (function (WSMsg) {
