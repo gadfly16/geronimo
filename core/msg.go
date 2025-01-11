@@ -3,7 +3,11 @@ package core
 import (
 	"encoding/json"
 	"io"
+
+	"github.com/coder/websocket"
 )
+
+type MsgKind = int
 
 const (
 	OKMsgKind MsgKind = iota
@@ -32,6 +36,9 @@ const (
 	UnsubscribeTreeMsgKind
 	TreeNodeCreateMsgKind
 	GetChildMsgKind
+	InitGUIMsgKind
+	DeleteChildMsgKind
+	TreeNodeDeleteMsgKind
 )
 
 var MsgKindNames = map[MsgKind]string{
@@ -61,6 +68,9 @@ var MsgKindNames = map[MsgKind]string{
 	UnsubscribeTreeMsgKind: "UnsubscribeTree",
 	TreeNodeCreateMsgKind:  "TreeNodeCreate",
 	GetChildMsgKind:        "GetChild",
+	InitGUIMsgKind:         "InitGUI",
+	DeleteChildMsgKind:     "DeleteChild",
+	TreeNodeDeleteMsgKind:  "TreeNodeDelete",
 }
 
 var (
@@ -74,17 +84,28 @@ var (
 	UpdatedMsg    = Msg{Kind: NodeUpdateMsgKind}
 )
 
+type E struct{}
+
+type DC chan E
+
 type Pipe chan *Msg
 
-type MsgKind = int
+type Tag struct {
+	ID       int
+	Kind     Kind
+	Name     string
+	Node     Pipe
+	ParentID int
+	OwnerID  int
+}
 
 type Msg struct {
 	Kind    MsgKind
+	UserID  int
+	Admin   bool
 	Payload any
-	Resp    Pipe
 
-	UserID int
-	Admin  bool
+	resp Pipe
 }
 
 type renameChildPL struct {
@@ -93,8 +114,9 @@ type renameChildPL struct {
 }
 
 type CreatePL struct {
-	Kind Kind
-	Name string
+	Kind    Kind
+	Name    string
+	Payload any
 }
 
 type NewTreeNodePL struct {
@@ -105,12 +127,18 @@ type NewTreeNodePL struct {
 	OwnerID  int
 }
 
+type InitGUIPL struct {
+	Conn  *websocket.Conn
+	Done  DC
+	Admin bool
+}
+
 func (p Pipe) MarshalJSON() ([]byte, error) {
 	return json.Marshal("Pipe")
 }
 
 func (q *Msg) Answer(m *Msg) {
-	q.Resp <- m
+	q.resp <- m
 }
 
 func NewErrorMsg(err error) *Msg {
@@ -129,9 +157,9 @@ func (m *Msg) KindName() string {
 }
 
 func (t Pipe) Ask(m Msg) Msg {
-	m.Resp = make(Pipe)
+	m.resp = make(Pipe)
 	t <- &m
-	return *<-m.Resp
+	return *<-m.resp
 }
 
 func (t Pipe) Notify(m Msg) {

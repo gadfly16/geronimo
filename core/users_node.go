@@ -41,17 +41,27 @@ func (t *UsersNode) loadBody(h *Head) (n Node, err error) {
 }
 
 func (n *UsersNode) run() {
-	slog.Info("Running Users node.", "name", n.Head.Name)
+	defer close(n.Head.In)
+	defer Tree.RemoveNode(n.Head.ID)
+
+	slog.Debug("Running Users node.", "node", n.Head.path)
 	for q := range n.Head.In {
 		a := n.Head.handleMsg(n, q)
 		if a != nil && a.Kind == StoppedMsgKind {
+			// Drain unsubscribe messages
+			for range len(n.Head.guiSubs) {
+				q := <-n.Head.In
+				q.Answer(&OKMsg)
+			}
+			q.Answer(a)
 			break
 		}
 	}
+
 	slog.Info("Stopped Users node.", "node", n.path)
 }
 
-func (n *UsersNode) create() (in Pipe, err error) {
+func (n *UsersNode) create(_ any) (in Pipe, err error) {
 	err = Db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&n.Head).Error; err != nil {
 			return err
@@ -66,7 +76,6 @@ func (n *UsersNode) create() (in Pipe, err error) {
 		return
 	}
 	n.Head.initNew()
-	slog.Info("Created Users node.", "node", n.Head.path)
 	go n.run()
 	return n.Head.In, nil
 }
@@ -89,7 +98,7 @@ func createUserHandler(ni Node, m *Msg) (r *Msg) {
 		nu.Parms.Admin = true
 	}
 
-	nin, err := nu.create()
+	nin, err := nu.create(nil)
 	if err != nil {
 		return NewErrorMsg(err)
 	}

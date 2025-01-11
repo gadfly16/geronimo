@@ -31,14 +31,26 @@ type UserNode struct {
 }
 
 func (n *UserNode) run() {
-	slog.Debug("Running User node.", "name", n.Head.Name)
+	defer close(n.Head.In)
+	defer Tree.RemoveNode(n.Head.ID)
+
+	slog.Debug("Running User node.", "node", n.Head.path)
 	for q := range n.In {
 		a := n.Head.handleMsg(n, q)
 		if a != nil && a.Kind == StoppedMsgKind {
+			// Drain unsubscribe messages
+			for range len(n.Head.guiSubs) {
+				q := <-n.Head.In
+				slog.Debug("SINK of User reveived msg.", "node", n.Head.path, "kind", q.KindName())
+				q.Answer(&OKMsg)
+				slog.Debug("SINK of User answered msg.", "node", n.Head.path, "kind", q.KindName())
+			}
+			q.Answer(a)
 			break
 		}
 	}
-	slog.Info("Stopped Root node.")
+
+	slog.Info("Stopped User node.", "node", n.Head.path)
 }
 
 func (t *UserNode) loadBody(h *Head) (n Node, err error) {
@@ -52,7 +64,7 @@ func (t *UserNode) loadBody(h *Head) (n Node, err error) {
 	return un, nil
 }
 
-func (n *UserNode) create() (in Pipe, err error) {
+func (n *UserNode) create(_ any) (in Pipe, err error) {
 	n.Parms.Password, err = bcrypt.GenerateFromPassword(n.Parms.Password, 14)
 	if err != nil {
 		return
@@ -75,7 +87,6 @@ func (n *UserNode) create() (in Pipe, err error) {
 	n.OwnerID = n.ID
 	go n.run()
 	n.Head.initNew()
-	slog.Info("Created User node.", "path", n.path)
 	return n.Head.In, nil
 }
 
@@ -108,19 +119,22 @@ func userUpdateHandler(ni Node, m *Msg) (r *Msg) {
 	var err error
 	n := ni.(*UserNode)
 	pl := m.Payload.(map[string]any)
-	np := &UserParms{
-		Admin: pl["Admin"].(bool),
-		Email: pl["Email"].(string),
-		// Password: n.Parms.Password,
+	up := &UserParms{
+		ParmModel: ParmModel{
+			HeadID: n.Head.ID,
+		},
+		Admin:    pl["Admin"].(bool),
+		Email:    pl["Email"].(string),
+		Password: n.Parms.Password,
 	}
-	if _, ok := pl["Password"]; !ok {
-		np.Password, err = bcrypt.GenerateFromPassword(n.Parms.Password, 14)
+	if pw, ok := pl["Password"]; ok {
+		up.Password, err = bcrypt.GenerateFromPassword([]byte(pw.(string)), 14)
 		if err != nil {
 			return NewErrorMsg(err)
 		}
 	}
 	err = Db.Transaction(func(tx *gorm.DB) (err error) {
-		if err = tx.Create(np).Error; err != nil {
+		if err = tx.Create(up).Error; err != nil {
 			return err
 		}
 		return
@@ -128,7 +142,7 @@ func userUpdateHandler(ni Node, m *Msg) (r *Msg) {
 	if err != nil {
 		return NewErrorMsg(err)
 	}
-	n.Parms = np
+	n.Parms = up
 	n.Head.updateGUIs()
 	return &OKMsg
 }
@@ -141,8 +155,9 @@ func userGetDisplayHandler(ni Node, _ *Msg) *Msg {
 	n := ni.(*UserNode)
 	d := n.Head.display()
 	d["Parms"] = H{
-		"Email": n.Parms.Email,
-		"Admin": n.Parms.Admin,
+		"Email":    n.Parms.Email,
+		"Admin":    n.Parms.Admin,
+		"Password": "",
 	}
 	// slog.Debug("Display data returned by user node", "displayData", d)
 	r := &Msg{

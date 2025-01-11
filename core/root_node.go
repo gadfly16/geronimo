@@ -39,13 +39,23 @@ var LogLevelNames = map[string]slog.Level{
 }
 
 func (n *RootNode) run() {
-	slog.Info("Running Root node.", "name", n.Head.Name, "logLevel", n.Parms.LogLevel)
+	defer close(n.Head.In)
+	defer Tree.RemoveNode(n.Head.ID)
+
+	slog.Debug("Running Root node.", "node", n.Head.path, "logLevel", n.Parms.LogLevel)
 	for q := range n.In {
 		a := n.Head.handleMsg(n, q)
 		if a != nil && a.Kind == StoppedMsgKind {
+			// Drain unsubscribe messages
+			for range len(n.Head.guiSubs) {
+				q := <-n.Head.In
+				q.Answer(&OKMsg)
+			}
+			q.Answer(a)
 			break
 		}
 	}
+
 	slog.Info("Stopped Root node.")
 }
 
@@ -62,7 +72,7 @@ func (nt *RootNode) loadBody(h *Head) (n Node, err error) {
 	return rn, nil
 }
 
-func (n *RootNode) create() (in Pipe, err error) {
+func (n *RootNode) create(_ any) (in Pipe, err error) {
 	n.Parms.JwtKey = make([]byte, 14)
 	if _, err = rand.Read(n.Parms.JwtKey); err != nil {
 		return
@@ -85,14 +95,13 @@ func (n *RootNode) create() (in Pipe, err error) {
 	n.Head.initNew()
 	Tree.Sys.Root = n.Head.In
 	JwtKey = n.Parms.JwtKey
-	slog.Info("Created Root node.", "path", n.Head.path)
 	return n.Head.In, nil
 }
 
 func initRootNode(rp *RootParms) (err error) {
 	root := NewNodeKind(RootKind).(*RootNode)
 	root.Parms = rp
-	_, err = root.create()
+	_, err = root.create(nil)
 	return err
 }
 

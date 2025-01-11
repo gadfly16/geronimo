@@ -1,13 +1,22 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
+	"time"
+
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 )
 
 func init() {
 	nodeMsgHandlers[GUIKind] = map[MsgKind]func(Node, *Msg) *Msg{
-		GetDisplayMsgKind: groupGetDisplayHandler,
+		GetDisplayMsgKind:     guiGetDisplayHandler,
+		NodeUpdateMsgKind:     guiNodeUpdateHandler,
+		TreeNodeRenameMsgKind: guiTreeNodeRenameHandler,
+		TreeNodeCreateMsgKind: guiTreeNodeCreateHandler,
+		TreeNodeDeleteMsgKind: guiTreeNodeDeleteHandler,
 		// msg.UpdateKind:   rootUpdateHandler,
 		// msg.GetParmsKind: rootGetParmsHandler,
 	}
@@ -15,7 +24,14 @@ func init() {
 
 type GUINode struct {
 	*Head
-	IP string
+	// IP string
+	conn     *websocket.Conn
+	wsr      chan wsMsg
+	otp      string
+	admin    bool
+	subNodes map[int]E
+	euid     int
+	httpDone DC
 }
 
 func (t *GUINode) loadBody(h *Head) (n Node, err error) {
@@ -23,23 +39,210 @@ func (t *GUINode) loadBody(h *Head) (n Node, err error) {
 }
 
 func (n *GUINode) run() {
-	slog.Info("Running GUI node.", "name", n.Head.Name)
-	for q := range n.Head.In {
-		a := n.Head.handleMsg(n, q)
-		if a != nil && a.Kind == StoppedMsgKind {
-			break
+	defer close(n.Head.In)
+	defer close(n.httpDone)
+	defer Tree.RemoveNode(n.Head.ID)
+
+	slog.Debug("Running GUI node.", "node", n.Head.path)
+	// Authenticating websocket connection
+	err := n.sendWSMessage(&wsMsg{
+		Kind:  CredentialsWsMsgKind,
+		GUIID: n.Head.ID,
+		OTP:   n.otp,
+	})
+	if err != nil {
+		slog.Error("GUI couldn't send credentials.", "error", err)
+		return
+	}
+	cr, err := n.receiveWSMessage()
+	if err != nil || cr.OTP != n.otp {
+		slog.Error("Error during client id affirmation", "error", err)
+	}
+	slog.Debug("GUI credential affirmation received.", "gui_id", n.Head.ID)
+	// Subscribe for tree updates
+	Tree.Sys.TreeUpdater.Ask(Msg{
+		Kind:    SubscribeTreeMsgKind,
+		Payload: Tag{ID: n.euid, Node: n.In},
+	})
+	// Start satelites
+	guiCtx, stopGuiCtx := context.WithCancel(context.Background())
+	defer stopGuiCtx()
+	wsrdone := make(DC)
+	go n.wsReceiver(guiCtx, wsrdone)
+
+out:
+	for {
+		select {
+		case wm := <-n.wsr:
+			switch wm.Kind {
+			case SubscribeWsMsgKind:
+				sn, ok := Tree.GetNode(wm.NodeID)
+				if !ok {
+					slog.Error("subscribing to nonexisting node", "node_id", wm.NodeID)
+					break out
+				}
+				sn.Ask(Msg{
+					Kind:    SubscribeMsgKind,
+					Payload: Tag{ID: n.ID, Node: n.In},
+					UserID:  n.OwnerID,
+					Admin:   n.admin,
+				})
+				n.subNodes[wm.NodeID] = E{}
+			case UnsubscribeWsMsgKind:
+				sn, ok := Tree.GetNode(wm.NodeID)
+				if !ok {
+					slog.Error("unsubscribing from nonexisting node", "node_id", wm.NodeID)
+					break out
+				}
+				sn.Ask(Msg{
+					Kind:    UnsubscribeMsgKind,
+					Payload: n.ID,
+					UserID:  n.OwnerID,
+					Admin:   n.admin,
+				})
+				delete(n.subNodes, wm.NodeID)
+			case HeartbeatWsMsgKind:
+				err := n.sendWSMessage(&wsMsg{Kind: HeartbeatWsMsgKind})
+				// slog.Debug("GUI sent heartbeat.", "gui", gui.path)
+				if err != nil {
+					slog.Error("GUI couldn't send client credentials.", "error", err)
+					break out
+				}
+			default:
+				slog.Error("GUI unknown websocket message.", "wsmsg_kind", wm.Kind)
+				break out
+			}
+		case q := <-n.In:
+			a := n.Head.handleMsg(n, q)
+			if a != nil && a.Kind == StoppedMsgKind {
+				// Stop satelites
+				// stopGuiCtx()
+				n.conn.Close(websocket.StatusServiceRestart, "stopping node")
+				<-wsrdone
+				// Unsubscribe from nodes
+				for nid := range n.subNodes {
+					go func() {
+						sn, ok := Tree.GetNode(nid)
+						if !ok {
+							slog.Error("GUI unsubscribe from nonexisting node.", "node_id", nid)
+							return
+						}
+						sn.Ask(Msg{
+							Kind:    UnsubscribeMsgKind,
+							Payload: n.Head.ID,
+							UserID:  n.Head.OwnerID,
+							Admin:   n.admin,
+						})
+					}()
+				}
+				// Unsubscribe from tree updater
+				Tree.Sys.TreeUpdater.Ask(Msg{
+					Kind: UnsubscribeTreeMsgKind,
+					Payload: Tag{
+						ID:   n.euid,
+						Node: n.Head.In,
+					},
+				})
+				// Drain unsubscribe messages
+				for range len(n.Head.guiSubs) {
+					q := <-n.Head.In
+					q.Answer(&OKMsg)
+				}
+				q.Answer(a)
+				break out
+			}
 		}
 	}
-	slog.Info("Stopped GUI node.", "node", n.path)
+	slog.Info("Stopped GUI node.", "node", n.Head.path)
 }
 
-func (n *GUINode) create() (in Pipe, err error) {
+func (n *GUINode) create(pl any) (in Pipe, err error) {
 	n.Head.ID = -NextID()
-	n.Head.Name = fmt.Sprintf("GUI_%d", n.Head.ID)
+	n.Head.Name = fmt.Sprintf("GUI%d", n.Head.ID)
+
+	igpl := pl.(*InitGUIPL)
+	n.httpDone = igpl.Done
+	n.conn = igpl.Conn
+	n.admin = igpl.Admin
+	n.wsr = make(chan wsMsg)
+	n.subNodes = make(map[int]E)
+	n.otp = generateOTP()
+	n.euid = n.OwnerID
+	if n.admin {
+		n.euid = 0
+	}
+
 	n.Head.initNew()
-	slog.Info("Created GUI node.", "node", n.Head.path)
 	go n.run()
 	return n.Head.In, nil
+}
+
+func guiNodeUpdateHandler(guii Node, q *Msg) (a *Msg) {
+	gui := guii.(*GUINode)
+	nid := q.Payload.(int)
+	err := gui.sendWSMessage(&wsMsg{
+		Kind:   UpdateWsMsgKind,
+		NodeID: nid,
+	})
+	if err != nil {
+		slog.Error("GUI couldn't send update msg", "error", err)
+		return NewErrorMsg(err)
+	}
+	slog.Debug("GUI sent update to client", "gui", gui.Head.ID, "node_id", nid)
+	return nil
+}
+
+func guiTreeNodeRenameHandler(guii Node, q *Msg) (a *Msg) {
+	gui := guii.(*GUINode)
+	slog.Debug("GUI received a tree node rename msg", "msg", q)
+	nt := q.Payload.(*Tag)
+	err := gui.sendWSMessage(&wsMsg{
+		Kind:     TreeNodeRenameWsMsgKind,
+		NodeID:   nt.ID,
+		NodeName: nt.Name,
+	})
+	if err != nil {
+		slog.Error("GUI couldn't send tree update msg", "error", err)
+		return NewErrorMsg(err)
+	}
+	slog.Debug("GUI sent tree update to client", "gui", gui.Head.ID)
+	return nil
+}
+
+func guiTreeNodeDeleteHandler(guii Node, q *Msg) (a *Msg) {
+	gui := guii.(*GUINode)
+	slog.Debug("GUI received a tree node delete msg.", "msg", q)
+	nt := q.Payload.(*Tag)
+	err := gui.sendWSMessage(&wsMsg{
+		Kind:         TreeNodeDeleteWsMsgKind,
+		NodeParentID: nt.ParentID,
+		NodeName:     nt.Name,
+	})
+	if err != nil {
+		slog.Error("GUI couldn't send node deletion msg.", "error", err)
+		return NewErrorMsg(err)
+	}
+	slog.Debug("GUI sent node deletion to client.", "gui", gui.Head.ID)
+	return nil
+}
+
+func guiTreeNodeCreateHandler(guii Node, q *Msg) (a *Msg) {
+	gui := guii.(*GUINode)
+	slog.Debug("GUI received a new tree node msg", "msg", q)
+	nnpl := q.Payload.(*NewTreeNodePL)
+	err := gui.sendWSMessage(&wsMsg{
+		Kind:         TreeNodeCreateWsMsgKind,
+		NodeID:       nnpl.ID,
+		NodeName:     nnpl.Name,
+		NodeKind:     nnpl.Kind,
+		NodeParentID: nnpl.ParentID,
+	})
+	if err != nil {
+		slog.Error("GUI couldn't send tree create msg", "error", err)
+		return NewErrorMsg(err)
+	}
+	slog.Debug("GUI sent tree update to client", "gui", gui.Head.ID)
+	return nil
 }
 
 func guiGetDisplayHandler(ni Node, _ *Msg) *Msg {
@@ -50,4 +253,50 @@ func guiGetDisplayHandler(ni Node, _ *Msg) *Msg {
 		Payload: d,
 	}
 	return r
+}
+
+func (n *GUINode) wsReceiver(ctx context.Context, done DC) {
+	var msg wsMsg
+	slog.Debug("GUI ws receiver started.", "gui", n.Head.ID)
+	for {
+		ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+		defer cancel()
+		err := wsjson.Read(ctx, n.conn, &msg)
+		if err != nil {
+			if websocket.CloseStatus(err) == websocket.StatusServiceRestart {
+				slog.Error("GUI ws receiver stopped by node.", "node", n.path, "error", err)
+				close(done)
+			} else {
+				pn, _ := Tree.GetNode(n.Head.ParentID)
+				slog.Error("GUI ws read error, exiting.", "node", n.path, "error", err)
+				close(done)
+				pn.Ask(Msg{DeleteChildMsgKind, n.Head.OwnerID, false, n.Head.Name, nil})
+			}
+			break
+		}
+		if msg.GUIID != n.Head.ID || msg.OTP != n.otp {
+			slog.Error("GUI encountered bad ws credentials, exiting.")
+			pn, _ := Tree.GetNode(n.Head.ParentID)
+			close(done)
+			pn.Ask(Msg{DeleteChildMsgKind, n.Head.OwnerID, false, n.Head.Name, nil})
+			break
+		}
+		n.wsr <- msg
+	}
+	slog.Debug("GUI WS Receiver stopped.", "gui", n.Head.ID)
+}
+
+func (gui *GUINode) sendWSMessage(q *wsMsg) (err error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	return wsjson.Write(ctx, gui.conn, q)
+}
+
+func (gui *GUINode) receiveWSMessage() (a *wsMsg, err error) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	err = wsjson.Read(ctx, gui.conn, &a)
+	return
 }

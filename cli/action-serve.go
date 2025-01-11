@@ -16,7 +16,7 @@ var serveCmd = &cobra.Command{
 	Short: "runs Geronimo server",
 	Long:  `The 'serve' command starts the Geronimo backend server.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		slog.Info("Running 'serve' command.")
+		slog.Debug("Running 'serve' command.")
 		if err := server.Serve(sdb); err != nil {
 			slog.Error("Serving failed. Exiting.", "error", err.Error())
 			runtimeErr = true

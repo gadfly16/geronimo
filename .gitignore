@@ -1,3 +1,4 @@
 geronimo
+debug
 *.prof
 **/tsconfig.tsbuildinfo

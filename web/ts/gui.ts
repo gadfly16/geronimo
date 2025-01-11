@@ -75,6 +75,7 @@ class GUI {
   guiID: number = 0
   guiOTP: string = ""
   heart: number = 0
+  rootNodeID: number
   last_srv_beat: number = 0
   readonly heart_interval = 5000
   readonly roundtrip = 2000
@@ -82,7 +83,7 @@ class GUI {
   constructor(rootNodeID: number) {
     this.htmlTreeView = document.querySelector("#tree-view")!
     this.htmlDisplayView = document.querySelector("#display-view")!
-    this.fetchTree(rootNodeID)
+    this.rootNodeID = rootNodeID
     this.htmlTreeView.addEventListener("click", this.treeClick.bind(this))
     this.socket = new WebSocket("/socket")
     this.socket.onmessage = this.socketMessageHandler.bind(this)
@@ -116,6 +117,7 @@ class GUI {
         this.guiOTP = wsm.OTP
         this.socket.send(JSON.stringify(wsm))
         console.log(`Credentials received: guiid=${this.guiID}`)
+        this.fetchTree(this.rootNodeID)
         break
       case WSMsg.Update:
         console.log(`Update needed for node id: ${wsm.NodeID}`)
@@ -139,7 +141,10 @@ class GUI {
           Kind: wsm.NodeKind,
         }
         gui.nodes.get(te.ParentID)?.createTreeElement(te)
-        // gui.nodes.get(wsm.NodeID)!.renameTreeElement(wsm.NodeName)
+        break
+      case WSMsg.TreeNodeDelete:
+        console.log(`Tree node create received. msg=${JSON.stringify(wsm)}'`)
+        gui.nodes.get(wsm.NodeParentID)?.deleteTreeElement(wsm.NodeName)
         break
     }
   }
@@ -236,7 +241,7 @@ class Node {
   htmlDisplayElem: HTMLElement | null = null
   display: NodeDisplay | null = null
 
-  children: Node[] = []
+  children = new Map<string, Node>()
 
   constructor(nodeData: any = null, parentID: number = 0) {
     if (nodeData == null) return
@@ -246,7 +251,8 @@ class Node {
     this.Kind = nodeData.Kind
     if ("Children" in nodeData) {
       nodeData.Children.forEach((e: any) => {
-        this.children.push(new Node(e, this.ID))
+        const nn = new Node(e, this.ID)
+        this.children.set(nn.Name, nn)
       })
     }
     gui.addNode(this)
@@ -255,7 +261,7 @@ class Node {
   renderTree(): HTMLElement {
     let e: HTMLElement
     let state = 'open="true"'
-    if (this.children.length == 0) {
+    if (this.children.size === 0) {
       state = ""
     }
     e = $(`
@@ -265,7 +271,7 @@ class Node {
       </details>
     `)
     let ule = e.querySelector("ul")!
-    for (let n of this.children) {
+    for (let [nm, n] of this.children) {
       ule.appendChild(n.renderTree())
     }
     this.htmlTreeElem = e
@@ -284,16 +290,33 @@ class Node {
   createTreeElement(nd: any) {
     console.log(`Creating tree element under "${this.Name}".`)
     const nn = new Node(nd, this.ID)
-    this.children.push(nn)
+    this.children.set(nn.Name, nn)
     const de = nn.renderTree()
     const s = de.querySelector("summary")!
     s.addEventListener("animationend", removeChangeAlert)
     // console.log(this.htmlTreeElem?.querySelector("ul"))
     this.htmlTreeElem?.querySelector("ul")!.appendChild(de)
-    if (this.children.length === 1) {
+    if (this.children.size === 1) {
       this.htmlTreeElem!.setAttribute("open", "true")
     }
     s.classList.add("changeAlert")
+  }
+
+  deleteTreeElement(nm: string) {
+    const ch = this.children.get(nm)
+    if (ch === undefined) {
+      console.log("Can't find child with this name:", nm)
+      return
+    }
+    const che = ch.htmlTreeElem!
+    che.addEventListener("animationend", this.removeChild.bind(this, ch))
+    che.classList.add("fadeOut")
+  }
+
+  removeChild(n: Node, e: Event) {
+    const ul = this.htmlTreeElem!.querySelector("ul")!
+    ul.removeChild(n.htmlTreeElem!)
+    this.children.delete(n.Name)
   }
 
   updateDisplay() {
@@ -332,6 +355,9 @@ class Node {
           break
         case nodeKinds.Users:
           this.display = new UsersDisplay(displayData)
+          break
+        case nodeKinds.GUI:
+          this.display = new GUIDisplay(displayData)
           break
       }
       gui.htmlDisplayView.appendChild(this.display!.render())
@@ -414,11 +440,11 @@ class NodeDisplay {
     return dispHead
   }
 
-  nameChange(event: Event) {
-    const target = event.target as HTMLInputElement
+  nameChange(e: Event) {
+    const t = e.target as HTMLInputElement
     const na = this.htmlDisplay!.querySelector(".nodeActions") as HTMLDivElement
     const ra = this.htmlDisplay!.querySelector(".renameAction") as HTMLDivElement
-    if (target.value !== this.name) {
+    if (t.value !== this.name) {
       na.style.display = "none"
       ra.style.display = "block"
     } else {
@@ -557,6 +583,15 @@ class RootDisplay extends NodeDisplay {
 }
 
 class UsersDisplay extends NodeDisplay {
+  // infoNames = ["Last Modified"]
+
+  constructor(displayData: any) {
+    super(displayData)
+    // this.infos = new InfoList(parmDict, this.infoNames)
+  }
+}
+
+class GUIDisplay extends NodeDisplay {
   // infoNames = ["Last Modified"]
 
   constructor(displayData: any) {

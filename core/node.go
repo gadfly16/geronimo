@@ -5,7 +5,7 @@ import (
 )
 
 type Node interface {
-	create() (Pipe, error)
+	create(any) (Pipe, error)
 	loadBody(*Head) (Node, error)
 	run()
 
@@ -19,6 +19,7 @@ type Node interface {
 	setParentID(int)
 	setKind(Kind)
 	setOwnerID(int)
+	kindName() string
 }
 
 type ParmModel struct {
@@ -28,11 +29,6 @@ type ParmModel struct {
 }
 
 type H map[string]interface{}
-
-type Tag struct {
-	ID   int
-	Node Pipe
-}
 
 func (h *Head) getID() int {
 	return h.ID
@@ -64,4 +60,8 @@ func (h *Head) setKind(k Kind) {
 
 func (h *Head) setOwnerID(oid int) {
 	h.OwnerID = oid
+}
+
+func (h *Head) kindName() string {
+	return h.KindName()
 }

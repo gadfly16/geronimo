@@ -61,10 +61,11 @@ var rootCmd = &cobra.Command{
 			pprof.StopCPUProfile()
 			cpuProf.Close()
 		}
-		slog.Info("Goroutinge count on exit.", "numGoroutine", runtime.NumGoroutine())
+		slog.Info("PROC number of nodes on tree.", "nnode", core.Tree.LenNodes())
+		slog.Info("PROC Goroutinge count on exit.", "numGoroutine", runtime.NumGoroutine())
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		slog.Info("Running root command.")
+		slog.Debug("Running root command.")
 	},
 }
 

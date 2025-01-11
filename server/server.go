@@ -50,53 +50,49 @@ func Serve(sdb string) (err error) {
 	slog.Debug("Server settings received")
 
 	srv := &http.Server{Addr: rp.HTTPAddr, Handler: service()}
-	serverCtx, serverStopCtx := context.WithCancel(context.Background())
+	srvCtx, srvStopCtx := context.WithCancel(context.Background())
 
 	// Listen for syscall signals for process to interrupt/quit
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	go func() {
+		defer srvStopCtx()
 		s := <-sig
-
-		slog.Info("Termination signal received.", "signal", s)
+		slog.Info("PROC received termination signal.", "signal", s)
 		// Shutdown signal with grace period of 30 seconds
-		shutdownCtx, cancel := context.WithTimeout(serverCtx, shutdown_timout)
+		shutdownCtx, cancel := context.WithTimeout(srvCtx, shutdown_timout)
 		defer cancel()
 
 		go func() {
 			<-shutdownCtx.Done()
 			if shutdownCtx.Err() == context.DeadlineExceeded {
-				slog.Error("graceful shutdown timed out.. forcing exit.")
-				os.Exit(1)
+				slog.Error("PROC graceful shutdown timed out.. forcing exit.")
+				return
 			}
 		}()
-
 		// Trigger graceful shutdown
 		err := srv.Shutdown(shutdownCtx)
 		if err != nil {
 			slog.Error(err.Error())
-			os.Exit(1)
+			return
 		}
-		serverStopCtx()
 	}()
 
-	slog.Info("Starting http server.", "HTTPAddress", rp.HTTPAddr)
+	slog.Info("PROC starting http server.", "HTTPAddress", rp.HTTPAddr)
 
 	// Run the server
 	err = srv.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
-		slog.Error(err.Error())
-		os.Exit(1)
+		slog.Error("HTTP serving failed.", "err", err.Error())
+		srvStopCtx()
 	}
 
 	// Wait for server context to be stopped
-	<-serverCtx.Done()
+	<-srvCtx.Done()
+	core.Tree.Stop()
 
-	core.Tree.Sys.Root.Ask(core.Msg{
-		Kind:  core.StopMsgKind,
-		Admin: true,
-	})
-	slog.Info("Exiting server.")
+	slog.Info("PROC exiting server.")
+	// time.Sleep(time.Second)
 	return
 }
 

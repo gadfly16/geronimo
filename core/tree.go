@@ -39,15 +39,16 @@ func (t *nodeTree) LoadAndRun(sdb string) (err error) {
 		return
 	}
 
-	rootHead := &Head{}
-	if err = Db.First(rootHead, 1).Error; err != nil {
+	rh := &Head{}
+	if err = Db.First(rh, 1).Error; err != nil {
 		return
 	}
-	rootHead.path = "/Root"
-	Tree.Sys.Root, err = rootHead.load()
+	rh.path = "/Root"
+	Tree.Sys.Root, err = rh.load()
 	if err != nil {
 		return
 	}
+	slog.Info("Created Root node.", "path", rh.path)
 
 	// Still not very nice..
 	var ok bool
@@ -80,6 +81,22 @@ func (t *nodeTree) LoadAndRun(sdb string) (err error) {
 	return
 }
 
+func (t *nodeTree) Stop() (err error) {
+	a := Tree.Sys.Root.Ask(Msg{
+		Kind:  StopMsgKind,
+		Admin: true,
+	})
+	if a.Kind == ErrorMsgKind {
+		return errors.New(a.Payload.(string))
+	}
+
+	if err = CloseDB(); err != nil {
+		slog.Error("PROC couldn't close database.", "err", err)
+	}
+
+	return err
+}
+
 func (tr *nodeTree) GetNode(id int) (Pipe, bool) {
 	tr.nodesLock.RLock()
 	n, ok := tr.nodes[id]
@@ -90,6 +107,12 @@ func (tr *nodeTree) GetNode(id int) (Pipe, bool) {
 func (tr *nodeTree) PutNode(id int, n Pipe) {
 	tr.nodesLock.Lock()
 	tr.nodes[id] = n
+	tr.nodesLock.Unlock()
+}
+
+func (tr *nodeTree) RemoveNode(id int) {
+	tr.nodesLock.Lock()
+	delete(tr.nodes, id)
 	tr.nodesLock.Unlock()
 }
 

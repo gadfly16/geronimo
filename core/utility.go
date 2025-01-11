@@ -58,6 +58,14 @@ func createSecret(path string) error {
 	return os.WriteFile(path, secret, 0600)
 }
 
+func generateOTP() string {
+	otp, _ := GenerateSecret(16)
+	for i, b := range otp {
+		otp[i] = b%94 + 33
+	}
+	return string(otp)
+}
+
 // func (core *Core) ParseToken(tokenString string) (claims *Claims, err error) {
 // 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 // 		return core.jwtKey, nil
