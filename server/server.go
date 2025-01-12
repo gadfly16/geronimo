@@ -257,14 +257,14 @@ func apiMsgHandler(w http.ResponseWriter, q *http.Request) {
 		tid = 1
 	}
 
-	t, ok := core.Tree.GetNode(tid)
+	t, ok := core.Tree.GetNode(core.NodeID(tid))
 	if !ok {
 		slog.Error("target node doesn't exists", "target", tid)
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
-	m.UserID = uid
+	m.UserID = core.NodeID(uid)
 	m.Admin = cls.Admin
 
 	r := t.Ask(*m)

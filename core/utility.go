@@ -21,8 +21,8 @@ import (
 // Atomic counter for messages
 var globalIDCounter *int64 = new(int64)
 
-func NextID() int {
-	return int(atomic.AddInt64(globalIDCounter, 1))
+func NextID() NodeID {
+	return NodeID(atomic.AddInt64(globalIDCounter, 1))
 }
 
 // Math

@@ -29,8 +29,8 @@ type GUINode struct {
 	wsr      chan wsMsg
 	otp      string
 	admin    bool
-	subNodes map[int]E
-	euid     int
+	subNodes map[NodeID]E
+	euid     NodeID
 	httpDone DC
 }
 
@@ -171,7 +171,7 @@ func (n *GUINode) create(pl any) (in Pipe, err error) {
 	n.conn = igpl.Conn
 	n.admin = igpl.Admin
 	n.wsr = make(chan wsMsg)
-	n.subNodes = make(map[int]E)
+	n.subNodes = make(map[NodeID]E)
 	n.otp = generateOTP()
 	n.euid = n.OwnerID
 	if n.admin {
@@ -185,7 +185,7 @@ func (n *GUINode) create(pl any) (in Pipe, err error) {
 
 func guiNodeUpdateHandler(guii Node, q *Msg) (a *Msg) {
 	gui := guii.(*GUINode)
-	nid := q.Payload.(int)
+	nid := q.Payload.(NodeID)
 	err := gui.sendWSMessage(&wsMsg{
 		Kind:   UpdateWsMsgKind,
 		NodeID: nid,

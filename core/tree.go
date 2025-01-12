@@ -8,19 +8,12 @@ import (
 )
 
 var Tree = nodeTree{
-	nodes: make(map[int]Pipe),
-}
-
-type TreeEntry struct {
-	ID       int
-	Name     string
-	Kind     Kind
-	Children []*TreeEntry `json:",omitempty"`
+	nodes: make(map[NodeID]Pipe),
 }
 
 type nodeTree struct {
 	nodesLock sync.RWMutex
-	nodes     map[int]Pipe
+	nodes     map[NodeID]Pipe
 	Sys       runtime
 }
 
@@ -29,6 +22,13 @@ type runtime struct {
 	TreeUpdater Pipe
 	Users       Pipe
 	System      Pipe
+}
+
+type TreeEntry struct {
+	ID       NodeID
+	Name     string
+	Kind     Kind
+	Children []*TreeEntry `json:",omitempty"`
 }
 
 func (t *nodeTree) LoadAndRun(sdb string) (err error) {
@@ -97,20 +97,20 @@ func (t *nodeTree) Stop() (err error) {
 	return err
 }
 
-func (tr *nodeTree) GetNode(id int) (Pipe, bool) {
+func (tr *nodeTree) GetNode(id NodeID) (Pipe, bool) {
 	tr.nodesLock.RLock()
 	n, ok := tr.nodes[id]
 	tr.nodesLock.RUnlock()
 	return n, ok
 }
 
-func (tr *nodeTree) PutNode(id int, n Pipe) {
+func (tr *nodeTree) PutNode(id NodeID, n Pipe) {
 	tr.nodesLock.Lock()
 	tr.nodes[id] = n
 	tr.nodesLock.Unlock()
 }
 
-func (tr *nodeTree) RemoveNode(id int) {
+func (tr *nodeTree) RemoveNode(id NodeID) {
 	tr.nodesLock.Lock()
 	delete(tr.nodes, id)
 	tr.nodesLock.Unlock()

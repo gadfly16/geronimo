@@ -20,7 +20,7 @@ func init() {
 
 type TreeUpdaterNode struct {
 	*Head
-	treeSubGuis map[int]map[Pipe]bool
+	treeSubGuis map[NodeID]map[Pipe]bool
 }
 
 func (t *TreeUpdaterNode) loadBody(h *Head) (n Node, err error) {
@@ -58,7 +58,7 @@ func (n *TreeUpdaterNode) run() {
 func (n *TreeUpdaterNode) create(_ any) (in Pipe, err error) {
 	n.Head.ID = -NextID()
 	n.Head.initNew()
-	n.treeSubGuis = make(map[int]map[Pipe]bool)
+	n.treeSubGuis = make(map[NodeID]map[Pipe]bool)
 	go n.run()
 	return n.Head.In, nil
 }

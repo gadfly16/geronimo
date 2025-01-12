@@ -90,18 +90,9 @@ type DC chan E
 
 type Pipe chan *Msg
 
-type Tag struct {
-	ID       int
-	Kind     Kind
-	Name     string
-	Node     Pipe
-	ParentID int
-	OwnerID  int
-}
-
 type Msg struct {
 	Kind    MsgKind
-	UserID  int
+	UserID  NodeID
 	Admin   bool
 	Payload any
 
@@ -120,11 +111,11 @@ type CreatePL struct {
 }
 
 type NewTreeNodePL struct {
-	ID       int
+	ID       NodeID
 	Name     string
 	Kind     Kind
-	ParentID int
-	OwnerID  int
+	ParentID NodeID
+	OwnerID  NodeID
 }
 
 type InitGUIPL struct {

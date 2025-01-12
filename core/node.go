@@ -11,26 +11,26 @@ type Node interface {
 
 	// These methods are common to all Nodes, they are defined on Head which is
 	// embedded to every Node's struct, therefore declarations are in this file.
-	getID() int
+	getID() NodeID
 	getName() string
 	setName(string)
 	getPath() string
 	setPath(string)
-	setParentID(int)
+	setParentID(NodeID)
 	setKind(Kind)
-	setOwnerID(int)
+	setOwnerID(NodeID)
 	kindName() string
 }
 
 type ParmModel struct {
 	ID        int `gorm:"primarykey"`
 	CreatedAt time.Time
-	HeadID    int
+	HeadID    NodeID
 }
 
 type H map[string]interface{}
 
-func (h *Head) getID() int {
+func (h *Head) getID() NodeID {
 	return h.ID
 }
 
@@ -50,7 +50,7 @@ func (h *Head) setPath(p string) {
 	h.path = p
 }
 
-func (h *Head) setParentID(pid int) {
+func (h *Head) setParentID(pid NodeID) {
 	h.ParentID = pid
 }
 
@@ -58,7 +58,7 @@ func (h *Head) setKind(k Kind) {
 	h.Kind = k
 }
 
-func (h *Head) setOwnerID(oid int) {
+func (h *Head) setOwnerID(oid NodeID) {
 	h.OwnerID = oid
 }
 

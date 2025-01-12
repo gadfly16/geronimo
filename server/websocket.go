@@ -27,7 +27,7 @@ func socketHandler(w http.ResponseWriter, q *http.Request) {
 	}
 	defer c.CloseNow()
 
-	un, ok := core.Tree.GetNode(uid)
+	un, ok := core.Tree.GetNode(core.NodeID(uid))
 	if !ok {
 		slog.Error("invalid user ID")
 		w.WriteHeader(http.StatusBadRequest)
@@ -35,7 +35,7 @@ func socketHandler(w http.ResponseWriter, q *http.Request) {
 	}
 	a := un.Ask(core.Msg{
 		Kind:    core.GetChildMsgKind,
-		UserID:  uid,
+		UserID:  core.NodeID(uid),
 		Admin:   cls.Admin,
 		Payload: "GUIs",
 	})
@@ -44,7 +44,7 @@ func socketHandler(w http.ResponseWriter, q *http.Request) {
 	done := make(core.DC)
 	a = guis.Ask(core.Msg{
 		Kind:   core.CreateMsgKind,
-		UserID: uid,
+		UserID: core.NodeID(uid),
 		Admin:  cls.Admin,
 		Payload: &core.CreatePL{
 			Kind: core.GUIKind,

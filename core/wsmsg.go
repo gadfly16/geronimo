@@ -18,9 +18,9 @@ const (
 type wsMsg struct {
 	Kind         WsMsgKind
 	OTP          string
-	GUIID        int
-	NodeID       int
+	GUIID        NodeID
+	NodeID       NodeID
 	NodeKind     Kind
 	NodeName     string
-	NodeParentID int
+	NodeParentID NodeID
 }

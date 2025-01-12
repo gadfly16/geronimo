@@ -26,21 +26,21 @@ var commonMsgHandlers = map[MsgKind]func(*Head, *Msg) *Msg{
 }
 
 type Head struct {
-	ID        int `gorm:"primarykey"`
+	ID        NodeID `gorm:"primarykey"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 
 	Name     string
 	Kind     Kind
-	ParentID int
-	OwnerID  int  `gorm:"-"`
-	In       Pipe `gorm:"-"`
+	ParentID NodeID
+	OwnerID  NodeID `gorm:"-"`
+	In       Pipe   `gorm:"-"`
 
 	path     string
 	children map[string]Pipe
 
-	guiSubs map[int]Pipe
+	guiSubs map[NodeID]Pipe
 }
 
 func (h *Head) load() (in Pipe, err error) {
@@ -239,7 +239,7 @@ func getTreeHandler(h *Head, m *Msg) (r *Msg) {
 
 func subscribeHandler(h *Head, m *Msg) (r *Msg) {
 	if h.guiSubs == nil {
-		h.guiSubs = make(map[int]Pipe)
+		h.guiSubs = make(map[NodeID]Pipe)
 	}
 	gui := m.Payload.(Tag)
 	h.guiSubs[gui.ID] = gui.Node
@@ -248,7 +248,7 @@ func subscribeHandler(h *Head, m *Msg) (r *Msg) {
 }
 
 func unsubscribeHandler(h *Head, m *Msg) (r *Msg) {
-	guiid := m.Payload.(int)
+	guiid := m.Payload.(NodeID)
 	_, ok := h.guiSubs[guiid]
 	if !ok {
 		slog.Error("Can't unscrubsibe GUI that's not subscribed", "node", h.path, "gui", guiid)
