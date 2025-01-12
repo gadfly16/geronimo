@@ -76,30 +76,34 @@ out:
 		case wm := <-n.wsr:
 			switch wm.Kind {
 			case SubscribeWsMsgKind:
-				sn, ok := Tree.GetNode(wm.NodeID)
-				if !ok {
-					slog.Error("subscribing to nonexisting node", "node_id", wm.NodeID)
-					break out
+				if wm.NodeID != n.ID {
+					sn, ok := Tree.GetNode(wm.NodeID)
+					if !ok {
+						slog.Error("subscribing to nonexisting node", "node_id", wm.NodeID)
+						break out
+					}
+					sn.Ask(Msg{
+						Kind:    SubscribeMsgKind,
+						Payload: Tag{ID: n.ID, Node: n.In},
+						UserID:  n.OwnerID,
+						Admin:   n.admin,
+					})
 				}
-				sn.Ask(Msg{
-					Kind:    SubscribeMsgKind,
-					Payload: Tag{ID: n.ID, Node: n.In},
-					UserID:  n.OwnerID,
-					Admin:   n.admin,
-				})
 				n.subNodes[wm.NodeID] = E{}
 			case UnsubscribeWsMsgKind:
-				sn, ok := Tree.GetNode(wm.NodeID)
-				if !ok {
-					slog.Error("unsubscribing from nonexisting node", "node_id", wm.NodeID)
-					break out
+				if wm.NodeID != n.ID {
+					sn, ok := Tree.GetNode(wm.NodeID)
+					if !ok {
+						slog.Error("unsubscribing from nonexisting node", "node_id", wm.NodeID)
+						break out
+					}
+					sn.Ask(Msg{
+						Kind:    UnsubscribeMsgKind,
+						Payload: n.ID,
+						UserID:  n.OwnerID,
+						Admin:   n.admin,
+					})
 				}
-				sn.Ask(Msg{
-					Kind:    UnsubscribeMsgKind,
-					Payload: n.ID,
-					UserID:  n.OwnerID,
-					Admin:   n.admin,
-				})
 				delete(n.subNodes, wm.NodeID)
 			case HeartbeatWsMsgKind:
 				err := n.sendWSMessage(&wsMsg{Kind: HeartbeatWsMsgKind})
@@ -121,19 +125,21 @@ out:
 				<-wsrdone
 				// Unsubscribe from nodes
 				for nid := range n.subNodes {
-					go func() {
-						sn, ok := Tree.GetNode(nid)
-						if !ok {
-							slog.Error("GUI unsubscribe from nonexisting node.", "node_id", nid)
-							return
-						}
-						sn.Ask(Msg{
-							Kind:    UnsubscribeMsgKind,
-							Payload: n.Head.ID,
-							UserID:  n.Head.OwnerID,
-							Admin:   n.admin,
-						})
-					}()
+					if nid != n.Head.ID {
+						go func() {
+							sn, ok := Tree.GetNode(nid)
+							if !ok {
+								slog.Error("GUI unsubscribe from nonexisting node.", "node_id", nid)
+								return
+							}
+							sn.Ask(Msg{
+								Kind:    UnsubscribeMsgKind,
+								Payload: n.Head.ID,
+								UserID:  n.Head.OwnerID,
+								Admin:   n.admin,
+							})
+						}()
+					}
 				}
 				// Unsubscribe from tree updater
 				Tree.Sys.TreeUpdater.Ask(Msg{
