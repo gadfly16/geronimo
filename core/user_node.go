@@ -42,10 +42,10 @@ func (n *UserNode) run() {
 			for range len(n.Head.guiSubs) {
 				q := <-n.Head.In
 				slog.Debug("SINK of User reveived msg.", "node", n.Head.path, "kind", q.KindName())
-				q.Answer(&OKMsg)
+				q.AnswerOK()
 				slog.Debug("SINK of User answered msg.", "node", n.Head.path, "kind", q.KindName())
 			}
-			q.Answer(a)
+			q.AnswerMsg(a)
 			break
 		}
 	}
@@ -61,10 +61,11 @@ func (t *UserNode) loadBody(h *Head) (n Node, err error) {
 	if err = Db.Where("head_id = ?", h.ID).Order("created_at desc").Take(un.Parms).Error; err != nil {
 		return
 	}
+	h.Admin = un.Parms.Admin
 	return un, nil
 }
 
-func (n *UserNode) create(_ any) (in Pipe, err error) {
+func (n *UserNode) create(_ any) (_ *Tag, err error) {
 	n.Parms.Password, err = bcrypt.GenerateFromPassword(n.Parms.Password, 14)
 	if err != nil {
 		return
@@ -84,10 +85,10 @@ func (n *UserNode) create(_ any) (in Pipe, err error) {
 		return
 	}
 
-	n.OwnerID = n.ID
+	n.Owner = n.Tag
 	go n.run()
 	n.Head.initNew()
-	return n.Head.In, nil
+	return n.Head.Tag, nil
 }
 
 func (n *UserNode) UnmarshalMsg(b io.ReadCloser) (m Msg, err error) {

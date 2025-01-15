@@ -13,7 +13,7 @@ const (
 	GUIKind
 )
 
-var Kinds = map[Kind]Node{
+var KindTemplates = map[Kind]Node{
 	RootKind:        &RootNode{},
 	GroupKind:       &GroupNode{},
 	UserKind:        &UserNode{},
@@ -42,21 +42,21 @@ func (h *Head) KindName() string {
 func NewNodeKind(k Kind) Node {
 	switch k {
 	case RootKind:
-		return &RootNode{Head: &Head{Kind: RootKind, Name: "Root"}}
+		return &RootNode{Head: &Head{Tag: &Tag{Kind: RootKind}, Name: "Root", Owner: SystemUser}}
 	case GroupKind:
-		return &GroupNode{Head: &Head{Kind: GroupKind}}
+		return &GroupNode{Head: &Head{Tag: &Tag{Kind: GroupKind}}}
 	case UserKind:
-		return &UserNode{Head: &Head{Kind: UserKind}, Parms: &UserParms{}}
+		return &UserNode{Head: &Head{Tag: &Tag{Kind: UserKind}}, Parms: &UserParms{}}
 	case AccountKind:
 		return nil
 	case TraderKind:
 		return nil
 	case TreeUpdaterKind:
-		return &TreeUpdaterNode{Head: &Head{Kind: TraderKind}}
+		return &TreeUpdaterNode{Head: &Head{Tag: &Tag{Kind: TraderKind}}}
 	case UsersKind:
-		return &UsersNode{Head: &Head{Kind: UsersKind}, Parms: &UsersParms{}}
+		return &UsersNode{Head: &Head{Tag: &Tag{Kind: UsersKind}}, Parms: &UsersParms{}}
 	case GUIKind:
-		return &GUINode{Head: &Head{Kind: GUIKind}}
+		return &GUINode{Head: &Head{Tag: &Tag{Kind: GUIKind}}}
 	default:
 		return nil
 	}

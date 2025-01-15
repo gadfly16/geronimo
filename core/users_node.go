@@ -44,16 +44,16 @@ func (n *UsersNode) run() {
 	defer close(n.Head.In)
 	defer Tree.RemoveNode(n.Head.ID)
 
-	slog.Debug("Running Users node.", "node", n.Head.path)
+	slog.Debug("USERS node starting up.", "node", n.Head.path)
 	for q := range n.Head.In {
 		a := n.Head.handleMsg(n, q)
 		if a != nil && a.Kind == StoppedMsgKind {
 			// Drain unsubscribe messages
 			for range len(n.Head.guiSubs) {
 				q := <-n.Head.In
-				q.Answer(&OKMsg)
+				q.AnswerOK()
 			}
-			q.Answer(a)
+			q.AnswerMsg(a)
 			break
 		}
 	}
@@ -61,7 +61,7 @@ func (n *UsersNode) run() {
 	slog.Info("Stopped Users node.", "node", n.path)
 }
 
-func (n *UsersNode) create(_ any) (in Pipe, err error) {
+func (n *UsersNode) create(_ any) (_ *Tag, err error) {
 	err = Db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&n.Head).Error; err != nil {
 			return err
@@ -77,47 +77,39 @@ func (n *UsersNode) create(_ any) (in Pipe, err error) {
 	}
 	n.Head.initNew()
 	go n.run()
-	return n.Head.In, nil
+	return n.Head.Tag, nil
 }
 
 func createUserHandler(ni Node, m *Msg) (r *Msg) {
 	n := ni.(*UsersNode)
 	nu := m.Payload.(*UserNode)
-	if nu.Head.Kind != UserKind {
+	if nu.Kind != UserKind {
 		return NewErrorMsg(fmt.Errorf("user node kind isn't userKind"))
 	}
-	if nu.Head.Name == "" {
+	if nu.Name == "" {
 		return NewErrorMsg(fmt.Errorf("new user node must have a name"))
 	}
-	if _, ok := n.Head.children[nu.Head.Name]; ok {
-		return NewErrorMsg(fmt.Errorf("user node '%s' already exists", nu.Head.Name))
+	if _, ok := n.children[nu.Name]; ok {
+		return NewErrorMsg(fmt.Errorf("user node '%s' already exists", nu.Name))
 	}
-	nu.Head.ParentID = n.Head.ID
-	nu.Head.path = n.Head.path + "/" + nu.Head.Name
-	if len(n.Head.children) == 0 {
+	nu.Parent = n.Tag
+	nu.ParentID = n.ID
+	nu.path = n.path + "/" + nu.Name
+	if len(n.children) == 0 {
 		nu.Parms.Admin = true
 	}
 
-	nin, err := nu.create(nil)
+	nut, err := nu.create(nil)
 	if err != nil {
 		return NewErrorMsg(err)
 	}
-	n.Head.children[nu.Head.Name] = nin
+	nu.Admin = nu.Parms.Admin
+	nu.Owner = nut
+	n.children[nu.Name] = nut
 
-	nnpl := &NewTreeNodePL{
-		ID:       nu.Head.ID,
-		Name:     nu.Head.Name,
-		Kind:     nu.Head.Kind,
-		ParentID: nu.Head.ParentID,
-		OwnerID:  nu.Head.OwnerID,
-	}
-	Tree.Sys.TreeUpdater.Notify(Msg{
-		Kind:    TreeNodeCreateMsgKind,
-		Admin:   true,
-		Payload: nnpl,
-	})
+	Tree.Sys.TreeUpdater.Notify(TreeNodeCreateMsgKind, SystemUser, nut, nu.Name, nut)
 
-	return &Msg{Kind: OKMsgKind, Payload: nin}
+	return &Msg{Kind: OKMsgKind, Payload: nut}
 }
 
 func authUserHandler(ni Node, q *Msg) (a *Msg) {
@@ -128,10 +120,7 @@ func authUserHandler(ni Node, q *Msg) (a *Msg) {
 	if !ok {
 		return NewErrorMsg(fmt.Errorf("user not found"))
 	}
-	up := u.Ask(Msg{
-		Kind:  GetCopyMsgKind,
-		Admin: true,
-	}).Payload.(UserNode)
+	up := u.Ask(GetCopyMsgKind, SystemUser).Payload.(UserNode)
 
 	err := bcrypt.CompareHashAndPassword(up.Parms.Password, uc.Parms.Password)
 	if err != nil {

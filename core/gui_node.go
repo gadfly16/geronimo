@@ -30,7 +30,6 @@ type GUINode struct {
 	otp      string
 	admin    bool
 	subNodes map[NodeID]E
-	euid     NodeID
 	httpDone DC
 }
 
@@ -43,7 +42,7 @@ func (n *GUINode) run() {
 	defer close(n.httpDone)
 	defer Tree.RemoveNode(n.Head.ID)
 
-	slog.Debug("Running GUI node.", "node", n.Head.path)
+	slog.Debug("GUI node starting up.", "node", n.Head.path)
 	// Authenticating websocket connection
 	err := n.sendWSMessage(&wsMsg{
 		Kind:  CredentialsWsMsgKind,
@@ -60,10 +59,7 @@ func (n *GUINode) run() {
 	}
 	slog.Debug("GUI credential affirmation received.", "gui_id", n.Head.ID)
 	// Subscribe for tree updates
-	Tree.Sys.TreeUpdater.Ask(Msg{
-		Kind:    SubscribeTreeMsgKind,
-		Payload: Tag{ID: n.euid, Node: n.In},
-	})
+	Tree.Sys.TreeUpdater.Ask(SubscribeTreeMsgKind, SystemUser, n.Tag, n.Owner)
 	// Start satelites
 	guiCtx, stopGuiCtx := context.WithCancel(context.Background())
 	defer stopGuiCtx()
@@ -82,12 +78,7 @@ out:
 						slog.Error("subscribing to nonexisting node", "node_id", wm.NodeID)
 						break out
 					}
-					sn.Ask(Msg{
-						Kind:    SubscribeMsgKind,
-						Payload: Tag{ID: n.ID, Node: n.In},
-						UserID:  n.OwnerID,
-						Admin:   n.admin,
-					})
+					sn.Notify(SubscribeMsgKind, n.Owner, n.Tag)
 				}
 				n.subNodes[wm.NodeID] = E{}
 			case UnsubscribeWsMsgKind:
@@ -97,12 +88,7 @@ out:
 						slog.Error("unsubscribing from nonexisting node", "node_id", wm.NodeID)
 						break out
 					}
-					sn.Ask(Msg{
-						Kind:    UnsubscribeMsgKind,
-						Payload: n.ID,
-						UserID:  n.OwnerID,
-						Admin:   n.admin,
-					})
+					sn.Notify(UnsubscribeMsgKind, n.Owner, n.Tag)
 				}
 				delete(n.subNodes, wm.NodeID)
 			case HeartbeatWsMsgKind:
@@ -132,29 +118,18 @@ out:
 								slog.Error("GUI unsubscribe from nonexisting node.", "node_id", nid)
 								return
 							}
-							sn.Ask(Msg{
-								Kind:    UnsubscribeMsgKind,
-								Payload: n.Head.ID,
-								UserID:  n.Head.OwnerID,
-								Admin:   n.admin,
-							})
+							sn.Ask(UnsubscribeMsgKind, n.Owner, n.Tag)
 						}()
 					}
 				}
 				// Unsubscribe from tree updater
-				Tree.Sys.TreeUpdater.Ask(Msg{
-					Kind: UnsubscribeTreeMsgKind,
-					Payload: Tag{
-						ID:   n.euid,
-						Node: n.Head.In,
-					},
-				})
+				Tree.Sys.TreeUpdater.Ask(UnsubscribeTreeMsgKind, SystemUser, n.Tag, n.Owner)
 				// Drain unsubscribe messages
 				for range len(n.Head.guiSubs) {
 					q := <-n.Head.In
-					q.Answer(&OKMsg)
+					q.AnswerOK()
 				}
-				q.Answer(a)
+				q.AnswerMsg(a)
 				break out
 			}
 		}
@@ -162,7 +137,7 @@ out:
 	slog.Info("Stopped GUI node.", "node", n.Head.path)
 }
 
-func (n *GUINode) create(pl any) (in Pipe, err error) {
+func (n *GUINode) create(pl any) (*Tag, error) {
 	n.Head.ID = -NextID()
 	n.Head.Name = fmt.Sprintf("GUI%d", n.Head.ID)
 
@@ -173,81 +148,84 @@ func (n *GUINode) create(pl any) (in Pipe, err error) {
 	n.wsr = make(chan wsMsg)
 	n.subNodes = make(map[NodeID]E)
 	n.otp = generateOTP()
-	n.euid = n.OwnerID
-	if n.admin {
-		n.euid = 0
-	}
 
 	n.Head.initNew()
 	go n.run()
-	return n.Head.In, nil
+	return n.Head.Tag, nil
 }
 
 func guiNodeUpdateHandler(guii Node, q *Msg) (a *Msg) {
 	gui := guii.(*GUINode)
-	nid := q.Payload.(NodeID)
+	t := q.Payload.(*Tag)
+	slog.Debug("GUI received a node update msg.", "gui", gui.path, "t", t.ID)
 	err := gui.sendWSMessage(&wsMsg{
 		Kind:   UpdateWsMsgKind,
-		NodeID: nid,
+		NodeID: t.ID,
 	})
 	if err != nil {
 		slog.Error("GUI couldn't send update msg", "error", err)
 		return NewErrorMsg(err)
 	}
-	slog.Debug("GUI sent update to client", "gui", gui.Head.ID, "node_id", nid)
+	slog.Debug("GUI sent node update to client", "gui", gui.path, "tid", t.ID)
 	return nil
 }
 
 func guiTreeNodeRenameHandler(guii Node, q *Msg) (a *Msg) {
 	gui := guii.(*GUINode)
-	slog.Debug("GUI received a tree node rename msg", "msg", q)
-	nt := q.Payload.(*Tag)
+	pl := q.Payload.([]any)
+	t := pl[0].(*Tag)
+	nm := pl[1].(string)
+	slog.Debug("GUI received a tree node rename Msg.", "gui", gui.path, "t", t.ID)
 	err := gui.sendWSMessage(&wsMsg{
 		Kind:     TreeNodeRenameWsMsgKind,
-		NodeID:   nt.ID,
-		NodeName: nt.Name,
+		NodeID:   t.ID,
+		NodeName: nm,
 	})
 	if err != nil {
-		slog.Error("GUI couldn't send tree update msg", "error", err)
+		slog.Error("GUI couldn't send tree node rename msg", "err", err)
 		return NewErrorMsg(err)
 	}
-	slog.Debug("GUI sent tree update to client", "gui", gui.Head.ID)
+	slog.Debug("GUI sent tree node rename to client", "gui", gui.path, "t", t.ID, "nm", nm)
 	return nil
 }
 
 func guiTreeNodeDeleteHandler(guii Node, q *Msg) (a *Msg) {
 	gui := guii.(*GUINode)
-	slog.Debug("GUI received a tree node delete msg.", "msg", q)
-	nt := q.Payload.(*Tag)
+	pl := q.Payload.([]any)
+	t := pl[0].(*Tag)
+	nm := pl[1].(string)
+	slog.Debug("GUI received a tree node delete msg.", "gui", gui.path, "t", t.ID)
 	err := gui.sendWSMessage(&wsMsg{
 		Kind:         TreeNodeDeleteWsMsgKind,
-		NodeParentID: nt.ParentID,
-		NodeName:     nt.Name,
+		NodeParentID: t.Parent.ID,
+		NodeName:     nm,
 	})
 	if err != nil {
 		slog.Error("GUI couldn't send node deletion msg.", "error", err)
 		return NewErrorMsg(err)
 	}
-	slog.Debug("GUI sent node deletion to client.", "gui", gui.Head.ID)
+	slog.Debug("GUI sent node deletion to client.", "gui", gui.path, "tid", t.ID, "nm", nm)
 	return nil
 }
 
 func guiTreeNodeCreateHandler(guii Node, q *Msg) (a *Msg) {
 	gui := guii.(*GUINode)
-	slog.Debug("GUI received a new tree node msg", "msg", q)
-	nnpl := q.Payload.(*NewTreeNodePL)
+	slog.Debug("GUI received a new tree node msg", "gui", gui.path, "node", gui.path)
+	pl := q.Payload.([]any)
+	t := pl[0].(*Tag)
+	nm := pl[1].(string)
 	err := gui.sendWSMessage(&wsMsg{
 		Kind:         TreeNodeCreateWsMsgKind,
-		NodeID:       nnpl.ID,
-		NodeName:     nnpl.Name,
-		NodeKind:     nnpl.Kind,
-		NodeParentID: nnpl.ParentID,
+		NodeID:       t.ID,
+		NodeName:     nm,
+		NodeKind:     t.Kind,
+		NodeParentID: t.Parent.ID,
 	})
 	if err != nil {
 		slog.Error("GUI couldn't send tree create msg", "error", err)
 		return NewErrorMsg(err)
 	}
-	slog.Debug("GUI sent tree update to client", "gui", gui.Head.ID)
+	slog.Debug("GUI sent tree node create to client", "gui", gui.path, "tid", t.ID, "nm", nm)
 	return nil
 }
 
@@ -273,18 +251,16 @@ func (n *GUINode) wsReceiver(ctx context.Context, done DC) {
 				slog.Error("GUI ws receiver stopped by node.", "node", n.path, "error", err)
 				close(done)
 			} else {
-				pn, _ := Tree.GetNode(n.Head.ParentID)
 				slog.Error("GUI ws read error, exiting.", "node", n.path, "error", err)
 				close(done)
-				pn.Ask(Msg{DeleteChildMsgKind, n.Head.OwnerID, false, n.Head.Name, nil})
+				n.Parent.Ask(DeleteChildMsgKind, n.Owner, n.Name)
 			}
 			break
 		}
 		if msg.GUIID != n.Head.ID || msg.OTP != n.otp {
 			slog.Error("GUI encountered bad ws credentials, exiting.")
-			pn, _ := Tree.GetNode(n.Head.ParentID)
 			close(done)
-			pn.Ask(Msg{DeleteChildMsgKind, n.Head.OwnerID, false, n.Head.Name, nil})
+			n.Parent.Ask(DeleteChildMsgKind, n.Owner, n.Tag)
 			break
 		}
 		n.wsr <- msg

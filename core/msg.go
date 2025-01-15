@@ -17,7 +17,7 @@ const (
 	UpdateMsgKind
 	ParmsMsgKind
 	GetParmsMsgKind
-	CreateMsgKind
+	CreateChildMsgKind
 	AuthUserMsgKind
 	GetTreeMsgKind
 	TreeMsgKind
@@ -28,13 +28,13 @@ const (
 	UnsubscribeMsgKind
 	NodeUpdateMsgKind
 	RenameMsgKind
-	TreeNodeRenameMsgKind
+	TreeNodeRenameMsgKind // PL: [t *Tag, nm string, ot *Tag]
 	UpdatePathMsgKind
 	RenameChildMsgKind
 	CreateUserMsgKind
 	SubscribeTreeMsgKind
 	UnsubscribeTreeMsgKind
-	TreeNodeCreateMsgKind
+	TreeNodeCreateMsgKind // PL: [t *Tag, nm string, ot *Tag]
 	GetChildMsgKind
 	InitGUIMsgKind
 	DeleteChildMsgKind
@@ -49,7 +49,7 @@ var MsgKindNames = map[MsgKind]string{
 	UpdateMsgKind:          "Update",
 	ParmsMsgKind:           "Parms",
 	GetParmsMsgKind:        "GetParms",
-	CreateMsgKind:          "Create",
+	CreateChildMsgKind:     "CreateChild",
 	AuthUserMsgKind:        "AuthUser",
 	GetTreeMsgKind:         "GetTree",
 	TreeMsgKind:            "Tree",
@@ -73,16 +73,7 @@ var MsgKindNames = map[MsgKind]string{
 	TreeNodeDeleteMsgKind:  "TreeNodeDelete",
 }
 
-var (
-	StopMsg       = Msg{Kind: StopMsgKind}
-	OKMsg         = Msg{Kind: OKMsgKind}
-	StoppedMsg    = Msg{Kind: StoppedMsgKind}
-	GetParmsMsg   = Msg{Kind: GetParmsMsgKind}
-	GetCopyMsg    = Msg{Kind: GetCopyMsgKind}
-	GetTreeMsg    = Msg{Kind: GetTreeMsgKind}
-	GetDisplayMsg = Msg{Kind: GetDisplayMsgKind}
-	UpdatedMsg    = Msg{Kind: NodeUpdateMsgKind}
-)
+var OKMsg = Msg{Kind: OKMsgKind}
 
 type E struct{}
 
@@ -90,10 +81,13 @@ type DC chan E
 
 type Pipe chan *Msg
 
+func (p Pipe) MarshalJSON() ([]byte, error) {
+	return json.Marshal("Pipe")
+}
+
 type Msg struct {
 	Kind    MsgKind
-	UserID  NodeID
-	Admin   bool
+	User    *Tag
 	Payload any
 
 	resp Pipe
@@ -104,19 +98,19 @@ type renameChildPL struct {
 	NewName string
 }
 
-type CreatePL struct {
+type CreateChildPL struct {
 	Kind    Kind
 	Name    string
 	Payload any
 }
 
-type NewTreeNodePL struct {
-	ID       NodeID
-	Name     string
-	Kind     Kind
-	ParentID NodeID
-	OwnerID  NodeID
-}
+// type NewTreeNodePL struct {
+// 	ID       NodeID
+// 	Name     string
+// 	Kind     Kind
+// 	ParentID NodeID
+// 	OwnerID  NodeID
+// }
 
 type InitGUIPL struct {
 	Conn  *websocket.Conn
@@ -124,12 +118,64 @@ type InitGUIPL struct {
 	Admin bool
 }
 
-func (p Pipe) MarshalJSON() ([]byte, error) {
-	return json.Marshal("Pipe")
+func (t *Tag) Ask(mk MsgKind, u *Tag, pl ...any) Msg {
+	// For sake of comfort, if there's only one payload, we'll use it directly.
+	var epl any = pl
+	if len(pl) == 1 {
+		epl = pl[0]
+	}
+	m := &Msg{
+		Kind:    mk,
+		Payload: epl,
+		User:    u,
+		resp:    make(Pipe),
+	}
+	t.In <- m
+	return *<-m.resp
 }
 
-func (q *Msg) Answer(m *Msg) {
-	q.resp <- m
+func (t *Tag) AskMsg(m *Msg) Msg {
+	m.resp = make(Pipe)
+	t.In <- m
+	return *<-m.resp
+}
+
+func (t *Tag) Notify(mk MsgKind, u *Tag, pl ...any) {
+	var epl any = pl
+	if len(pl) == 1 {
+		epl = pl[0]
+	}
+	m := &Msg{
+		Kind:    mk,
+		Payload: epl,
+		User:    u,
+	}
+	t.In <- m
+}
+
+func (t *Tag) NotifyMsg(m *Msg) {
+	t.In <- m
+}
+
+func (q *Msg) Answer(mk MsgKind, pl ...any) {
+	var epl any = pl
+	if len(pl) == 1 {
+		epl = pl[0]
+	}
+	a := &Msg{
+		Kind:    mk,
+		Payload: epl,
+		User:    q.User,
+	}
+	q.resp <- a
+}
+
+func (q *Msg) AnswerMsg(a *Msg) {
+	q.resp <- a
+}
+
+func (q *Msg) AnswerOK() {
+	q.resp <- &OKMsg
 }
 
 func NewErrorMsg(err error) *Msg {
@@ -147,23 +193,13 @@ func (m *Msg) KindName() string {
 	return MsgKindNames[m.Kind]
 }
 
-func (t Pipe) Ask(m Msg) Msg {
-	m.resp = make(Pipe)
-	t <- &m
-	return *<-m.resp
-}
-
-func (t Pipe) Notify(m Msg) {
-	t <- &m
-}
-
 func UnmarshalMsg(mk MsgKind, b io.ReadCloser) (m *Msg, err error) {
 	m = &Msg{}
 	switch mk {
 	case UpdateMsgKind:
 		m.Payload = map[string]interface{}{}
-	case CreateMsgKind:
-		m.Payload = &CreatePL{}
+	case CreateChildMsgKind:
+		m.Payload = &CreateChildPL{}
 	case RenameChildMsgKind:
 		m.Payload = &renameChildPL{}
 	default:

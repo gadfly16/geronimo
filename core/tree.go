@@ -7,21 +7,34 @@ import (
 	"sync"
 )
 
+// System user is a special user that can do anything.
+var SystemUser = &Tag{0, UserKind, nil, true, nil}
+
+type NodeID int
+
+type Tag struct {
+	ID     NodeID `gorm:"primarykey"`
+	Kind   Kind
+	In     Pipe `gorm:"-"`
+	Admin  bool `gorm:"-"`
+	Parent *Tag `gorm:"-"`
+}
+
 var Tree = nodeTree{
-	nodes: make(map[NodeID]Pipe),
+	nodes: make(map[NodeID]*Tag),
 }
 
 type nodeTree struct {
 	nodesLock sync.RWMutex
-	nodes     map[NodeID]Pipe
+	nodes     map[NodeID]*Tag
 	Sys       runtime
 }
 
 type runtime struct {
-	Root        Pipe
-	TreeUpdater Pipe
-	Users       Pipe
-	System      Pipe
+	Root        *Tag
+	TreeUpdater *Tag
+	Users       *Tag
+	System      *Tag
 }
 
 type TreeEntry struct {
@@ -44,6 +57,7 @@ func (t *nodeTree) LoadAndRun(sdb string) (err error) {
 		return
 	}
 	rh.path = "/Root"
+	rh.Owner = SystemUser
 	Tree.Sys.Root, err = rh.load()
 	if err != nil {
 		return
@@ -62,19 +76,15 @@ func (t *nodeTree) LoadAndRun(sdb string) (err error) {
 		return errors.New("users node can not be found")
 	}
 
-	a := Tree.Sys.System.Ask(
-		Msg{
-			Kind:  CreateMsgKind,
-			Admin: true,
-			Payload: &CreatePL{
-				Name: "TreeUpdater",
-				Kind: TreeUpdaterKind,
-			},
+	a := Tree.Sys.System.Ask(CreateChildMsgKind, SystemUser,
+		&CreateChildPL{
+			Name: "TreeUpdater",
+			Kind: TreeUpdaterKind,
 		})
 	if a.Kind == ErrorMsgKind {
 		return errors.New("startup: tree updater creation creation failed")
 	}
-	tu := a.Payload.(Pipe)
+	tu := a.Payload.(*Tag)
 	Tree.Sys.TreeUpdater = tu
 
 	slog.Info("Node tree initialized.", "nnodes", Tree.LenNodes())
@@ -82,10 +92,7 @@ func (t *nodeTree) LoadAndRun(sdb string) (err error) {
 }
 
 func (t *nodeTree) Stop() (err error) {
-	a := Tree.Sys.Root.Ask(Msg{
-		Kind:  StopMsgKind,
-		Admin: true,
-	})
+	a := Tree.Sys.Root.Ask(StopMsgKind, SystemUser)
 	if a.Kind == ErrorMsgKind {
 		return errors.New(a.Payload.(string))
 	}
@@ -97,16 +104,16 @@ func (t *nodeTree) Stop() (err error) {
 	return err
 }
 
-func (tr *nodeTree) GetNode(id NodeID) (Pipe, bool) {
+func (tr *nodeTree) GetNode(id NodeID) (*Tag, bool) {
 	tr.nodesLock.RLock()
-	n, ok := tr.nodes[id]
+	nt, ok := tr.nodes[id]
 	tr.nodesLock.RUnlock()
-	return n, ok
+	return nt, ok
 }
 
-func (tr *nodeTree) PutNode(id NodeID, n Pipe) {
+func (tr *nodeTree) PutNode(id NodeID, nt *Tag) {
 	tr.nodesLock.Lock()
-	tr.nodes[id] = n
+	tr.nodes[id] = nt
 	tr.nodesLock.Unlock()
 }
 

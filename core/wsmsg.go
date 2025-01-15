@@ -2,6 +2,7 @@ package core
 
 type WsMsgKind int
 
+// WsMsgKind is the kind of message sent over the websocket
 const (
 	CredentialsWsMsgKind WsMsgKind = iota
 	SubscribeWsMsgKind
@@ -15,6 +16,7 @@ const (
 	TreeNodeDeleteWsMsgKind
 )
 
+// wsMsg is the message structure for websocket communication
 type wsMsg struct {
 	Kind         WsMsgKind
 	OTP          string

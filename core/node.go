@@ -5,7 +5,7 @@ import (
 )
 
 type Node interface {
-	create(any) (Pipe, error)
+	create(any) (*Tag, error)
 	loadBody(*Head) (Node, error)
 	run()
 
@@ -16,9 +16,9 @@ type Node interface {
 	setName(string)
 	getPath() string
 	setPath(string)
-	setParentID(NodeID)
+	setParentID(*Tag)
 	setKind(Kind)
-	setOwnerID(NodeID)
+	setOwnerID(*Tag)
 	kindName() string
 }
 
@@ -50,16 +50,17 @@ func (h *Head) setPath(p string) {
 	h.path = p
 }
 
-func (h *Head) setParentID(pid NodeID) {
-	h.ParentID = pid
+func (h *Head) setParentID(pt *Tag) {
+	h.Parent = pt
+	h.ParentID = pt.ID
 }
 
 func (h *Head) setKind(k Kind) {
 	h.Kind = k
 }
 
-func (h *Head) setOwnerID(oid NodeID) {
-	h.OwnerID = oid
+func (h *Head) setOwnerID(ot *Tag) {
+	h.Owner = ot
 }
 
 func (h *Head) kindName() string {

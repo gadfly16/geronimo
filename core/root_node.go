@@ -42,16 +42,16 @@ func (n *RootNode) run() {
 	defer close(n.Head.In)
 	defer Tree.RemoveNode(n.Head.ID)
 
-	slog.Debug("Running Root node.", "node", n.Head.path, "logLevel", n.Parms.LogLevel)
+	slog.Debug("ROOT node starting up.", "node", n.Head.path, "logLevel", n.Parms.LogLevel)
 	for q := range n.In {
 		a := n.Head.handleMsg(n, q)
 		if a != nil && a.Kind == StoppedMsgKind {
 			// Drain unsubscribe messages
 			for range len(n.Head.guiSubs) {
 				q := <-n.Head.In
-				q.Answer(&OKMsg)
+				q.AnswerOK()
 			}
-			q.Answer(a)
+			q.AnswerMsg(a)
 			break
 		}
 	}
@@ -72,20 +72,20 @@ func (nt *RootNode) loadBody(h *Head) (n Node, err error) {
 	return rn, nil
 }
 
-func (n *RootNode) create(_ any) (in Pipe, err error) {
+func (n *RootNode) create(_ any) (_ *Tag, err error) {
 	n.Parms.JwtKey = make([]byte, 14)
 	if _, err = rand.Read(n.Parms.JwtKey); err != nil {
 		return
 	}
-	err = Db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(&n.Head).Error; err != nil {
-			return err
+	err = Db.Transaction(func(tx *gorm.DB) (err error) {
+		if err = tx.Create(&n.Head).Error; err != nil {
+			return
 		}
 		n.Parms.HeadID = n.Head.ID
-		if err := tx.Create(&n.Parms).Error; err != nil {
-			return err
+		if err = tx.Create(&n.Parms).Error; err != nil {
+			return
 		}
-		return nil
+		return
 	})
 	if err != nil {
 		return
@@ -93,9 +93,9 @@ func (n *RootNode) create(_ any) (in Pipe, err error) {
 	n.setLogLevel()
 	go n.run()
 	n.Head.initNew()
-	Tree.Sys.Root = n.Head.In
+	Tree.Sys.Root = n.Head.Tag
 	JwtKey = n.Parms.JwtKey
-	return n.Head.In, nil
+	return n.Head.Tag, nil
 }
 
 func initRootNode(rp *RootParms) (err error) {

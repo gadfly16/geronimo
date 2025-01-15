@@ -14,14 +14,14 @@ func socketHandler(w http.ResponseWriter, q *http.Request) {
 	cls := q.Context().Value(ctxClaims).(*claims)
 	uid, err := strconv.Atoi(cls.Subject)
 	if err != nil {
-		slog.Error("invalid user ID")
+		slog.Error("Invalid user ID.")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	c, err := websocket.Accept(w, q, nil)
 	if err != nil {
-		slog.Error("Can't establish websocket connection")
+		slog.Error("Can't establish websocket connection.")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -33,28 +33,25 @@ func socketHandler(w http.ResponseWriter, q *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	a := un.Ask(core.Msg{
-		Kind:    core.GetChildMsgKind,
-		UserID:  core.NodeID(uid),
-		Admin:   cls.Admin,
-		Payload: "GUIs",
-	})
+	u, ok := core.Tree.GetNode(core.NodeID(uid))
+	if !ok {
+		slog.Error("Can't get User node.")
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	a := un.Ask(core.GetChildMsgKind, u, "GUIs")
 
-	guis := a.Payload.(core.Pipe)
+	guis := a.Payload.(*core.Tag)
 	done := make(core.DC)
-	a = guis.Ask(core.Msg{
-		Kind:   core.CreateMsgKind,
-		UserID: core.NodeID(uid),
-		Admin:  cls.Admin,
-		Payload: &core.CreatePL{
+	a = guis.Ask(core.CreateChildMsgKind, u,
+		&core.CreateChildPL{
 			Kind: core.GUIKind,
 			Payload: &core.InitGUIPL{
 				Conn:  c,
 				Done:  done,
 				Admin: cls.Admin,
 			},
-		},
-	})
+		})
 
 	<-done
 }

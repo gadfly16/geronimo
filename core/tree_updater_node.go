@@ -20,7 +20,7 @@ func init() {
 
 type TreeUpdaterNode struct {
 	*Head
-	treeSubGuis map[NodeID]map[Pipe]bool
+	treeSubGuis map[*Tag]map[*Tag]E
 }
 
 func (t *TreeUpdaterNode) loadBody(h *Head) (n Node, err error) {
@@ -31,7 +31,7 @@ func (n *TreeUpdaterNode) run() {
 	defer close(n.Head.In)
 	defer Tree.RemoveNode(n.Head.ID)
 
-	slog.Debug("Running TreeUpdater node.", "node", n.Head.path)
+	slog.Debug("TU node starting up.", "node", n.Head.path)
 	for q := range n.Head.In {
 		a := n.Head.handleMsg(n, q)
 		if a != nil && a.Kind == StoppedMsgKind {
@@ -44,10 +44,10 @@ func (n *TreeUpdaterNode) run() {
 			for range nsg + len(n.Head.guiSubs) {
 				q := <-n.Head.In
 				slog.Debug("SINK of TreeUpdater reveived msg.", "node", n.Head.path, "kind", q.KindName())
-				q.Answer(&OKMsg)
+				q.AnswerOK()
 				slog.Debug("SINK of TreeUpdater answered msg.", "node", n.Head.path, "kind", q.KindName())
 			}
-			q.Answer(a)
+			q.AnswerMsg(a)
 			break
 		}
 	}
@@ -55,12 +55,12 @@ func (n *TreeUpdaterNode) run() {
 	slog.Info("Stopped TreeUpdater node.", "node", n.path)
 }
 
-func (n *TreeUpdaterNode) create(_ any) (in Pipe, err error) {
+func (n *TreeUpdaterNode) create(_ any) (*Tag, error) {
 	n.Head.ID = -NextID()
 	n.Head.initNew()
-	n.treeSubGuis = make(map[NodeID]map[Pipe]bool)
+	n.treeSubGuis = make(map[*Tag]map[*Tag]E)
 	go n.run()
-	return n.Head.In, nil
+	return n.Head.Tag, nil
 }
 
 func treeUpdaterGetDisplayHandler(ni Node, _ *Msg) *Msg {
@@ -73,68 +73,84 @@ func treeUpdaterGetDisplayHandler(ni Node, _ *Msg) *Msg {
 	return r
 }
 
-func subscribeTreeHandler(ni Node, m *Msg) *Msg {
+func subscribeTreeHandler(ni Node, q *Msg) *Msg {
 	n := ni.(*TreeUpdaterNode)
-	t := m.Payload.(Tag)
-	_, ok := n.treeSubGuis[t.ID]
-	if !ok {
-		n.treeSubGuis[t.ID] = make(map[Pipe]bool, 0)
+	pl := q.Payload.([]any)
+	st := pl[0].(*Tag)
+	ot := pl[1].(*Tag)
+	if ot.Admin {
+		ot = SystemUser
 	}
-	n.treeSubGuis[t.ID][t.Node] = true
+	_, ok := n.treeSubGuis[ot]
+	if !ok {
+		n.treeSubGuis[ot] = make(map[*Tag]E, 0)
+	}
+	n.treeSubGuis[ot][st] = E{}
 	slog.Debug("TU registered new GUI for updates.",
-		"ntsguis", len(n.treeSubGuis), "owner", t.ID, "in", t.Node)
+		"ntsguis", len(n.treeSubGuis), "owner", st.ID, "in", st.In)
 	return &OKMsg
 }
 
-func unsubscribeTreeHandler(ni Node, m *Msg) *Msg {
+func unsubscribeTreeHandler(ni Node, q *Msg) *Msg {
 	n := ni.(*TreeUpdaterNode)
-	t := m.Payload.(Tag)
-	delete(n.treeSubGuis[t.ID], t.Node)
+	pl := q.Payload.([]any)
+	st := pl[0].(*Tag)
+	ot := pl[1].(*Tag)
+	if ot.Admin {
+		ot = SystemUser
+	}
+	delete(n.treeSubGuis[ot], st)
+	if len(n.treeSubGuis[ot]) == 0 {
+		delete(n.treeSubGuis, ot)
+	}
 	slog.Debug("TU unregistered GUI from updates.", "ntsguis", len(n.treeSubGuis))
 	return &OKMsg
 }
 
-func treeNodeRenameHandler(ni Node, m *Msg) *Msg {
+func treeNodeRenameHandler(ni Node, q *Msg) *Msg {
 	n := ni.(*TreeUpdaterNode)
-	h := m.Payload.(*Tag)
-	for g := range n.treeSubGuis[h.OwnerID] {
-		g.Notify(*m)
-		slog.Debug("TU notified user GUIs about node rename.", "GUI", h.OwnerID)
+	pl := q.Payload.([]any)
+	ot := pl[2].(*Tag) // GUI owner tag
+	for g := range n.treeSubGuis[SystemUser] {
+		g.NotifyMsg(q)
+		slog.Debug("TU notified admin GUIs about node rename.", "GUI", q.User.ID)
 	}
-	for g := range n.treeSubGuis[0] {
-		g.Notify(*m)
-		slog.Debug("TU notified admin GUIs about node rename.", "GUI", h.OwnerID)
+	for g := range n.treeSubGuis[ot] {
+		g.NotifyMsg(q)
+		slog.Debug("TU notified user GUIs about node rename.", "GUI", q.User.ID)
 	}
-	slog.Debug("TU handled tree node rename.", "user", h.OwnerID)
+	slog.Debug("TU handled tree node rename.", "user", q.User.ID)
 	return nil
 }
 
-func treeNodeCreateHandler(ni Node, m *Msg) *Msg {
+func treeNodeCreateHandler(ni Node, q *Msg) *Msg {
 	n := ni.(*TreeUpdaterNode)
-	nnpl := m.Payload.(*NewTreeNodePL)
-	for g := range n.treeSubGuis[nnpl.OwnerID] {
-		g.Notify(*m)
-		slog.Debug("TU notified user GUIs about new node.", "GUI", nnpl.OwnerID)
+	pl := q.Payload.([]any)
+	ot := pl[2].(*Tag)
+	for g := range n.treeSubGuis[SystemUser] {
+		g.NotifyMsg(q)
+		slog.Debug("TU notified admin GUIs about node rename.", "GUI", q.User.ID)
 	}
-	for g := range n.treeSubGuis[0] {
-		g.Notify(*m)
-		slog.Debug("TU notified admin GUIs about new node.", "GUI", nnpl.OwnerID)
+	for g := range n.treeSubGuis[ot] {
+		g.NotifyMsg(q)
+		slog.Debug("TU notified user GUIs about new node.", "GUI", q.User.ID)
 	}
-	slog.Debug("TU handled node creation.", "user", nnpl.OwnerID)
+	slog.Debug("TU handled node creation.", "user", q.User.ID)
 	return nil
 }
 
-func treeNodeDeleteHandler(ni Node, m *Msg) *Msg {
+func treeNodeDeleteHandler(ni Node, q *Msg) *Msg {
 	n := ni.(*TreeUpdaterNode)
-	nt := m.Payload.(*Tag)
-	for g := range n.treeSubGuis[nt.OwnerID] {
-		g.Notify(*m)
-		slog.Debug("TU notified user GUIs about node deletion.", "GUI", nt.OwnerID)
+	pl := q.Payload.([]any)
+	ot := pl[2].(*Tag)
+	for g := range n.treeSubGuis[ot] {
+		g.NotifyMsg(q)
+		slog.Debug("TU notified user GUIs about node deletion.", "GUI", q.User.ID)
 	}
-	for g := range n.treeSubGuis[0] {
-		g.Notify(*m)
-		slog.Debug("TU notified admin GUI about node deletion.", "GUI", nt.OwnerID)
+	for g := range n.treeSubGuis[SystemUser] {
+		g.NotifyMsg(q)
+		slog.Debug("TU notified admin GUI about node deletion.", "GUI", q.User.ID)
 	}
-	slog.Debug("TU handled node deletion.", "user", nt.OwnerID)
+	slog.Debug("TU handled node deletion.", "user", q.User.ID)
 	return nil
 }

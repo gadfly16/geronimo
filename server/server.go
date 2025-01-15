@@ -43,10 +43,7 @@ func Serve(sdb string) (err error) {
 		slog.Error("Tree loading failed. Quitting.", "error", err)
 		return
 	}
-	rp := core.Tree.Sys.Root.Ask(core.Msg{
-		Kind:  core.GetParmsMsgKind,
-		Admin: true,
-	}).Payload.(core.RootParms)
+	rp := core.Tree.Sys.Root.Ask(core.GetParmsMsgKind, core.SystemUser).Payload.(core.RootParms)
 	slog.Debug("Server settings received")
 
 	srv := &http.Server{Addr: rp.HTTPAddr, Handler: service()}
@@ -218,21 +215,21 @@ func authFetch(next http.Handler) http.Handler {
 	})
 }
 
-func apiMsgHandler(w http.ResponseWriter, q *http.Request) {
-	cls := q.Context().Value(ctxClaims).(*claims)
+func apiMsgHandler(w http.ResponseWriter, r *http.Request) {
+	cls := r.Context().Value(ctxClaims).(*claims)
 	uid, err := strconv.Atoi(cls.Subject)
 	if err != nil {
 		slog.Error("invalid user ID")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	tid, err := strconv.Atoi(chi.URLParam(q, "target_id"))
+	tid, err := strconv.Atoi(chi.URLParam(r, "target_id"))
 	if err != nil {
 		slog.Error("invalid target node ID")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	mk, err := strconv.Atoi(chi.URLParam(q, "msg_kind"))
+	mk, err := strconv.Atoi(chi.URLParam(r, "msg_kind"))
 	if err != nil {
 		slog.Error("invalid message kind")
 		w.WriteHeader(http.StatusBadRequest)
@@ -246,67 +243,70 @@ func apiMsgHandler(w http.ResponseWriter, q *http.Request) {
 		"admin", cls.Admin,
 	)
 
-	m, err := core.UnmarshalMsg(mk, q.Body)
+	q, err := core.UnmarshalMsg(mk, r.Body)
 	if err != nil {
 		slog.Error("can't unmarshal message payload", "error", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	if m.Kind == core.GetTreeMsgKind && cls.Admin {
+	// If the request is to get the tree, tree is served from the root node
+	if q.Kind == core.GetTreeMsgKind && cls.Admin {
 		tid = 1
 	}
 
 	t, ok := core.Tree.GetNode(core.NodeID(tid))
 	if !ok {
-		slog.Error("target node doesn't exists", "target", tid)
-		w.WriteHeader(http.StatusNotFound)
+		slog.Error("HTTP target node doesn't exists", "target_id", tid)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	q.User, ok = core.Tree.GetNode(core.NodeID(uid))
+	if !ok {
+		slog.Error("HTTP user node doesn't exists.", "user_id", uid)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	m.UserID = core.NodeID(uid)
-	m.Admin = cls.Admin
-
-	r := t.Ask(*m)
-	if r.Kind == core.ErrorMsgKind {
-		slog.Error("HTTP API message resulted in error.", "error", r.Payload.(string))
+	a := t.AskMsg(q)
+	if a.Kind == core.ErrorMsgKind {
+		slog.Error("HTTP API message resulted in error.", "error", a.Payload.(string))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	render.JSON(w, q, r.Payload)
+	render.JSON(w, r, a.Payload)
 }
 
 func signupHandler(w http.ResponseWriter, r *http.Request) {
-	slog.Info("New singup")
-	n := &core.UserNode{}
+	slog.Info("HTTP received new SIGNUP attempt.")
+	un := &core.UserNode{}
 	d := json.NewDecoder(r.Body)
-	if err := d.Decode(n); err != nil {
+	if err := d.Decode(un); err != nil {
 		slog.Error("SIGNUP can't unmarshall new user node.", "error", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	a := core.Tree.Sys.Users.Ask(core.Msg{
-		Kind:    core.CreateUserMsgKind,
-		Admin:   true,
-		Payload: n,
-	})
+
+	a := core.Tree.Sys.Users.Ask(core.CreateUserMsgKind, core.SystemUser, un)
 	if a.Kind == core.ErrorMsgKind {
 		slog.Error("SIGNUP user creation failed.", "error", a.ErrorMsg())
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	nu := a.Payload.(core.Pipe)
-	a = nu.Ask(core.Msg{
-		Kind:  core.CreateMsgKind,
-		Admin: true,
-		Payload: &core.CreatePL{
+	nu := a.Payload.(*core.Tag)
+	a = nu.Ask(core.CreateChildMsgKind, nu,
+		&core.CreateChildPL{
 			Kind: core.GroupKind,
 			Name: "GUIs",
-		},
-	})
+		})
+	if a.Kind == core.ErrorMsgKind {
+		slog.Error("SIGNUP user GUIs creation failed.", "error", a.ErrorMsg())
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
-	slog.Info("SIGNUP created a new user.", "name", n.Head.Name)
+	slog.Info("SIGNUP created a new user.", "name", un.Head.Name)
 }
 
 func loginHandler(w http.ResponseWriter, q *http.Request) {
@@ -320,11 +320,7 @@ func loginHandler(w http.ResponseWriter, q *http.Request) {
 	}
 	slog.Debug("AUTH unmarshalled credentials user node", "Name", ucn.Head.Name)
 	// Magic number must be replaced with a stored pipe on Tree
-	r := core.Tree.Sys.Users.Ask(core.Msg{
-		Kind:    core.AuthUserMsgKind,
-		Admin:   true,
-		Payload: ucn,
-	})
+	r := core.Tree.Sys.Users.Ask(core.AuthUserMsgKind, core.SystemUser, ucn)
 	if r.Kind == core.ErrorMsgKind {
 		slog.Error("LOGIN user authentication failed.", "error", r.ErrorMsg())
 		w.WriteHeader(http.StatusBadRequest)
