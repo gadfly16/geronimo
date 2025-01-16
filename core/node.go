@@ -5,7 +5,7 @@ import (
 )
 
 type Node interface {
-	create(any) (*Tag, error)
+	create(pl []any) (*Tag, error)
 	loadBody(*Head) (Node, error)
 	run()
 

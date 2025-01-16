@@ -65,7 +65,7 @@ func (t *UserNode) loadBody(h *Head) (n Node, err error) {
 	return un, nil
 }
 
-func (n *UserNode) create(_ any) (_ *Tag, err error) {
+func (n *UserNode) create(_ []any) (_ *Tag, err error) {
 	n.Parms.Password, err = bcrypt.GenerateFromPassword(n.Parms.Password, 14)
 	if err != nil {
 		return

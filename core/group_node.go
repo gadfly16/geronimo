@@ -48,7 +48,7 @@ func (n *GroupNode) run() {
 	slog.Info("Stopped Group node.", "node", n.path)
 }
 
-func (n *GroupNode) create(_ any) (_ *Tag, err error) {
+func (n *GroupNode) create(_ []any) (_ *Tag, err error) {
 	err = Db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&n.Head).Error; err != nil {
 			return err

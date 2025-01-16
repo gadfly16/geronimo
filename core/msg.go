@@ -3,8 +3,6 @@ package core
 import (
 	"encoding/json"
 	"io"
-
-	"github.com/coder/websocket"
 )
 
 type MsgKind = int
@@ -93,30 +91,17 @@ type Msg struct {
 	resp Pipe
 }
 
-type renameChildPL struct {
-	Name    string
-	NewName string
-}
-
-type CreateChildPL struct {
-	Kind    Kind
-	Name    string
-	Payload any
-}
-
-// type NewTreeNodePL struct {
-// 	ID       NodeID
-// 	Name     string
-// 	Kind     Kind
-// 	ParentID NodeID
-// 	OwnerID  NodeID
+// type CreateChildPL struct {
+// 	Kind    Kind
+// 	Name    string
+// 	Payload any
 // }
 
-type InitGUIPL struct {
-	Conn  *websocket.Conn
-	Done  DC
-	Admin bool
-}
+// type InitGUIPL struct {
+// 	Conn  *websocket.Conn
+// 	Done  DC
+// 	Admin bool
+// }
 
 func (t *Tag) Ask(mk MsgKind, u *Tag, pl ...any) Msg {
 	// For sake of comfort, if there's only one payload, we'll use it directly.
@@ -197,11 +182,9 @@ func UnmarshalMsg(mk MsgKind, b io.ReadCloser) (m *Msg, err error) {
 	m = &Msg{}
 	switch mk {
 	case UpdateMsgKind:
-		m.Payload = map[string]interface{}{}
-	case CreateChildMsgKind:
-		m.Payload = &CreateChildPL{}
-	case RenameChildMsgKind:
-		m.Payload = &renameChildPL{}
+		m.Payload = H{}
+	case CreateChildMsgKind, RenameChildMsgKind:
+		m.Payload = []any{}
 	default:
 		m.Payload = nil
 	}

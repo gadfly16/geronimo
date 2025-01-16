@@ -72,7 +72,7 @@ func (nt *RootNode) loadBody(h *Head) (n Node, err error) {
 	return rn, nil
 }
 
-func (n *RootNode) create(_ any) (_ *Tag, err error) {
+func (n *RootNode) create(_ []any) (_ *Tag, err error) {
 	n.Parms.JwtKey = make([]byte, 14)
 	if _, err = rand.Read(n.Parms.JwtKey); err != nil {
 		return

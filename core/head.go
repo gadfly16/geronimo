@@ -125,27 +125,29 @@ func (h *Head) handleMsg(n Node, q *Msg) (a *Msg) {
 }
 
 func createChildHandler(h *Head, m *Msg) (r *Msg) {
-	cpl := m.Payload.(*CreateChildPL)
-	if cpl.Kind == RootKind || cpl.Kind == UserKind {
-		return NewErrorMsg(fmt.Errorf("%s kind can not be created", kindNames[cpl.Kind]))
+	pl := m.Payload.([]any)
+	nnk := pl[0].(Kind)
+	nnm := pl[1].(string)
+	if nnk == RootKind || nnk == UserKind {
+		return NewErrorMsg(fmt.Errorf("%s kind can not be created", kindNames[nnk]))
 	}
-	nm := cpl.Name
+	nm := nnm
 	if nm == "" {
-		nm = ("New" + kindNames[cpl.Kind])
+		nm = ("New" + kindNames[nnk])
 	}
 	if _, ok := h.children[nm]; ok {
 		return NewErrorMsg(fmt.Errorf("node '%s' already exists", nm))
 	}
-	nn := NewNodeKind(cpl.Kind)
+	nn := NewNodeKind(nnk)
 	if nn == nil {
-		return NewErrorMsg(fmt.Errorf("node kind '%s' not implemented yet", kindNames[cpl.Kind]))
+		return NewErrorMsg(fmt.Errorf("node kind '%s' not implemented yet", kindNames[nnk]))
 	}
-	nn.setKind(cpl.Kind)
+	nn.setKind(nnk)
 	nn.setName(nm)
 	nn.setParentID(h.Tag)
 	nn.setOwnerID(h.Owner)
 
-	nnt, err := nn.create(cpl.Payload)
+	nnt, err := nn.create(pl[2:])
 	if err != nil {
 		return NewErrorMsg(err)
 	}
@@ -265,22 +267,24 @@ func unsubscribeHandler(h *Head, m *Msg) (r *Msg) {
 }
 
 func renameChildHandler(h *Head, q *Msg) *Msg {
-	rchpl := q.Payload.(*renameChildPL)
-	ch, ok := h.children[rchpl.Name]
+	pl := q.Payload.([]any)
+	nm := pl[0].(string)
+	nnm := pl[1].(string)
+	ch, ok := h.children[nm]
 	if !ok {
-		return NewErrorMsg(fmt.Errorf("node has no children named '%s'", rchpl.Name))
+		return NewErrorMsg(fmt.Errorf("node has no children named '%s'", nm))
 	}
-	if _, ok := h.children[rchpl.NewName]; ok {
-		return NewErrorMsg(fmt.Errorf("node already has a children named '%s'", rchpl.NewName))
+	if _, ok := h.children[nnm]; ok {
+		return NewErrorMsg(fmt.Errorf("node already has a children named '%s'", nnm))
 	}
 
-	a := ch.Ask(RenameMsgKind, q.User, rchpl.NewName)
+	a := ch.Ask(RenameMsgKind, q.User, nnm)
 	if a.Kind == ErrorMsgKind {
 		return &a
 	}
 
-	h.children[rchpl.NewName] = ch
-	delete(h.children, rchpl.Name)
+	h.children[nnm] = ch
+	delete(h.children, nm)
 	return &OKMsg
 }
 

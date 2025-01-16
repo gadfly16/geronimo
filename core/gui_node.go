@@ -137,14 +137,17 @@ out:
 	slog.Info("Stopped GUI node.", "node", n.Head.path)
 }
 
-func (n *GUINode) create(pl any) (*Tag, error) {
+func (n *GUINode) create(pl []any) (*Tag, error) {
 	n.Head.ID = -NextID()
 	n.Head.Name = fmt.Sprintf("GUI%d", n.Head.ID)
 
-	igpl := pl.(*InitGUIPL)
-	n.httpDone = igpl.Done
-	n.conn = igpl.Conn
-	n.admin = igpl.Admin
+	// igpl := pl.(*InitGUIPL)
+	conn := pl[0].(*websocket.Conn)
+	done := pl[1].(DC)
+	admin := pl[2].(bool)
+	n.httpDone = done
+	n.conn = conn
+	n.admin = admin
 	n.wsr = make(chan wsMsg)
 	n.subNodes = make(map[NodeID]E)
 	n.otp = generateOTP()

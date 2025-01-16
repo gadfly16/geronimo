@@ -55,7 +55,7 @@ func (n *TreeUpdaterNode) run() {
 	slog.Info("Stopped TreeUpdater node.", "node", n.path)
 }
 
-func (n *TreeUpdaterNode) create(_ any) (*Tag, error) {
+func (n *TreeUpdaterNode) create(_ []any) (*Tag, error) {
 	n.Head.ID = -NextID()
 	n.Head.initNew()
 	n.treeSubGuis = make(map[*Tag]map[*Tag]E)

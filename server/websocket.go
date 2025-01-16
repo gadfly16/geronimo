@@ -43,15 +43,7 @@ func socketHandler(w http.ResponseWriter, q *http.Request) {
 
 	guis := a.Payload.(*core.Tag)
 	done := make(core.DC)
-	a = guis.Ask(core.CreateChildMsgKind, u,
-		&core.CreateChildPL{
-			Kind: core.GUIKind,
-			Payload: &core.InitGUIPL{
-				Conn:  c,
-				Done:  done,
-				Admin: cls.Admin,
-			},
-		})
+	a = guis.Ask(core.CreateChildMsgKind, u, core.GUIKind, "", c, done, cls.Admin)
 
 	<-done
 }

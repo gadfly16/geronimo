@@ -295,11 +295,7 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	nu := a.Payload.(*core.Tag)
-	a = nu.Ask(core.CreateChildMsgKind, nu,
-		&core.CreateChildPL{
-			Kind: core.GroupKind,
-			Name: "GUIs",
-		})
+	a = nu.Ask(core.CreateChildMsgKind, nu, core.GroupKind, "GUIs")
 	if a.Kind == core.ErrorMsgKind {
 		slog.Error("SIGNUP user GUIs creation failed.", "error", a.ErrorMsg())
 		w.WriteHeader(http.StatusInternalServerError)

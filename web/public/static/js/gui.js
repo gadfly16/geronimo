@@ -419,7 +419,7 @@ class NodeDisplay {
         na.style.display = "block";
         ra.style.display = "none";
         i.blur();
-        ask(msgKinds.RenameChild, gui.nodes.get(this.ID).ParentID, { Name: this.name, NewName: i.value }, (a) => {
+        ask(msgKinds.RenameChild, gui.nodes.get(this.ID).ParentID, [this.name, i.value], (a) => {
             console.log(a);
         });
     }
@@ -439,15 +439,15 @@ class NodeDisplay {
     `);
         const mis = elem
             .querySelector(".newChildrenMenu")
-            .addEventListener("click", this.newChildClick.bind(this));
+            .addEventListener("click", this.createChild.bind(this));
         return elem;
     }
-    newChildClick(ev) {
+    createChild(ev) {
         const t = ev.target;
         const n = t.textContent;
         const nk = nodeKindIDs[n];
         console.log("clicked create child:", n, this.ID);
-        ask(msgKinds.Create, this.ID, { Kind: nk }, (r) => {
+        ask(msgKinds.Create, this.ID, [nk, ""], (r) => {
             console.log(r);
         });
     }

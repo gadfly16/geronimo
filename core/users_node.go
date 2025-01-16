@@ -61,7 +61,7 @@ func (n *UsersNode) run() {
 	slog.Info("Stopped Users node.", "node", n.path)
 }
 
-func (n *UsersNode) create(_ any) (_ *Tag, err error) {
+func (n *UsersNode) create(_ []any) (_ *Tag, err error) {
 	err = Db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&n.Head).Error; err != nil {
 			return err

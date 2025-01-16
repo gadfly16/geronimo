@@ -76,11 +76,7 @@ func (t *nodeTree) LoadAndRun(sdb string) (err error) {
 		return errors.New("users node can not be found")
 	}
 
-	a := Tree.Sys.System.Ask(CreateChildMsgKind, SystemUser,
-		&CreateChildPL{
-			Name: "TreeUpdater",
-			Kind: TreeUpdaterKind,
-		})
+	a := Tree.Sys.System.Ask(CreateChildMsgKind, SystemUser, TreeUpdaterKind, "TreeUpdater")
 	if a.Kind == ErrorMsgKind {
 		return errors.New("startup: tree updater creation creation failed")
 	}
