@@ -3,75 +3,11 @@ package core
 import (
 	"encoding/json"
 	"io"
+
+	mk "github.com/gadfly16/geronimo/msgKinds"
 )
 
-type MsgKind = int
-
-const (
-	OKMsgKind MsgKind = iota
-	ErrorMsgKind
-	StopMsgKind
-	StoppedMsgKind
-	UpdateMsgKind
-	ParmsMsgKind
-	GetParmsMsgKind
-	CreateChildMsgKind
-	AuthUserMsgKind
-	GetTreeMsgKind
-	TreeMsgKind
-	GetCopyMsgKind
-	GetDisplayMsgKind
-	DisplayMsgKind
-	SubscribeMsgKind
-	UnsubscribeMsgKind
-	NodeUpdateMsgKind
-	RenameMsgKind
-	TreeNodeRenameMsgKind // PL: [t *Tag, nm string, ot *Tag]
-	UpdatePathMsgKind
-	RenameChildMsgKind
-	CreateUserMsgKind
-	SubscribeTreeMsgKind
-	UnsubscribeTreeMsgKind
-	TreeNodeCreateMsgKind // PL: [t *Tag, nm string, ot *Tag]
-	GetChildMsgKind
-	InitGUIMsgKind
-	DeleteChildMsgKind
-	TreeNodeDeleteMsgKind
-)
-
-var MsgKindNames = map[MsgKind]string{
-	OKMsgKind:              "OK",
-	ErrorMsgKind:           "Error",
-	StopMsgKind:            "Stop",
-	StoppedMsgKind:         "Stopped",
-	UpdateMsgKind:          "Update",
-	ParmsMsgKind:           "Parms",
-	GetParmsMsgKind:        "GetParms",
-	CreateChildMsgKind:     "CreateChild",
-	AuthUserMsgKind:        "AuthUser",
-	GetTreeMsgKind:         "GetTree",
-	TreeMsgKind:            "Tree",
-	GetCopyMsgKind:         "GetCopy",
-	GetDisplayMsgKind:      "GetDisplay",
-	DisplayMsgKind:         "Display",
-	SubscribeMsgKind:       "Subscribe",
-	UnsubscribeMsgKind:     "Unsubscribe",
-	NodeUpdateMsgKind:      "NodeUpdate",
-	RenameMsgKind:          "Rename",
-	TreeNodeRenameMsgKind:  "TreeNodeRename",
-	UpdatePathMsgKind:      "UpdatePath",
-	RenameChildMsgKind:     "RenameChild",
-	CreateUserMsgKind:      "CreateUser",
-	SubscribeTreeMsgKind:   "SubscribeTree",
-	UnsubscribeTreeMsgKind: "UnsubscribeTree",
-	TreeNodeCreateMsgKind:  "TreeNodeCreate",
-	GetChildMsgKind:        "GetChild",
-	InitGUIMsgKind:         "InitGUI",
-	DeleteChildMsgKind:     "DeleteChild",
-	TreeNodeDeleteMsgKind:  "TreeNodeDelete",
-}
-
-var OKMsg = Msg{Kind: OKMsgKind}
+var OKMsg = Msg{Kind: mk.OK}
 
 type E struct{}
 
@@ -84,26 +20,14 @@ func (p Pipe) MarshalJSON() ([]byte, error) {
 }
 
 type Msg struct {
-	Kind    MsgKind
+	Kind    mk.MK
 	User    *Tag
 	Payload any
 
 	resp Pipe
 }
 
-// type CreateChildPL struct {
-// 	Kind    Kind
-// 	Name    string
-// 	Payload any
-// }
-
-// type InitGUIPL struct {
-// 	Conn  *websocket.Conn
-// 	Done  DC
-// 	Admin bool
-// }
-
-func (t *Tag) Ask(mk MsgKind, u *Tag, pl ...any) Msg {
+func (t *Tag) Ask(mk mk.MK, u *Tag, pl ...any) Msg {
 	// For sake of comfort, if there's only one payload, we'll use it directly.
 	var epl any = pl
 	if len(pl) == 1 {
@@ -125,7 +49,7 @@ func (t *Tag) AskMsg(m *Msg) Msg {
 	return *<-m.resp
 }
 
-func (t *Tag) Notify(mk MsgKind, u *Tag, pl ...any) {
+func (t *Tag) Notify(mk mk.MK, u *Tag, pl ...any) {
 	var epl any = pl
 	if len(pl) == 1 {
 		epl = pl[0]
@@ -142,7 +66,7 @@ func (t *Tag) NotifyMsg(m *Msg) {
 	t.In <- m
 }
 
-func (q *Msg) Answer(mk MsgKind, pl ...any) {
+func (q *Msg) Answer(mk mk.MK, pl ...any) {
 	var epl any = pl
 	if len(pl) == 1 {
 		epl = pl[0]
@@ -165,7 +89,7 @@ func (q *Msg) AnswerOK() {
 
 func NewErrorMsg(err error) *Msg {
 	return &Msg{
-		Kind:    ErrorMsgKind,
+		Kind:    mk.Error,
 		Payload: err.Error(),
 	}
 }
@@ -175,15 +99,15 @@ func (m *Msg) ErrorMsg() string {
 }
 
 func (m *Msg) KindName() string {
-	return MsgKindNames[m.Kind]
+	return mk.Names[m.Kind]
 }
 
-func UnmarshalMsg(mk MsgKind, b io.ReadCloser) (m *Msg, err error) {
+func UnmarshalMsg(k mk.MK, b io.ReadCloser) (m *Msg, err error) {
 	m = &Msg{}
-	switch mk {
-	case UpdateMsgKind:
+	switch k {
+	case mk.Update:
 		m.Payload = H{}
-	case CreateChildMsgKind, RenameChildMsgKind:
+	case mk.CreateChild, mk.RenameChild:
 		m.Payload = []any{}
 	default:
 		m.Payload = nil
@@ -195,6 +119,6 @@ func UnmarshalMsg(mk MsgKind, b io.ReadCloser) (m *Msg, err error) {
 	if err != nil {
 		return nil, err
 	}
-	m.Kind = mk
+	m.Kind = k
 	return
 }

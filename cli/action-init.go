@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gadfly16/geronimo/core"
+	mk "github.com/gadfly16/geronimo/msgKinds"
 	"github.com/spf13/cobra"
 )
 
@@ -38,7 +39,7 @@ var initCmd = &cobra.Command{
 		}
 		slog.Info("Waiting for goroutines to start. TODO")
 		time.Sleep(time.Millisecond * 100)
-		core.Tree.Sys.Root.Ask(core.StopMsgKind, core.SystemUser)
+		core.Tree.Sys.Root.Ask(mk.Stop, core.SystemUser)
 		if err := core.CloseDB(); err != nil {
 			slog.Error("State db connection close failed.", "error", err)
 		}

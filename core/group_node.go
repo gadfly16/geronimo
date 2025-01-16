@@ -3,12 +3,13 @@ package core
 import (
 	"log/slog"
 
+	mk "github.com/gadfly16/geronimo/msgKinds"
 	"gorm.io/gorm"
 )
 
 func init() {
-	nodeMsgHandlers[GroupKind] = map[MsgKind]func(Node, *Msg) *Msg{
-		GetDisplayMsgKind: groupGetDisplayHandler,
+	nodeMsgHandlers[GroupKind] = map[mk.MK]func(Node, *Msg) *Msg{
+		mk.GetDisplay: groupGetDisplayHandler,
 	}
 }
 
@@ -32,7 +33,7 @@ func (n *GroupNode) run() {
 	slog.Debug("GROUP node starting up.", "node", n.Head.path)
 	for q := range n.Head.In {
 		a := n.Head.handleMsg(n, q)
-		if a != nil && a.Kind == StoppedMsgKind {
+		if a != nil && a.Kind == mk.Stopped {
 			// Sink unsubscribe messages
 			for range len(n.Head.guiSubs) {
 				q := <-n.Head.In
@@ -70,7 +71,7 @@ func groupGetDisplayHandler(ni Node, _ *Msg) *Msg {
 	// 	"Display Name": n.Parms.DisplayName,
 	// }
 	r := &Msg{
-		Kind:    DisplayMsgKind,
+		Kind:    mk.Display,
 		Payload: d,
 	}
 	return r

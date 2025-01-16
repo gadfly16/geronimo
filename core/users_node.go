@@ -4,17 +4,16 @@ import (
 	"fmt"
 	"log/slog"
 
+	mk "github.com/gadfly16/geronimo/msgKinds"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 func init() {
-	nodeMsgHandlers[UsersKind] = map[MsgKind]func(Node, *Msg) *Msg{
-		CreateUserMsgKind: createUserHandler,
-		AuthUserMsgKind:   authUserHandler,
-		GetDisplayMsgKind: usersGetDisplayHandler,
-		// msg.UpdateKind:   rootUpdateHandler,
-		// msg.GetParmsKind: rootGetParmsHandler,
+	nodeMsgHandlers[UsersKind] = map[mk.MK]func(Node, *Msg) *Msg{
+		mk.CreateUser: createUserHandler,
+		mk.AuthUser:   authUserHandler,
+		mk.GetDisplay: usersGetDisplayHandler,
 	}
 }
 
@@ -47,7 +46,7 @@ func (n *UsersNode) run() {
 	slog.Debug("USERS node starting up.", "node", n.Head.path)
 	for q := range n.Head.In {
 		a := n.Head.handleMsg(n, q)
-		if a != nil && a.Kind == StoppedMsgKind {
+		if a != nil && a.Kind == mk.Stopped {
 			// Drain unsubscribe messages
 			for range len(n.Head.guiSubs) {
 				q := <-n.Head.In
@@ -107,9 +106,9 @@ func createUserHandler(ni Node, m *Msg) (r *Msg) {
 	nu.Owner = nut
 	n.children[nu.Name] = nut
 
-	Tree.Sys.TreeUpdater.Notify(TreeNodeCreateMsgKind, SystemUser, nut, nu.Name, nut)
+	Tree.Sys.TreeUpdater.Notify(mk.TreeNodeCreate, SystemUser, nut, nu.Name, nut)
 
-	return &Msg{Kind: OKMsgKind, Payload: nut}
+	return &Msg{Kind: mk.OK, Payload: nut}
 }
 
 func authUserHandler(ni Node, q *Msg) (a *Msg) {
@@ -120,13 +119,13 @@ func authUserHandler(ni Node, q *Msg) (a *Msg) {
 	if !ok {
 		return NewErrorMsg(fmt.Errorf("user not found"))
 	}
-	up := u.Ask(GetCopyMsgKind, SystemUser).Payload.(UserNode)
+	up := u.Ask(mk.GetCopy, SystemUser).Payload.(UserNode)
 
 	err := bcrypt.CompareHashAndPassword(up.Parms.Password, uc.Parms.Password)
 	if err != nil {
 		return NewErrorMsg(err)
 	}
-	return &Msg{Kind: ParmsMsgKind, Payload: up}
+	return &Msg{Kind: mk.Parms, Payload: up}
 }
 
 func usersGetDisplayHandler(ni Node, _ *Msg) *Msg {
@@ -136,7 +135,7 @@ func usersGetDisplayHandler(ni Node, _ *Msg) *Msg {
 		"Invitation Only": n.Parms.InvitationOnly,
 	}
 	r := &Msg{
-		Kind:    DisplayMsgKind,
+		Kind:    mk.Display,
 		Payload: d,
 	}
 	return r

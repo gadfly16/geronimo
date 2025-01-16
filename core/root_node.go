@@ -4,16 +4,17 @@ import (
 	"crypto/rand"
 	"log/slog"
 
+	mk "github.com/gadfly16/geronimo/msgKinds"
 	"gorm.io/gorm"
 )
 
 var JwtKey []byte
 
 func init() {
-	nodeMsgHandlers[RootKind] = map[MsgKind]func(Node, *Msg) *Msg{
+	nodeMsgHandlers[RootKind] = map[mk.MK]func(Node, *Msg) *Msg{
 		// msg.UpdateKind:   rootUpdateHandler,
-		GetParmsMsgKind:   rootGetParmsHandler,
-		GetDisplayMsgKind: rootGetDisplayHandler,
+		mk.GetParms:   rootGetParmsHandler,
+		mk.GetDisplay: rootGetDisplayHandler,
 	}
 }
 
@@ -45,7 +46,7 @@ func (n *RootNode) run() {
 	slog.Debug("ROOT node starting up.", "node", n.Head.path, "logLevel", n.Parms.LogLevel)
 	for q := range n.In {
 		a := n.Head.handleMsg(n, q)
-		if a != nil && a.Kind == StoppedMsgKind {
+		if a != nil && a.Kind == mk.Stopped {
 			// Drain unsubscribe messages
 			for range len(n.Head.guiSubs) {
 				q := <-n.Head.In
@@ -108,7 +109,7 @@ func initRootNode(rp *RootParms) (err error) {
 func rootGetParmsHandler(ni Node, m *Msg) (r *Msg) {
 	n := ni.(*RootNode)
 	return &Msg{
-		Kind:    ParmsMsgKind,
+		Kind:    mk.Parms,
 		Payload: *n.Parms,
 	}
 }
@@ -120,7 +121,7 @@ func rootGetDisplayHandler(ni Node, _ *Msg) *Msg {
 	// 	"Display Name": n.Parms.DisplayName,
 	// }
 	r := &Msg{
-		Kind:    DisplayMsgKind,
+		Kind:    mk.Display,
 		Payload: d,
 	}
 	return r

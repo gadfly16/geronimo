@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"sync"
+
+	mk "github.com/gadfly16/geronimo/msgKinds"
 )
 
 // System user is a special user that can do anything.
@@ -76,8 +78,8 @@ func (t *nodeTree) LoadAndRun(sdb string) (err error) {
 		return errors.New("users node can not be found")
 	}
 
-	a := Tree.Sys.System.Ask(CreateChildMsgKind, SystemUser, TreeUpdaterKind, "TreeUpdater")
-	if a.Kind == ErrorMsgKind {
+	a := Tree.Sys.System.Ask(mk.CreateChild, SystemUser, TreeUpdaterKind, "TreeUpdater")
+	if a.Kind == mk.Error {
 		return errors.New("startup: tree updater creation creation failed")
 	}
 	tu := a.Payload.(*Tag)
@@ -88,8 +90,8 @@ func (t *nodeTree) LoadAndRun(sdb string) (err error) {
 }
 
 func (t *nodeTree) Stop() (err error) {
-	a := Tree.Sys.Root.Ask(StopMsgKind, SystemUser)
-	if a.Kind == ErrorMsgKind {
+	a := Tree.Sys.Root.Ask(mk.Stop, SystemUser)
+	if a.Kind == mk.Error {
 		return errors.New(a.Payload.(string))
 	}
 

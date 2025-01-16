@@ -8,6 +8,7 @@ import (
 	"github.com/coder/websocket"
 
 	"github.com/gadfly16/geronimo/core"
+	mk "github.com/gadfly16/geronimo/msgKinds"
 )
 
 func socketHandler(w http.ResponseWriter, q *http.Request) {
@@ -39,11 +40,11 @@ func socketHandler(w http.ResponseWriter, q *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	a := un.Ask(core.GetChildMsgKind, u, "GUIs")
+	a := un.Ask(mk.GetChild, u, "GUIs")
 
 	guis := a.Payload.(*core.Tag)
 	done := make(core.DC)
-	a = guis.Ask(core.CreateChildMsgKind, u, core.GUIKind, "", c, done, cls.Admin)
+	a = guis.Ask(mk.CreateChild, u, core.GUIKind, "", c, done, cls.Admin)
 
 	<-done
 }

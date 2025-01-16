@@ -7,22 +7,24 @@ import (
 	"strings"
 	"time"
 
+	mk "github.com/gadfly16/geronimo/msgKinds"
+
 	"gorm.io/gorm"
 )
 
-var nodeMsgHandlers = map[Kind]map[MsgKind]func(Node, *Msg) *Msg{}
+var nodeMsgHandlers = map[Kind]map[mk.MK]func(Node, *Msg) *Msg{}
 
-var commonMsgHandlers = map[MsgKind]func(*Head, *Msg) *Msg{
-	CreateChildMsgKind: createChildHandler,
-	StopMsgKind:        stopHandler,
-	GetTreeMsgKind:     getTreeHandler,
-	SubscribeMsgKind:   subscribeHandler,
-	UnsubscribeMsgKind: unsubscribeHandler,
-	RenameMsgKind:      renameHandler,
-	UpdatePathMsgKind:  updatePathHandler,
-	RenameChildMsgKind: renameChildHandler,
-	GetChildMsgKind:    getChildHandler,
-	DeleteChildMsgKind: deleteChildHandler,
+var commonMsgHandlers = map[mk.MK]func(*Head, *Msg) *Msg{
+	mk.CreateChild: createChildHandler,
+	mk.Stop:        stopHandler,
+	mk.GetTree:     getTreeHandler,
+	mk.Subscribe:   subscribeHandler,
+	mk.Unsubscribe: unsubscribeHandler,
+	mk.Rename:      renameHandler,
+	mk.UpdatePath:  updatePathHandler,
+	mk.RenameChild: renameChildHandler,
+	mk.GetChild:    getChildHandler,
+	mk.DeleteChild: deleteChildHandler,
 }
 
 type Head struct {
@@ -106,7 +108,7 @@ func (h *Head) handleMsg(n Node, q *Msg) (a *Msg) {
 	if ok {
 		a = cmh(h, q)
 		if a != nil {
-			if a.Kind == StoppedMsgKind {
+			if a.Kind == mk.Stopped {
 				slog.Debug("MSG answer for stop message delayed.", "node", n.getPath())
 				return
 			}
@@ -157,19 +159,19 @@ func createChildHandler(h *Head, m *Msg) (r *Msg) {
 	nn.setPath(h.path + "/" + nm)
 
 	if Tree.Sys.TreeUpdater != nil {
-		Tree.Sys.TreeUpdater.Notify(TreeNodeCreateMsgKind, SystemUser, nnt, nm, h.Owner)
+		Tree.Sys.TreeUpdater.Notify(mk.TreeNodeCreate, SystemUser, nnt, nm, h.Owner)
 	}
 
 	slog.Debug("NODE created.", "node", nn.getPath(), "kind", nn.kindName())
-	return &Msg{Kind: OKMsgKind, Payload: nnt}
+	return &Msg{Kind: mk.OK, Payload: nnt}
 }
 
 func stopHandler(h *Head, m *Msg) (r *Msg) {
 	h.askChildrenMsg(m)
-	return &Msg{Kind: StoppedMsgKind, Payload: h.ID}
+	return &Msg{Kind: mk.Stopped, Payload: h.ID}
 }
 
-func (h *Head) askChildren(k MsgKind, u *Tag, pl ...any) {
+func (h *Head) askChildren(k mk.MK, u *Tag, pl ...any) {
 	var epl any = pl
 	if len(pl) == 1 {
 		epl = pl[0]
@@ -202,7 +204,7 @@ func (h *Head) askChildrenMsg(q *Msg) {
 
 func updatePathHandler(h *Head, m *Msg) (r *Msg) {
 	h.path = m.Payload.(string) + "/" + h.Name
-	h.askChildren(UpdatePathMsgKind, m.User, h.path)
+	h.askChildren(mk.UpdatePath, m.User, h.path)
 	h.updateGUIs()
 	return &OKMsg
 }
@@ -213,7 +215,7 @@ func getChildHandler(h *Head, m *Msg) (r *Msg) {
 	if !ok {
 		return NewErrorMsg(fmt.Errorf("children '%s' not found", chnm))
 	}
-	return &Msg{Kind: OKMsgKind, Payload: ch}
+	return &Msg{Kind: mk.OK, Payload: ch}
 }
 
 func getTreeHandler(h *Head, m *Msg) (r *Msg) {
@@ -232,7 +234,7 @@ func getTreeHandler(h *Head, m *Msg) (r *Msg) {
 	var cherr bool
 	for range len(h.children) {
 		chr := <-chm.resp
-		if chr.Kind == ErrorMsgKind {
+		if chr.Kind == mk.Error {
 			cherr = true
 		} else {
 			tree.Children = append(tree.Children, chr.Payload.(*TreeEntry))
@@ -244,7 +246,7 @@ func getTreeHandler(h *Head, m *Msg) (r *Msg) {
 	}
 
 	r = &Msg{
-		Kind:    TreeMsgKind,
+		Kind:    mk.Tree,
 		Payload: tree}
 	return
 }
@@ -278,8 +280,8 @@ func renameChildHandler(h *Head, q *Msg) *Msg {
 		return NewErrorMsg(fmt.Errorf("node already has a children named '%s'", nnm))
 	}
 
-	a := ch.Ask(RenameMsgKind, q.User, nnm)
-	if a.Kind == ErrorMsgKind {
+	a := ch.Ask(mk.Rename, q.User, nnm)
+	if a.Kind == mk.Error {
 		return &a
 	}
 
@@ -299,9 +301,9 @@ func renameHandler(h *Head, m *Msg) (r *Msg) {
 		return NewErrorMsg(fmt.Errorf("database error during rename: %w", dbr.Error))
 	}
 	h.path = strings.TrimSuffix(h.path, on) + nn
-	h.askChildren(UpdatePathMsgKind, m.User, h.path)
+	h.askChildren(mk.UpdatePath, m.User, h.path)
 	h.updateGUIs()
-	Tree.Sys.TreeUpdater.Notify(TreeNodeRenameMsgKind, SystemUser, h.Tag, h.Name, h.Owner)
+	Tree.Sys.TreeUpdater.Notify(mk.TreeNodeRename, SystemUser, h.Tag, h.Name, h.Owner)
 	return &OKMsg
 }
 
@@ -311,13 +313,13 @@ func deleteChildHandler(h *Head, q *Msg) *Msg {
 	if !ok {
 		return NewErrorMsg(fmt.Errorf("DELETE found no children named '%s'", nm))
 	}
-	a := ch.Ask(StopMsgKind, q.User)
-	if a.Kind == ErrorMsgKind {
+	a := ch.Ask(mk.Stop, q.User)
+	if a.Kind == mk.Error {
 		slog.Error("HEAD couldn't delete child.", "node", h.path, "name", nm)
 		return &a
 	}
 
-	Tree.Sys.TreeUpdater.Notify(TreeNodeDeleteMsgKind, SystemUser, ch, nm, h.Owner)
+	Tree.Sys.TreeUpdater.Notify(mk.TreeNodeDelete, SystemUser, ch, nm, h.Owner)
 
 	delete(h.children, nm)
 	return &OKMsg
@@ -340,6 +342,6 @@ func (h *Head) display() H {
 func (h *Head) updateGUIs() {
 	for gt := range h.guiSubs {
 		slog.Debug("sending updated msg to GUI", "gui_id", gt.ID)
-		gt.Notify(NodeUpdateMsgKind, SystemUser, h.Tag)
+		gt.Notify(mk.NodeUpdate, SystemUser, h.Tag)
 	}
 }

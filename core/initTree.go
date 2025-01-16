@@ -3,6 +3,8 @@ package core
 import (
 	"errors"
 	"log/slog"
+
+	mk "github.com/gadfly16/geronimo/msgKinds"
 )
 
 func InitTree(sdb string, rp RootParms) (err error) {
@@ -19,12 +21,12 @@ func InitTree(sdb string, rp RootParms) (err error) {
 		slog.Error("Failed to create root node. Exiting.", "error", err.Error())
 		return
 	}
-	r := Tree.Sys.Root.Ask(CreateChildMsgKind, SystemUser, UsersKind, "Users")
-	if r.Kind == ErrorMsgKind {
+	r := Tree.Sys.Root.Ask(mk.CreateChild, SystemUser, UsersKind, "Users")
+	if r.Kind == mk.Error {
 		return errors.New("init: users creation failed")
 	}
-	r = Tree.Sys.Root.Ask(CreateChildMsgKind, SystemUser, GroupKind, "System")
-	if r.Kind == ErrorMsgKind {
+	r = Tree.Sys.Root.Ask(mk.CreateChild, SystemUser, GroupKind, "System")
+	if r.Kind == mk.Error {
 		return errors.New("init: system group creation failed")
 	}
 	return nil

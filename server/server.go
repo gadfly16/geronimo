@@ -19,6 +19,7 @@ import (
 	"github.com/go-chi/render"
 
 	"github.com/gadfly16/geronimo/core"
+	mk "github.com/gadfly16/geronimo/msgKinds"
 )
 
 const (
@@ -43,7 +44,7 @@ func Serve(sdb string) (err error) {
 		slog.Error("Tree loading failed. Quitting.", "error", err)
 		return
 	}
-	rp := core.Tree.Sys.Root.Ask(core.GetParmsMsgKind, core.SystemUser).Payload.(core.RootParms)
+	rp := core.Tree.Sys.Root.Ask(mk.GetParms, core.SystemUser).Payload.(core.RootParms)
 	slog.Debug("Server settings received")
 
 	srv := &http.Server{Addr: rp.HTTPAddr, Handler: service()}
@@ -229,7 +230,7 @@ func apiMsgHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	mk, err := strconv.Atoi(chi.URLParam(r, "msg_kind"))
+	k, err := strconv.Atoi(chi.URLParam(r, "msg_kind"))
 	if err != nil {
 		slog.Error("invalid message kind")
 		w.WriteHeader(http.StatusBadRequest)
@@ -238,12 +239,12 @@ func apiMsgHandler(w http.ResponseWriter, r *http.Request) {
 
 	slog.Debug("HTTP API message call.",
 		"targetID", tid,
-		"msgKind", core.MsgKindNames[mk],
+		"msgKind", mk.Names[k],
 		"uid", uid,
 		"admin", cls.Admin,
 	)
 
-	q, err := core.UnmarshalMsg(mk, r.Body)
+	q, err := core.UnmarshalMsg(k, r.Body)
 	if err != nil {
 		slog.Error("can't unmarshal message payload", "error", err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -251,7 +252,7 @@ func apiMsgHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If the request is to get the tree, tree is served from the root node
-	if q.Kind == core.GetTreeMsgKind && cls.Admin {
+	if q.Kind == mk.GetTree && cls.Admin {
 		tid = 1
 	}
 
@@ -269,7 +270,7 @@ func apiMsgHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a := t.AskMsg(q)
-	if a.Kind == core.ErrorMsgKind {
+	if a.Kind == mk.Error {
 		slog.Error("HTTP API message resulted in error.", "error", a.Payload.(string))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -288,15 +289,15 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a := core.Tree.Sys.Users.Ask(core.CreateUserMsgKind, core.SystemUser, un)
-	if a.Kind == core.ErrorMsgKind {
+	a := core.Tree.Sys.Users.Ask(mk.CreateUser, core.SystemUser, un)
+	if a.Kind == mk.Error {
 		slog.Error("SIGNUP user creation failed.", "error", a.ErrorMsg())
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	nu := a.Payload.(*core.Tag)
-	a = nu.Ask(core.CreateChildMsgKind, nu, core.GroupKind, "GUIs")
-	if a.Kind == core.ErrorMsgKind {
+	a = nu.Ask(mk.CreateChild, nu, core.GroupKind, "GUIs")
+	if a.Kind == mk.Error {
 		slog.Error("SIGNUP user GUIs creation failed.", "error", a.ErrorMsg())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -316,8 +317,8 @@ func loginHandler(w http.ResponseWriter, q *http.Request) {
 	}
 	slog.Debug("AUTH unmarshalled credentials user node", "Name", ucn.Head.Name)
 	// Magic number must be replaced with a stored pipe on Tree
-	r := core.Tree.Sys.Users.Ask(core.AuthUserMsgKind, core.SystemUser, ucn)
-	if r.Kind == core.ErrorMsgKind {
+	r := core.Tree.Sys.Users.Ask(mk.AuthUser, core.SystemUser, ucn)
+	if r.Kind == mk.Error {
 		slog.Error("LOGIN user authentication failed.", "error", r.ErrorMsg())
 		w.WriteHeader(http.StatusBadRequest)
 		return

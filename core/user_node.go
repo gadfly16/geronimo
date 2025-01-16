@@ -5,16 +5,17 @@ import (
 	"io"
 	"log/slog"
 
+	mk "github.com/gadfly16/geronimo/msgKinds"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 func init() {
-	nodeMsgHandlers[UserKind] = map[MsgKind]func(Node, *Msg) *Msg{
-		UpdateMsgKind:     userUpdateHandler,
-		GetParmsMsgKind:   userGetParmsHandler,
-		GetCopyMsgKind:    userGetNodeCopyHandler,
-		GetDisplayMsgKind: userGetDisplayHandler,
+	nodeMsgHandlers[UserKind] = map[mk.MK]func(Node, *Msg) *Msg{
+		mk.Update:     userUpdateHandler,
+		mk.GetParms:   userGetParmsHandler,
+		mk.GetCopy:    userGetNodeCopyHandler,
+		mk.GetDisplay: userGetDisplayHandler,
 	}
 }
 
@@ -37,7 +38,7 @@ func (n *UserNode) run() {
 	slog.Debug("Running User node.", "node", n.Head.path)
 	for q := range n.In {
 		a := n.Head.handleMsg(n, q)
-		if a != nil && a.Kind == StoppedMsgKind {
+		if a != nil && a.Kind == mk.Stopped {
 			// Drain unsubscribe messages
 			for range len(n.Head.guiSubs) {
 				q := <-n.Head.In
@@ -103,7 +104,7 @@ func (n *UserNode) UnmarshalMsg(b io.ReadCloser) (m Msg, err error) {
 func userGetParmsHandler(ni Node, _ *Msg) *Msg {
 	n := ni.(*UserNode)
 	return &Msg{
-		Kind:    ParmsMsgKind,
+		Kind:    mk.Parms,
 		Payload: *n.Parms,
 	}
 }
@@ -111,7 +112,7 @@ func userGetParmsHandler(ni Node, _ *Msg) *Msg {
 func userGetNodeCopyHandler(ni Node, _ *Msg) *Msg {
 	ncp := *ni.(*UserNode)
 	return &Msg{
-		Kind:    ParmsMsgKind,
+		Kind:    mk.Parms,
 		Payload: ncp,
 	}
 }
@@ -162,7 +163,7 @@ func userGetDisplayHandler(ni Node, _ *Msg) *Msg {
 	}
 	// slog.Debug("Display data returned by user node", "displayData", d)
 	r := &Msg{
-		Kind:    DisplayMsgKind,
+		Kind:    mk.Display,
 		Payload: d,
 	}
 	return r
