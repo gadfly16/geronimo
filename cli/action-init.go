@@ -4,8 +4,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/gadfly16/geronimo/core"
-	mk "github.com/gadfly16/geronimo/msgKinds"
+	"github.com/gadfly16/geronimo/tree"
 	"github.com/spf13/cobra"
 )
 
@@ -26,21 +25,21 @@ var initCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		var ll slog.Level
 		var ok bool
-		if ll, ok = core.LogLevelNames[logLevelName]; !ok {
+		if ll, ok = tree.LogLevelNames[logLevelName]; !ok {
 			slog.Error("Unknown log level name.", "levelName", logLevelName)
 			return
 		}
 		rp.LogLevel = int(ll)
 
-		err := core.InitTree(sdb, rp)
+		err := tree.InitTree(sdb, rp)
 		if err != nil {
 			slog.Error("Failed to initialize tree. Exiting.", "error", err.Error())
 			return
 		}
 		slog.Info("Waiting for goroutines to start. TODO")
 		time.Sleep(time.Millisecond * 100)
-		core.Tree.Sys.Root.Ask(mk.Stop, core.SystemUser)
-		if err := core.CloseDB(); err != nil {
+		tree.Tree.Sys.Root.Ask(tree.MK_Stop, tree.SystemUser)
+		if err := tree.CloseDB(); err != nil {
 			slog.Error("State db connection close failed.", "error", err)
 		}
 		slog.Info("Geronimo initialized.")

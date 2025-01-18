@@ -1,22 +1,20 @@
-package core
+package tree
 
 import (
 	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
-
-	mk "github.com/gadfly16/geronimo/msgKinds"
 )
 
 // System user is a special user that can do anything.
-var SystemUser = &Tag{0, UserKind, nil, true, nil}
+var SystemUser = &Tag{0, NK_User, nil, true, nil}
 
 type NodeID int
 
 type Tag struct {
 	ID     NodeID `gorm:"primarykey"`
-	Kind   Kind
+	Kind   NK
 	In     Pipe `gorm:"-"`
 	Admin  bool `gorm:"-"`
 	Parent *Tag `gorm:"-"`
@@ -42,7 +40,7 @@ type runtime struct {
 type TreeEntry struct {
 	ID       NodeID
 	Name     string
-	Kind     Kind
+	Kind     NK
 	Children []*TreeEntry `json:",omitempty"`
 }
 
@@ -78,8 +76,8 @@ func (t *nodeTree) LoadAndRun(sdb string) (err error) {
 		return errors.New("users node can not be found")
 	}
 
-	a := Tree.Sys.System.Ask(mk.CreateChild, SystemUser, TreeUpdaterKind, "TreeUpdater")
-	if a.Kind == mk.Error {
+	a := Tree.Sys.System.Ask(MK_CreateChild, SystemUser, NK_TreeUpdater, "TreeUpdater")
+	if a.Kind == MK_Error {
 		return errors.New("startup: tree updater creation creation failed")
 	}
 	tu := a.Payload.(*Tag)
@@ -90,8 +88,8 @@ func (t *nodeTree) LoadAndRun(sdb string) (err error) {
 }
 
 func (t *nodeTree) Stop() (err error) {
-	a := Tree.Sys.Root.Ask(mk.Stop, SystemUser)
-	if a.Kind == mk.Error {
+	a := Tree.Sys.Root.Ask(MK_Stop, SystemUser)
+	if a.Kind == MK_Error {
 		return errors.New(a.Payload.(string))
 	}
 

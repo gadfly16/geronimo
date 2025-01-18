@@ -1,19 +1,18 @@
-package core
+package tree
 
 import (
 	"fmt"
 	"log/slog"
 
-	mk "github.com/gadfly16/geronimo/msgKinds"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 func init() {
-	nodeMsgHandlers[UsersKind] = map[mk.MK]func(Node, *Msg) *Msg{
-		mk.CreateUser: createUserHandler,
-		mk.AuthUser:   authUserHandler,
-		mk.GetDisplay: usersGetDisplayHandler,
+	nodeMsgHandlers[NK_Users] = map[MK]func(Node, *Msg) *Msg{
+		MK_CreateUser: createUserHandler,
+		MK_AuthUser:   authUserHandler,
+		MK_GetDisplay: usersGetDisplayHandler,
 	}
 }
 
@@ -46,7 +45,7 @@ func (n *UsersNode) run() {
 	slog.Debug("USERS node starting up.", "node", n.Head.path)
 	for q := range n.Head.In {
 		a := n.Head.handleMsg(n, q)
-		if a != nil && a.Kind == mk.Stopped {
+		if a != nil && a.Kind == MK_Stopped {
 			// Drain unsubscribe messages
 			for range len(n.Head.guiSubs) {
 				q := <-n.Head.In
@@ -82,7 +81,7 @@ func (n *UsersNode) create(_ []any) (_ *Tag, err error) {
 func createUserHandler(ni Node, m *Msg) (r *Msg) {
 	n := ni.(*UsersNode)
 	nu := m.Payload.(*UserNode)
-	if nu.Kind != UserKind {
+	if nu.Kind != NK_User {
 		return NewErrorMsg(fmt.Errorf("user node kind isn't userKind"))
 	}
 	if nu.Name == "" {
@@ -106,9 +105,9 @@ func createUserHandler(ni Node, m *Msg) (r *Msg) {
 	nu.Owner = nut
 	n.children[nu.Name] = nut
 
-	Tree.Sys.TreeUpdater.Notify(mk.TreeNodeCreate, SystemUser, nut, nu.Name, nut)
+	Tree.Sys.TreeUpdater.Notify(MK_TreeNodeCreate, SystemUser, nut, nu.Name, nut)
 
-	return &Msg{Kind: mk.OK, Payload: nut}
+	return &Msg{Kind: MK_OK, Payload: nut}
 }
 
 func authUserHandler(ni Node, q *Msg) (a *Msg) {
@@ -119,13 +118,13 @@ func authUserHandler(ni Node, q *Msg) (a *Msg) {
 	if !ok {
 		return NewErrorMsg(fmt.Errorf("user not found"))
 	}
-	up := u.Ask(mk.GetCopy, SystemUser).Payload.(UserNode)
+	up := u.Ask(MK_GetCopy, SystemUser).Payload.(UserNode)
 
 	err := bcrypt.CompareHashAndPassword(up.Parms.Password, uc.Parms.Password)
 	if err != nil {
 		return NewErrorMsg(err)
 	}
-	return &Msg{Kind: mk.Parms, Payload: up}
+	return &Msg{Kind: MK_Parms, Payload: up}
 }
 
 func usersGetDisplayHandler(ni Node, _ *Msg) *Msg {
@@ -135,7 +134,7 @@ func usersGetDisplayHandler(ni Node, _ *Msg) *Msg {
 		"Invitation Only": n.Parms.InvitationOnly,
 	}
 	r := &Msg{
-		Kind:    mk.Display,
+		Kind:    MK_Display,
 		Payload: d,
 	}
 	return r

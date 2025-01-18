@@ -1,4 +1,4 @@
-package core
+package tree
 
 type WsMsgKind int
 
@@ -22,7 +22,7 @@ type wsMsg struct {
 	OTP          string
 	GUIID        NodeID
 	NodeID       NodeID
-	NodeKind     Kind
+	NodeKind     NK
 	NodeName     string
 	NodeParentID NodeID
 }

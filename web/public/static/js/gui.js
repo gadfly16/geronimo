@@ -12,7 +12,6 @@ function ask(mk, tid, pl, f) {
         body: pl === null ? null : JSON.stringify(pl),
     })
         .then((resp) => {
-        // console.log('Msg resonse: ', resp)
         if (!resp.ok) {
             if (resp.status === 401) {
                 window.location.replace("/static/login.html" + new URL(location.href).search);
@@ -447,7 +446,7 @@ class NodeDisplay {
         const n = t.textContent;
         const nk = nodeKindIDs[n];
         console.log("clicked create child:", n, this.ID);
-        ask(msgKinds.Create, this.ID, [nk, ""], (r) => {
+        ask(msgKinds.CreateChild, this.ID, [nk, ""], (r) => {
             console.log(r);
         });
     }

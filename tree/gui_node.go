@@ -1,4 +1,4 @@
-package core
+package tree
 
 import (
 	"context"
@@ -6,19 +6,17 @@ import (
 	"log/slog"
 	"time"
 
-	mk "github.com/gadfly16/geronimo/msgKinds"
-
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 )
 
 func init() {
-	nodeMsgHandlers[GUIKind] = map[mk.MK]func(Node, *Msg) *Msg{
-		mk.GetDisplay:     guiGetDisplayHandler,
-		mk.NodeUpdate:     guiNodeUpdateHandler,
-		mk.TreeNodeRename: guiTreeNodeRenameHandler,
-		mk.TreeNodeCreate: guiTreeNodeCreateHandler,
-		mk.TreeNodeDelete: guiTreeNodeDeleteHandler,
+	nodeMsgHandlers[NK_GUI] = map[MK]func(Node, *Msg) *Msg{
+		MK_GetDisplay:     guiGetDisplayHandler,
+		MK_NodeUpdate:     guiNodeUpdateHandler,
+		MK_TreeNodeRename: guiTreeNodeRenameHandler,
+		MK_TreeNodeCreate: guiTreeNodeCreateHandler,
+		MK_TreeNodeDelete: guiTreeNodeDeleteHandler,
 		// msg.UpdateKind:   rootUpdateHandler,
 		// msg.GetParmsKind: rootGetParmsHandler,
 	}
@@ -61,7 +59,7 @@ func (n *GUINode) run() {
 	}
 	slog.Debug("GUI credential affirmation received.", "gui_id", n.Head.ID)
 	// Subscribe for tree updates
-	Tree.Sys.TreeUpdater.Ask(mk.SubscribeTree, SystemUser, n.Tag, n.Owner)
+	Tree.Sys.TreeUpdater.Ask(MK_SubscribeTree, SystemUser, n.Tag, n.Owner)
 	// Start satelites
 	guiCtx, stopGuiCtx := context.WithCancel(context.Background())
 	defer stopGuiCtx()
@@ -80,7 +78,7 @@ out:
 						slog.Error("subscribing to nonexisting node", "node_id", wm.NodeID)
 						break out
 					}
-					sn.Notify(mk.Subscribe, n.Owner, n.Tag)
+					sn.Notify(MK_Subscribe, n.Owner, n.Tag)
 				}
 				n.subNodes[wm.NodeID] = E{}
 			case UnsubscribeWsMsgKind:
@@ -90,7 +88,7 @@ out:
 						slog.Error("unsubscribing from nonexisting node", "node_id", wm.NodeID)
 						break out
 					}
-					sn.Notify(mk.Unsubscribe, n.Owner, n.Tag)
+					sn.Notify(MK_Unsubscribe, n.Owner, n.Tag)
 				}
 				delete(n.subNodes, wm.NodeID)
 			case HeartbeatWsMsgKind:
@@ -106,7 +104,7 @@ out:
 			}
 		case q := <-n.In:
 			a := n.Head.handleMsg(n, q)
-			if a != nil && a.Kind == mk.Stopped {
+			if a != nil && a.Kind == MK_Stopped {
 				// Stop satelites
 				// stopGuiCtx()
 				n.conn.Close(websocket.StatusServiceRestart, "stopping node")
@@ -120,12 +118,12 @@ out:
 								slog.Error("GUI unsubscribe from nonexisting node.", "node_id", nid)
 								return
 							}
-							sn.Ask(mk.Unsubscribe, n.Owner, n.Tag)
+							sn.Ask(MK_Unsubscribe, n.Owner, n.Tag)
 						}()
 					}
 				}
 				// Unsubscribe from tree updater
-				Tree.Sys.TreeUpdater.Ask(mk.UnsubscribeTree, SystemUser, n.Tag, n.Owner)
+				Tree.Sys.TreeUpdater.Ask(MK_UnsubscribeTree, SystemUser, n.Tag, n.Owner)
 				// Drain unsubscribe messages
 				for range len(n.Head.guiSubs) {
 					q := <-n.Head.In
@@ -238,7 +236,7 @@ func guiGetDisplayHandler(ni Node, _ *Msg) *Msg {
 	n := ni.(*GUINode)
 	d := n.Head.display()
 	r := &Msg{
-		Kind:    mk.Display,
+		Kind:    MK_Display,
 		Payload: d,
 	}
 	return r
@@ -258,14 +256,14 @@ func (n *GUINode) wsReceiver(ctx context.Context, done DC) {
 			} else {
 				slog.Error("GUI ws read error, exiting.", "node", n.path, "error", err)
 				close(done)
-				n.Parent.Ask(mk.DeleteChild, n.Owner, n.Name)
+				n.Parent.Ask(MK_DeleteChild, n.Owner, n.Name)
 			}
 			break
 		}
 		if msg.GUIID != n.Head.ID || msg.OTP != n.otp {
 			slog.Error("GUI encountered bad ws credentials, exiting.")
 			close(done)
-			n.Parent.Ask(mk.DeleteChild, n.Owner, n.Tag)
+			n.Parent.Ask(MK_DeleteChild, n.Owner, n.Tag)
 			break
 		}
 		n.wsr <- msg

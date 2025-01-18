@@ -18,8 +18,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 
-	"github.com/gadfly16/geronimo/core"
-	mk "github.com/gadfly16/geronimo/msgKinds"
+	"github.com/gadfly16/geronimo/tree"
 )
 
 const (
@@ -40,11 +39,11 @@ const (
 )
 
 func Serve(sdb string) (err error) {
-	if err = core.Tree.LoadAndRun(sdb); err != nil {
+	if err = tree.Tree.LoadAndRun(sdb); err != nil {
 		slog.Error("Tree loading failed. Quitting.", "error", err)
 		return
 	}
-	rp := core.Tree.Sys.Root.Ask(mk.GetParms, core.SystemUser).Payload.(core.RootParms)
+	rp := tree.Tree.Sys.Root.Ask(tree.MK_GetParms, tree.SystemUser).Payload.(tree.RootParms)
 	slog.Debug("Server settings received")
 
 	srv := &http.Server{Addr: rp.HTTPAddr, Handler: service()}
@@ -87,7 +86,7 @@ func Serve(sdb string) (err error) {
 
 	// Wait for server context to be stopped
 	<-srvCtx.Done()
-	core.Tree.Stop()
+	tree.Tree.Stop()
 
 	slog.Info("PROC exiting server.")
 	// time.Sleep(time.Second)
@@ -166,7 +165,7 @@ func authPage(next http.Handler) http.Handler {
 		}
 
 		token, err := jwt.ParseWithClaims(et.Value, &claims{}, func(token *jwt.Token) (interface{}, error) {
-			return core.JwtKey, nil
+			return tree.JwtKey, nil
 		})
 		if err != nil {
 			slog.Error("HTTP unable to parse cookie.", "URL", r.URL)
@@ -197,7 +196,7 @@ func authFetch(next http.Handler) http.Handler {
 		}
 
 		token, err := jwt.ParseWithClaims(et.Value, &claims{}, func(token *jwt.Token) (interface{}, error) {
-			return core.JwtKey, nil
+			return tree.JwtKey, nil
 		})
 		if err != nil {
 			slog.Error("HTTP unable to parse cookie.", "URL", r.URL)
@@ -239,12 +238,12 @@ func apiMsgHandler(w http.ResponseWriter, r *http.Request) {
 
 	slog.Debug("HTTP API message call.",
 		"targetID", tid,
-		"msgKind", mk.Names[k],
+		"msgKind", tree.MKNames[k],
 		"uid", uid,
 		"admin", cls.Admin,
 	)
 
-	q, err := core.UnmarshalMsg(k, r.Body)
+	q, err := tree.UnmarshalMsg(k, r.Body)
 	if err != nil {
 		slog.Error("can't unmarshal message payload", "error", err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -252,17 +251,17 @@ func apiMsgHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If the request is to get the tree, tree is served from the root node
-	if q.Kind == mk.GetTree && cls.Admin {
+	if q.Kind == tree.MK_GetTree && cls.Admin {
 		tid = 1
 	}
 
-	t, ok := core.Tree.GetNode(core.NodeID(tid))
+	t, ok := tree.Tree.GetNode(tree.NodeID(tid))
 	if !ok {
 		slog.Error("HTTP target node doesn't exists", "target_id", tid)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	q.User, ok = core.Tree.GetNode(core.NodeID(uid))
+	q.User, ok = tree.Tree.GetNode(tree.NodeID(uid))
 	if !ok {
 		slog.Error("HTTP user node doesn't exists.", "user_id", uid)
 		w.WriteHeader(http.StatusBadRequest)
@@ -270,7 +269,7 @@ func apiMsgHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a := t.AskMsg(q)
-	if a.Kind == mk.Error {
+	if a.Kind == tree.MK_Error {
 		slog.Error("HTTP API message resulted in error.", "error", a.Payload.(string))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -281,7 +280,7 @@ func apiMsgHandler(w http.ResponseWriter, r *http.Request) {
 
 func signupHandler(w http.ResponseWriter, r *http.Request) {
 	slog.Info("HTTP received new SIGNUP attempt.")
-	un := &core.UserNode{}
+	un := &tree.UserNode{}
 	d := json.NewDecoder(r.Body)
 	if err := d.Decode(un); err != nil {
 		slog.Error("SIGNUP can't unmarshall new user node.", "error", err)
@@ -289,15 +288,15 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a := core.Tree.Sys.Users.Ask(mk.CreateUser, core.SystemUser, un)
-	if a.Kind == mk.Error {
+	a := tree.Tree.Sys.Users.Ask(tree.MK_CreateUser, tree.SystemUser, un)
+	if a.Kind == tree.MK_Error {
 		slog.Error("SIGNUP user creation failed.", "error", a.ErrorMsg())
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	nu := a.Payload.(*core.Tag)
-	a = nu.Ask(mk.CreateChild, nu, core.GroupKind, "GUIs")
-	if a.Kind == mk.Error {
+	nu := a.Payload.(*tree.Tag)
+	a = nu.Ask(tree.MK_CreateChild, nu, tree.NK_Group, "GUIs")
+	if a.Kind == tree.MK_Error {
 		slog.Error("SIGNUP user GUIs creation failed.", "error", a.ErrorMsg())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -308,7 +307,7 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 
 func loginHandler(w http.ResponseWriter, q *http.Request) {
 	slog.Info("LOGIN new attempt.")
-	ucn := core.NewNodeKind(core.UserKind).(*core.UserNode)
+	ucn := tree.NewNodeKind(tree.NK_User).(*tree.UserNode)
 	d := json.NewDecoder(q.Body)
 	if err := d.Decode(ucn); err != nil {
 		slog.Error("Can't unmarshall login user node", "error", err)
@@ -317,14 +316,14 @@ func loginHandler(w http.ResponseWriter, q *http.Request) {
 	}
 	slog.Debug("AUTH unmarshalled credentials user node", "Name", ucn.Head.Name)
 	// Magic number must be replaced with a stored pipe on Tree
-	r := core.Tree.Sys.Users.Ask(mk.AuthUser, core.SystemUser, ucn)
-	if r.Kind == mk.Error {
+	r := tree.Tree.Sys.Users.Ask(tree.MK_AuthUser, tree.SystemUser, ucn)
+	if r.Kind == tree.MK_Error {
 		slog.Error("LOGIN user authentication failed.", "error", r.ErrorMsg())
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	up := r.Payload.(core.UserNode)
+	up := r.Payload.(tree.UserNode)
 	exp := time.Now().Add(expirationDuration)
 	claims := &claims{
 		Admin: up.Parms.Admin,
@@ -334,7 +333,7 @@ func loginHandler(w http.ResponseWriter, q *http.Request) {
 		},
 	}
 
-	st, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(core.JwtKey)
+	st, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(tree.JwtKey)
 	if err != nil {
 		slog.Error("LOGIN user authentication failed.", "error", r.ErrorMsg())
 		w.WriteHeader(http.StatusInternalServerError)

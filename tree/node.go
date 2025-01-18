@@ -1,4 +1,4 @@
-package core
+package tree
 
 import (
 	"time"
@@ -17,7 +17,7 @@ type Node interface {
 	getPath() string
 	setPath(string)
 	setParentID(*Tag)
-	setKind(Kind)
+	setKind(NK)
 	setOwnerID(*Tag)
 	kindName() string
 }
@@ -55,7 +55,7 @@ func (h *Head) setParentID(pt *Tag) {
 	h.ParentID = pt.ID
 }
 
-func (h *Head) setKind(k Kind) {
+func (h *Head) setKind(k NK) {
 	h.Kind = k
 }
 

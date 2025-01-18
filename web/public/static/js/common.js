@@ -7,7 +7,7 @@ export var msgKinds;
     msgKinds[msgKinds["Update"] = 4] = "Update";
     msgKinds[msgKinds["Parms"] = 5] = "Parms";
     msgKinds[msgKinds["GetParms"] = 6] = "GetParms";
-    msgKinds[msgKinds["Create"] = 7] = "Create";
+    msgKinds[msgKinds["CreateChild"] = 7] = "CreateChild";
     msgKinds[msgKinds["AuthUser"] = 8] = "AuthUser";
     msgKinds[msgKinds["GetTree"] = 9] = "GetTree";
     msgKinds[msgKinds["Tree"] = 10] = "Tree";

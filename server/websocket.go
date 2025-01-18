@@ -7,8 +7,7 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/gadfly16/geronimo/core"
-	mk "github.com/gadfly16/geronimo/msgKinds"
+	"github.com/gadfly16/geronimo/tree"
 )
 
 func socketHandler(w http.ResponseWriter, q *http.Request) {
@@ -28,23 +27,23 @@ func socketHandler(w http.ResponseWriter, q *http.Request) {
 	}
 	defer c.CloseNow()
 
-	un, ok := core.Tree.GetNode(core.NodeID(uid))
+	un, ok := tree.Tree.GetNode(tree.NodeID(uid))
 	if !ok {
 		slog.Error("invalid user ID")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	u, ok := core.Tree.GetNode(core.NodeID(uid))
+	u, ok := tree.Tree.GetNode(tree.NodeID(uid))
 	if !ok {
 		slog.Error("Can't get User node.")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	a := un.Ask(mk.GetChild, u, "GUIs")
+	a := un.Ask(tree.MK_GetChild, u, "GUIs")
 
-	guis := a.Payload.(*core.Tag)
-	done := make(core.DC)
-	a = guis.Ask(mk.CreateChild, u, core.GUIKind, "", c, done, cls.Admin)
+	guis := a.Payload.(*tree.Tag)
+	done := make(tree.DC)
+	a = guis.Ask(tree.MK_CreateChild, u, tree.NK_GUI, "", c, done, cls.Admin)
 
 	<-done
 }

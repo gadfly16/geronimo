@@ -1,20 +1,19 @@
-package core
+package tree
 
 import (
 	"crypto/rand"
 	"log/slog"
 
-	mk "github.com/gadfly16/geronimo/msgKinds"
 	"gorm.io/gorm"
 )
 
 var JwtKey []byte
 
 func init() {
-	nodeMsgHandlers[RootKind] = map[mk.MK]func(Node, *Msg) *Msg{
+	nodeMsgHandlers[NK_Root] = map[MK]func(Node, *Msg) *Msg{
 		// msg.UpdateKind:   rootUpdateHandler,
-		mk.GetParms:   rootGetParmsHandler,
-		mk.GetDisplay: rootGetDisplayHandler,
+		MK_GetParms:   rootGetParmsHandler,
+		MK_GetDisplay: rootGetDisplayHandler,
 	}
 }
 
@@ -46,7 +45,7 @@ func (n *RootNode) run() {
 	slog.Debug("ROOT node starting up.", "node", n.Head.path, "logLevel", n.Parms.LogLevel)
 	for q := range n.In {
 		a := n.Head.handleMsg(n, q)
-		if a != nil && a.Kind == mk.Stopped {
+		if a != nil && a.Kind == MK_Stopped {
 			// Drain unsubscribe messages
 			for range len(n.Head.guiSubs) {
 				q := <-n.Head.In
@@ -100,7 +99,7 @@ func (n *RootNode) create(_ []any) (_ *Tag, err error) {
 }
 
 func initRootNode(rp *RootParms) (err error) {
-	root := NewNodeKind(RootKind).(*RootNode)
+	root := NewNodeKind(NK_Root).(*RootNode)
 	root.Parms = rp
 	_, err = root.create(nil)
 	return err
@@ -109,7 +108,7 @@ func initRootNode(rp *RootParms) (err error) {
 func rootGetParmsHandler(ni Node, m *Msg) (r *Msg) {
 	n := ni.(*RootNode)
 	return &Msg{
-		Kind:    mk.Parms,
+		Kind:    MK_Parms,
 		Payload: *n.Parms,
 	}
 }
@@ -121,7 +120,7 @@ func rootGetDisplayHandler(ni Node, _ *Msg) *Msg {
 	// 	"Display Name": n.Parms.DisplayName,
 	// }
 	r := &Msg{
-		Kind:    mk.Display,
+		Kind:    MK_Display,
 		Payload: d,
 	}
 	return r

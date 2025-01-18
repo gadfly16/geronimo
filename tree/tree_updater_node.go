@@ -1,20 +1,18 @@
-package core
+package tree
 
 import (
 	"fmt"
 	"log/slog"
-
-	mk "github.com/gadfly16/geronimo/msgKinds"
 )
 
 func init() {
-	nodeMsgHandlers[TreeUpdaterKind] = map[mk.MK]func(Node, *Msg) *Msg{
-		mk.GetDisplay:      treeUpdaterGetDisplayHandler,
-		mk.SubscribeTree:   subscribeTreeHandler,
-		mk.UnsubscribeTree: unsubscribeTreeHandler,
-		mk.TreeNodeRename:  treeNodeRenameHandler,
-		mk.TreeNodeCreate:  treeNodeCreateHandler,
-		mk.TreeNodeDelete:  treeNodeDeleteHandler,
+	nodeMsgHandlers[NK_TreeUpdater] = map[MK]func(Node, *Msg) *Msg{
+		MK_GetDisplay:      treeUpdaterGetDisplayHandler,
+		MK_SubscribeTree:   subscribeTreeHandler,
+		MK_UnsubscribeTree: unsubscribeTreeHandler,
+		MK_TreeNodeRename:  treeNodeRenameHandler,
+		MK_TreeNodeCreate:  treeNodeCreateHandler,
+		MK_TreeNodeDelete:  treeNodeDeleteHandler,
 		// msg.UpdateKind:   rootUpdateHandler,
 		// msg.GetParmsKind: rootGetParmsHandler,
 	}
@@ -36,7 +34,7 @@ func (n *TreeUpdaterNode) run() {
 	slog.Debug("TU node starting up.", "node", n.Head.path)
 	for q := range n.Head.In {
 		a := n.Head.handleMsg(n, q)
-		if a != nil && a.Kind == mk.Stopped {
+		if a != nil && a.Kind == MK_Stopped {
 			// Sink unsubscribe messages
 			slog.Debug("TU number os subs on sinking.", "ngsubs", len(n.Head.guiSubs), "ntsguis", len(n.treeSubGuis))
 			nsg := 0
@@ -69,7 +67,7 @@ func treeUpdaterGetDisplayHandler(ni Node, _ *Msg) *Msg {
 	n := ni.(*TreeUpdaterNode)
 	d := n.Head.display()
 	r := &Msg{
-		Kind:    mk.Display,
+		Kind:    MK_Display,
 		Payload: d,
 	}
 	return r

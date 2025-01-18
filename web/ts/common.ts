@@ -11,7 +11,7 @@ export enum msgKinds {
   Update,
   Parms,
   GetParms,
-  Create,
+  CreateChild, // nk.NK, nm
   AuthUser,
   GetTree,
   Tree,

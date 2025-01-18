@@ -7,12 +7,12 @@ import (
 	"runtime"
 	"runtime/pprof"
 
-	"github.com/gadfly16/geronimo/core"
+	"github.com/gadfly16/geronimo/tree"
 	"github.com/spf13/cobra"
 )
 
 var (
-	rp           core.RootParms
+	rp           tree.RootParms
 	sdb          string
 	userEmail    string
 	userPassword string
@@ -41,7 +41,7 @@ var rootCmd = &cobra.Command{
 	Long:  `Geronimo is a web application to track, manage and automate crypto investments.`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		slog.Info("Inside root command's persistent pre run.")
-		l := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: core.LogLevel})
+		l := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: tree.LogLevel})
 		slog.SetDefault(slog.New(l))
 		if prof_cpu {
 			var err error
@@ -61,7 +61,7 @@ var rootCmd = &cobra.Command{
 			pprof.StopCPUProfile()
 			cpuProf.Close()
 		}
-		slog.Info("PROC number of nodes on tree.", "nnode", core.Tree.LenNodes())
+		slog.Info("PROC number of nodes on tree.", "nnode", tree.Tree.LenNodes())
 		slog.Info("PROC Goroutinge count on exit.", "numGoroutine", runtime.NumGoroutine())
 	},
 	Run: func(cmd *cobra.Command, args []string) {
