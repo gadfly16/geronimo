@@ -1,21 +1,13 @@
-import { nodeKinds } from "./common.js";
 window.onload = function () {
     // Attach handlers
     document.getElementById("signup-form").onsubmit = signup;
 };
 function signup(e) {
     const data = new FormData(e.target);
-    let newUser = {
-        Kind: nodeKinds.User,
-        Name: data.get("Name"),
-        Parms: {
-            Email: data.get("Email"),
-            Password: btoa(data.get("Password")),
-        },
-    };
+    let nud = [data.get("Name"), data.get("Email"), btoa(data.get("Password"))];
     fetch("/signup", {
         method: "post",
-        body: JSON.stringify(newUser),
+        body: JSON.stringify(nud),
         mode: "same-origin",
     })
         .then((response) => {
@@ -31,3 +23,4 @@ function signup(e) {
     });
     return false;
 }
+export {};

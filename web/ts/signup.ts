@@ -7,18 +7,11 @@ window.onload = function () {
 
 function signup(e: SubmitEvent) {
   const data = new FormData(e.target as HTMLFormElement)
-  let newUser = {
-    Kind: nodeKinds.User,
-    Name: data.get("Name"),
-    Parms: {
-      Email: data.get("Email"),
-      Password: btoa(data.get("Password") as string),
-    },
-  }
+  let nud = [data.get("Name"), data.get("Email"), btoa(data.get("Password") as string)]
 
   fetch("/signup", {
     method: "post",
-    body: JSON.stringify(newUser),
+    body: JSON.stringify(nud),
     mode: "same-origin",
   })
     .then((response) => {

@@ -9,15 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-func init() {
-	nodeMsgHandlers[NK_User] = map[MK]func(Node, *Msg) *Msg{
-		MK_Update:     userUpdateHandler,
-		MK_GetParms:   userGetParmsHandler,
-		MK_GetCopy:    userGetNodeCopyHandler,
-		MK_GetDisplay: userGetDisplayHandler,
-	}
-}
-
 type UserParms struct {
 	ParmModel
 	Admin    bool
@@ -37,7 +28,7 @@ func (n *UserNode) run() {
 	slog.Debug("Running User node.", "node", n.Head.path)
 	for q := range n.In {
 		a := n.Head.handleMsg(n, q)
-		if a != nil && a.Kind == MK_Stopped {
+		if a != nil && a.Kind == M_Stop {
 			// Drain unsubscribe messages
 			for range len(n.Head.guiSubs) {
 				q := <-n.Head.In
@@ -102,18 +93,12 @@ func (n *UserNode) UnmarshalMsg(b io.ReadCloser) (m Msg, err error) {
 
 func userGetParmsHandler(ni Node, _ *Msg) *Msg {
 	n := ni.(*UserNode)
-	return &Msg{
-		Kind:    MK_Parms,
-		Payload: *n.Parms,
-	}
+	return &Msg{Kind: M_OK, Payload: *n.Parms}
 }
 
 func userGetNodeCopyHandler(ni Node, _ *Msg) *Msg {
 	ncp := *ni.(*UserNode)
-	return &Msg{
-		Kind:    MK_Parms,
-		Payload: ncp,
-	}
+	return &Msg{Kind: M_OK, Payload: ncp}
 }
 
 func userUpdateHandler(ni Node, m *Msg) (r *Msg) {
@@ -145,7 +130,7 @@ func userUpdateHandler(ni Node, m *Msg) (r *Msg) {
 	}
 	n.Parms = up
 	n.Head.updateGUIs()
-	return &OKMsg
+	return oka
 }
 
 // func (n *RootNode) setLogLevel() {
@@ -160,10 +145,5 @@ func userGetDisplayHandler(ni Node, _ *Msg) *Msg {
 		"Admin":    n.Parms.Admin,
 		"Password": "",
 	}
-	// slog.Debug("Display data returned by user node", "displayData", d)
-	r := &Msg{
-		Kind:    MK_Display,
-		Payload: d,
-	}
-	return r
+	return &Msg{Kind: M_OK, Payload: d}
 }

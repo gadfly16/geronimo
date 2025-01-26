@@ -19,12 +19,12 @@ func InitTree(sdb string, rp RootParms) (err error) {
 		slog.Error("Failed to create root node. Exiting.", "error", err.Error())
 		return
 	}
-	r := Tree.Sys.Root.Ask(MK_CreateChild, SystemUser, NK_Users, "Users")
-	if r.Kind == MK_Error {
+	r := Tree.Sys.Root.Ask(SystemUser, M_Create, NK_Users, "Users")
+	if r.Kind == M_Error {
 		return errors.New("init: users creation failed")
 	}
-	r = Tree.Sys.Root.Ask(MK_CreateChild, SystemUser, NK_Group, "System")
-	if r.Kind == MK_Error {
+	r = Tree.Sys.Root.Ask(SystemUser, M_Create, NK_Group, "System")
+	if r.Kind == M_Error {
 		return errors.New("init: system group creation failed")
 	}
 	return nil

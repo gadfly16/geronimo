@@ -38,7 +38,7 @@ var initCmd = &cobra.Command{
 		}
 		slog.Info("Waiting for goroutines to start. TODO")
 		time.Sleep(time.Millisecond * 100)
-		tree.Tree.Sys.Root.Ask(tree.MK_Stop, tree.SystemUser)
+		tree.Tree.Sys.Root.Ask(tree.SystemUser, tree.M_Stop)
 		if err := tree.CloseDB(); err != nil {
 			slog.Error("State db connection close failed.", "error", err)
 		}

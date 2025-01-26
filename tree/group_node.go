@@ -6,12 +6,6 @@ import (
 	"gorm.io/gorm"
 )
 
-func init() {
-	nodeMsgHandlers[NK_Group] = map[MK]func(Node, *Msg) *Msg{
-		MK_GetDisplay: groupGetDisplayHandler,
-	}
-}
-
 type GroupNode struct {
 	*Head
 }
@@ -32,7 +26,7 @@ func (n *GroupNode) run() {
 	slog.Debug("GROUP node starting up.", "node", n.Head.path)
 	for q := range n.Head.In {
 		a := n.Head.handleMsg(n, q)
-		if a != nil && a.Kind == MK_Stopped {
+		if a != nil && a.Kind == M_Stop {
 			// Sink unsubscribe messages
 			for range len(n.Head.guiSubs) {
 				q := <-n.Head.In
@@ -70,7 +64,7 @@ func groupGetDisplayHandler(ni Node, _ *Msg) *Msg {
 	// 	"Display Name": n.Parms.DisplayName,
 	// }
 	r := &Msg{
-		Kind:    MK_Display,
+		Kind:    M_OK,
 		Payload: d,
 	}
 	return r

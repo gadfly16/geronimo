@@ -8,14 +8,6 @@ import (
 	"gorm.io/gorm"
 )
 
-func init() {
-	nodeMsgHandlers[NK_Users] = map[MK]func(Node, *Msg) *Msg{
-		MK_CreateUser: createUserHandler,
-		MK_AuthUser:   authUserHandler,
-		MK_GetDisplay: usersGetDisplayHandler,
-	}
-}
-
 type UsersParms struct {
 	ParmModel
 	InvitationOnly bool
@@ -45,7 +37,7 @@ func (n *UsersNode) run() {
 	slog.Debug("USERS node starting up.", "node", n.Head.path)
 	for q := range n.Head.In {
 		a := n.Head.handleMsg(n, q)
-		if a != nil && a.Kind == MK_Stopped {
+		if a != nil && a.Kind == M_Stop {
 			// Drain unsubscribe messages
 			for range len(n.Head.guiSubs) {
 				q := <-n.Head.In
@@ -105,9 +97,9 @@ func createUserHandler(ni Node, m *Msg) (r *Msg) {
 	nu.Owner = nut
 	n.children[nu.Name] = nut
 
-	Tree.Sys.TreeUpdater.Notify(MK_TreeNodeCreate, SystemUser, nut, nu.Name, nut)
+	Tree.Sys.TreeUpdater.Notify(nut, M_Update_Tree, M_Create, nu.Name, nut)
 
-	return &Msg{Kind: MK_OK, Payload: nut}
+	return &Msg{Kind: M_OK, Payload: nut}
 }
 
 func authUserHandler(ni Node, q *Msg) (a *Msg) {
@@ -118,13 +110,13 @@ func authUserHandler(ni Node, q *Msg) (a *Msg) {
 	if !ok {
 		return NewErrorMsg(fmt.Errorf("user not found"))
 	}
-	up := u.Ask(MK_GetCopy, SystemUser).Payload.(UserNode)
+	up := u.Ask(SystemUser, M_Get_Copy).Payload.(UserNode)
 
 	err := bcrypt.CompareHashAndPassword(up.Parms.Password, uc.Parms.Password)
 	if err != nil {
 		return NewErrorMsg(err)
 	}
-	return &Msg{Kind: MK_Parms, Payload: up}
+	return &Msg{Kind: M_OK, Payload: up}
 }
 
 func usersGetDisplayHandler(ni Node, _ *Msg) *Msg {
@@ -134,7 +126,7 @@ func usersGetDisplayHandler(ni Node, _ *Msg) *Msg {
 		"Invitation Only": n.Parms.InvitationOnly,
 	}
 	r := &Msg{
-		Kind:    MK_Display,
+		Kind:    M_OK,
 		Payload: d,
 	}
 	return r

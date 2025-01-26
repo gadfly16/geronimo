@@ -9,14 +9,6 @@ import (
 
 var JwtKey []byte
 
-func init() {
-	nodeMsgHandlers[NK_Root] = map[MK]func(Node, *Msg) *Msg{
-		// msg.UpdateKind:   rootUpdateHandler,
-		MK_GetParms:   rootGetParmsHandler,
-		MK_GetDisplay: rootGetDisplayHandler,
-	}
-}
-
 type RootParms struct {
 	ParmModel
 	LogLevel int
@@ -45,7 +37,7 @@ func (n *RootNode) run() {
 	slog.Debug("ROOT node starting up.", "node", n.Head.path, "logLevel", n.Parms.LogLevel)
 	for q := range n.In {
 		a := n.Head.handleMsg(n, q)
-		if a != nil && a.Kind == MK_Stopped {
+		if a != nil && a.Kind == M_Stop {
 			// Drain unsubscribe messages
 			for range len(n.Head.guiSubs) {
 				q := <-n.Head.In
@@ -108,7 +100,7 @@ func initRootNode(rp *RootParms) (err error) {
 func rootGetParmsHandler(ni Node, m *Msg) (r *Msg) {
 	n := ni.(*RootNode)
 	return &Msg{
-		Kind:    MK_Parms,
+		Kind:    M_OK,
 		Payload: *n.Parms,
 	}
 }
@@ -120,7 +112,7 @@ func rootGetDisplayHandler(ni Node, _ *Msg) *Msg {
 	// 	"Display Name": n.Parms.DisplayName,
 	// }
 	r := &Msg{
-		Kind:    MK_Display,
+		Kind:    M_OK,
 		Payload: d,
 	}
 	return r

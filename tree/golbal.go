@@ -1,5 +1,25 @@
 package tree
 
+var oka = &Msg{Kind: M_OK}
+
+// TODO: We need to rename this to NNames.
+var Names = map[NK]string{
+	NK_Root:        "Root",
+	NK_Group:       "Group",
+	NK_User:        "User",
+	NK_Account:     "Account",
+	NK_Trader:      "Broker",
+	NK_TreeUpdater: "TreeUpdater",
+	NK_Users:       "Users",
+	NK_GUI:         "GUI",
+}
+
+type E struct{}
+
+type DC chan E
+
+type Pipe chan *Msg
+
 type NK int
 
 const (
@@ -13,79 +33,61 @@ const (
 	NK_GUI
 )
 
-var Names = map[NK]string{
-	NK_Root:        "Root",
-	NK_Group:       "Group",
-	NK_User:        "User",
-	NK_Account:     "Account",
-	NK_Trader:      "Broker",
-	NK_TreeUpdater: "TreeUpdater",
-	NK_Users:       "Users",
-	NK_GUI:         "GUI",
-}
-
 type MK = int
 
 const (
-	MK_OK MK = iota
-	MK_Error
-	MK_Stop
-	MK_Stopped
-	MK_Update
-	MK_Parms
-	MK_GetParms
-	MK_CreateChild // PL: [k nk.NK, nm string]
-	MK_AuthUser
-	MK_GetTree
-	MK_Tree
-	MK_GetCopy
-	MK_GetDisplay
-	MK_Display
-	MK_Subscribe
-	MK_Unsubscribe
-	MK_NodeUpdate
-	MK_Rename
-	MK_TreeNodeRename // PL: [t *Tag, nm string, ot *Tag]
+	M_OK MK = iota
+	M_Error
+
+	M_Create
+	M_Rename
+	M_Delete
+
+	M_Get_Parms
+	M_Get_Auth
+	M_Get_Tree
+	M_Get_Copy
+	M_Get_Display
+	M_Get_Child
+
+	M_Update_Parms
+	M_Update_GUI
+	M_Update_Tree
+
+	M_Subscribe
+	M_Unsubscribe
+
+	M_Stop
+
 	MK_UpdatePath
-	MK_RenameChild // PL: [nm string, nnm string]
-	MK_CreateUser
-	MK_SubscribeTree
-	MK_UnsubscribeTree
-	MK_TreeNodeCreate // PL: [t *Tag, nm string, ot *Tag]
-	MK_GetChild
 	MK_InitGUI
-	MK_DeleteChild
-	MK_TreeNodeDelete
 )
 
+// MNames is exported for logging purposes.
 var MKNames = map[MK]string{
-	MK_OK:              "OK",
-	MK_Error:           "Error",
-	MK_Stop:            "Stop",
-	MK_Stopped:         "Stopped",
-	MK_Update:          "Update",
-	MK_Parms:           "Parms",
-	MK_GetParms:        "GetParms",
-	MK_CreateChild:     "CreateChild",
-	MK_AuthUser:        "AuthUser",
-	MK_GetTree:         "GetTree",
-	MK_Tree:            "Tree",
-	MK_GetCopy:         "GetCopy",
-	MK_GetDisplay:      "GetDisplay",
-	MK_Display:         "Display",
-	MK_Subscribe:       "Subscribe",
-	MK_Unsubscribe:     "Unsubscribe",
-	MK_NodeUpdate:      "NodeUpdate",
-	MK_Rename:          "Rename",
-	MK_TreeNodeRename:  "TreeNodeRename",
-	MK_UpdatePath:      "UpdatePath",
-	MK_RenameChild:     "RenameChild",
-	MK_CreateUser:      "CreateUser",
-	MK_SubscribeTree:   "SubscribeTree",
-	MK_UnsubscribeTree: "UnsubscribeTree",
-	MK_TreeNodeCreate:  "TreeNodeCreate",
-	MK_GetChild:        "GetChild",
-	MK_InitGUI:         "InitGUI",
-	MK_DeleteChild:     "DeleteChild",
-	MK_TreeNodeDelete:  "TreeNodeDelete",
+	M_OK:    "OK",
+	M_Error: "Error",
+
+	M_Create: "Create",
+	M_Rename: "Rename",
+	M_Delete: "Delete",
+
+	M_Get_Parms:   "Get_Parms",
+	M_Get_Auth:    "Get_Auth",
+	M_Get_Tree:    "Get_Tree",
+	M_Get_Copy:    "Get_Copy",
+	M_Get_Display: "Get_Display",
+	M_Get_Child:   "Get_Child",
+
+	M_Update_Parms: "Update_Parms",
+	M_Update_GUI:   "Update_GUI",
+	M_Update_Tree:  "Update_Tree",
+
+	M_Subscribe:   "Subscribe",
+	M_Unsubscribe: "Unsubscribe",
+
+	M_Stop: "Stop",
+
+	MK_UpdatePath: "UpdatePath",
+	MK_InitGUI:    "InitGUI",
 }

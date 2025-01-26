@@ -5,19 +5,6 @@ import (
 	"log/slog"
 )
 
-func init() {
-	nodeMsgHandlers[NK_TreeUpdater] = map[MK]func(Node, *Msg) *Msg{
-		MK_GetDisplay:      treeUpdaterGetDisplayHandler,
-		MK_SubscribeTree:   subscribeTreeHandler,
-		MK_UnsubscribeTree: unsubscribeTreeHandler,
-		MK_TreeNodeRename:  treeNodeRenameHandler,
-		MK_TreeNodeCreate:  treeNodeCreateHandler,
-		MK_TreeNodeDelete:  treeNodeDeleteHandler,
-		// msg.UpdateKind:   rootUpdateHandler,
-		// msg.GetParmsKind: rootGetParmsHandler,
-	}
-}
-
 type TreeUpdaterNode struct {
 	*Head
 	treeSubGuis map[*Tag]map[*Tag]E
@@ -34,7 +21,7 @@ func (n *TreeUpdaterNode) run() {
 	slog.Debug("TU node starting up.", "node", n.Head.path)
 	for q := range n.Head.In {
 		a := n.Head.handleMsg(n, q)
-		if a != nil && a.Kind == MK_Stopped {
+		if a != nil && a.Kind == M_Stop {
 			// Sink unsubscribe messages
 			slog.Debug("TU number os subs on sinking.", "ngsubs", len(n.Head.guiSubs), "ntsguis", len(n.treeSubGuis))
 			nsg := 0
@@ -67,7 +54,7 @@ func treeUpdaterGetDisplayHandler(ni Node, _ *Msg) *Msg {
 	n := ni.(*TreeUpdaterNode)
 	d := n.Head.display()
 	r := &Msg{
-		Kind:    MK_Display,
+		Kind:    M_OK,
 		Payload: d,
 	}
 	return r
@@ -88,7 +75,7 @@ func subscribeTreeHandler(ni Node, q *Msg) *Msg {
 	n.treeSubGuis[ot][st] = E{}
 	slog.Debug("TU registered new GUI for updates.",
 		"ntsguis", len(n.treeSubGuis), "owner", st.ID, "in", st.In)
-	return &OKMsg
+	return oka
 }
 
 func unsubscribeTreeHandler(ni Node, q *Msg) *Msg {
@@ -104,7 +91,7 @@ func unsubscribeTreeHandler(ni Node, q *Msg) *Msg {
 		delete(n.treeSubGuis, ot)
 	}
 	slog.Debug("TU unregistered GUI from updates.", "ntsguis", len(n.treeSubGuis))
-	return &OKMsg
+	return oka
 }
 
 func treeNodeRenameHandler(ni Node, q *Msg) *Msg {

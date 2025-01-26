@@ -39,11 +39,11 @@ func socketHandler(w http.ResponseWriter, q *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	a := un.Ask(tree.MK_GetChild, u, "GUIs")
+	a := un.Ask(u, tree.M_Get_Child, "GUIs")
 
 	guis := a.Payload.(*tree.Tag)
 	done := make(tree.DC)
-	a = guis.Ask(tree.MK_CreateChild, u, tree.NK_GUI, "", c, done, cls.Admin)
+	a = guis.Ask(u, tree.M_Create, tree.NK_GUI, "", c, done, cls.Admin)
 
 	<-done
 }

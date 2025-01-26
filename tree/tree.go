@@ -76,8 +76,8 @@ func (t *nodeTree) LoadAndRun(sdb string) (err error) {
 		return errors.New("users node can not be found")
 	}
 
-	a := Tree.Sys.System.Ask(MK_CreateChild, SystemUser, NK_TreeUpdater, "TreeUpdater")
-	if a.Kind == MK_Error {
+	a := Tree.Sys.System.Ask(SystemUser, M_Create, NK_TreeUpdater, "TreeUpdater")
+	if a.Kind == M_Error {
 		return errors.New("startup: tree updater creation creation failed")
 	}
 	tu := a.Payload.(*Tag)
@@ -88,8 +88,8 @@ func (t *nodeTree) LoadAndRun(sdb string) (err error) {
 }
 
 func (t *nodeTree) Stop() (err error) {
-	a := Tree.Sys.Root.Ask(MK_Stop, SystemUser)
-	if a.Kind == MK_Error {
+	a := Tree.Sys.Root.Ask(SystemUser, M_Stop)
+	if a.Kind == M_Error {
 		return errors.New(a.Payload.(string))
 	}
 

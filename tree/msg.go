@@ -7,14 +7,6 @@ import (
 	"log/slog"
 )
 
-var OKMsg = Msg{Kind: MK_OK}
-
-type E struct{}
-
-type DC chan E
-
-type Pipe chan *Msg
-
 func (p Pipe) MarshalJSON() ([]byte, error) {
 	return json.Marshal("Pipe")
 }
@@ -22,12 +14,12 @@ func (p Pipe) MarshalJSON() ([]byte, error) {
 type Msg struct {
 	Kind    MK
 	User    *Tag
-	Payload any
+	Payload []any
 
 	resp Pipe
 }
 
-func (t *Tag) Ask(mk MK, u *Tag, pl ...any) Msg {
+func (t *Tag) Ask(u *Tag, mk MK, pl ...any) Msg {
 	// For sake of comfort, if there's only one payload, we'll use it directly.
 	var epl any = pl
 	if len(pl) == 1 {
@@ -49,7 +41,7 @@ func (t *Tag) AskMsg(m *Msg) Msg {
 	return *<-m.resp
 }
 
-func (t *Tag) Notify(mk MK, u *Tag, pl ...any) {
+func (t *Tag) Notify(u *Tag, mk MK, pl ...any) {
 	var epl any = pl
 	if len(pl) == 1 {
 		epl = pl[0]
@@ -84,18 +76,14 @@ func (q *Msg) AnswerMsg(a *Msg) {
 }
 
 func (q *Msg) AnswerOK() {
-	q.resp <- &OKMsg
+	q.resp <- oka
 }
 
 func NewErrorMsg(err error) *Msg {
 	return &Msg{
-		Kind:    MK_Error,
-		Payload: err.Error(),
+		Kind:    M_Error,
+		Payload: err,
 	}
-}
-
-func (m *Msg) ErrorMsg() string {
-	return m.Payload.(string)
 }
 
 func (m *Msg) KindName() string {
@@ -105,9 +93,9 @@ func (m *Msg) KindName() string {
 func UnmarshalMsg(k MK, b io.ReadCloser) (m *Msg, err error) {
 	m = &Msg{}
 	switch k {
-	case MK_Update:
+	case M_Update_Parms:
 		m.Payload = H{}
-	case MK_RenameChild, MK_CreateChild:
+	case M_Rename, M_Create:
 		m.Payload = []any{}
 	default:
 		m.Payload = nil
@@ -120,7 +108,7 @@ func UnmarshalMsg(k MK, b io.ReadCloser) (m *Msg, err error) {
 		return nil, err
 	}
 	m.Kind = k
-	if k == MK_CreateChild {
+	if k == M_Create {
 		// Now this is ugly...
 		pl := m.Payload.([]any)
 		plc := []any{MK(pl[0].(float64)), pl[1]}

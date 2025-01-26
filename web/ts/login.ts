@@ -7,17 +7,11 @@ window.onload = function () {
 
 function login(e: SubmitEvent) {
   const fd = new FormData(e.target as HTMLFormElement)
-  let ucn = {
-    Kind: nodeKinds.User,
-    Name: fd.get("Name"),
-    Parms: {
-      Password: btoa(fd.get("Password") as string),
-    },
-  }
+  let aud = [fd.get("Name"), btoa(fd.get("Password") as string)]
 
   fetch("/login", {
     method: "post",
-    body: JSON.stringify(ucn),
+    body: JSON.stringify(aud),
     mode: "same-origin",
   })
     .then((response) => {

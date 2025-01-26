@@ -10,20 +10,18 @@ import (
 	"gorm.io/gorm"
 )
 
-var nodeMsgHandlers = map[NK]map[MK]func(Node, *Msg) *Msg{}
-
-var commonMsgHandlers = map[MK]func(*Head, *Msg) *Msg{
-	MK_CreateChild: createChildHandler,
-	MK_Stop:        stopHandler,
-	MK_GetTree:     getTreeHandler,
-	MK_Subscribe:   subscribeHandler,
-	MK_Unsubscribe: unsubscribeHandler,
-	MK_Rename:      renameHandler,
-	MK_UpdatePath:  updatePathHandler,
-	MK_RenameChild: renameChildHandler,
-	MK_GetChild:    getChildHandler,
-	MK_DeleteChild: deleteChildHandler,
-}
+// var commonMsgHandlers = map[MK]func(*Head, *Msg) *Msg{
+// 	MK_CreateChild: createChildHandler,
+// 	MK_Stop:        stopHandler,
+// 	MK_GetTree:     getTreeHandler,
+// 	MK_Subscribe:   subscribeHandler,
+// 	MK_Unsubscribe: unsubscribeHandler,
+// 	MK_Rename:      renameHandler,
+// 	MK_UpdatePath:  updatePathHandler,
+// 	MK_RenameChild: renameChildHandler,
+// 	MK_GetChild:    getChildHandler,
+// 	MK_DeleteChild: deleteChildHandler,
+// }
 
 type Head struct {
 	*Tag
@@ -106,7 +104,7 @@ func (h *Head) handleMsg(n Node, q *Msg) (a *Msg) {
 	if ok {
 		a = cmh(h, q)
 		if a != nil {
-			if a.Kind == MK_Stopped {
+			if a.Kind == M_Stop {
 				slog.Debug("MSG answer for stop message delayed.", "node", n.getPath())
 				return
 			}
@@ -157,16 +155,16 @@ func createChildHandler(h *Head, m *Msg) (r *Msg) {
 	nn.setPath(h.path + "/" + nm)
 
 	if Tree.Sys.TreeUpdater != nil {
-		Tree.Sys.TreeUpdater.Notify(MK_TreeNodeCreate, SystemUser, nnt, nm, h.Owner)
+		Tree.Sys.TreeUpdater.Notify(SystemUser, M_Update_Tree, M_Create, nnt, nm, h.Owner)
 	}
 
 	slog.Debug("NODE created.", "node", nn.getPath(), "kind", nn.kindName())
-	return &Msg{Kind: MK_OK, Payload: nnt}
+	return &Msg{Kind: M_OK, Payload: nnt}
 }
 
 func stopHandler(h *Head, m *Msg) (r *Msg) {
 	h.askChildrenMsg(m)
-	return &Msg{Kind: MK_Stopped, Payload: h.ID}
+	return &Msg{Kind: M_Stop, Payload: h.ID}
 }
 
 func (h *Head) askChildren(k MK, u *Tag, pl ...any) {
@@ -204,7 +202,7 @@ func updatePathHandler(h *Head, m *Msg) (r *Msg) {
 	h.path = m.Payload.(string) + "/" + h.Name
 	h.askChildren(MK_UpdatePath, m.User, h.path)
 	h.updateGUIs()
-	return &OKMsg
+	return oka
 }
 
 func getChildHandler(h *Head, m *Msg) (r *Msg) {
@@ -213,7 +211,7 @@ func getChildHandler(h *Head, m *Msg) (r *Msg) {
 	if !ok {
 		return NewErrorMsg(fmt.Errorf("children '%s' not found", chnm))
 	}
-	return &Msg{Kind: MK_OK, Payload: ch}
+	return &Msg{Kind: M_OK, Payload: ch}
 }
 
 func getTreeHandler(h *Head, m *Msg) (r *Msg) {
@@ -232,7 +230,7 @@ func getTreeHandler(h *Head, m *Msg) (r *Msg) {
 	var cherr bool
 	for range len(h.children) {
 		chr := <-chm.resp
-		if chr.Kind == MK_Error {
+		if chr.Kind == M_Error {
 			cherr = true
 		} else {
 			tree.Children = append(tree.Children, chr.Payload.(*TreeEntry))
@@ -244,7 +242,7 @@ func getTreeHandler(h *Head, m *Msg) (r *Msg) {
 	}
 
 	r = &Msg{
-		Kind:    MK_Tree,
+		Kind:    M_OK,
 		Payload: tree}
 	return
 }
@@ -278,14 +276,11 @@ func renameChildHandler(h *Head, q *Msg) *Msg {
 		return NewErrorMsg(fmt.Errorf("node already has a children named '%s'", nnm))
 	}
 
-	a := ch.Ask(MK_Rename, q.User, nnm)
-	if a.Kind == MK_Error {
-		return &a
-	}
+	ch.Ask(q.User, M_Rename, "", nnm)
 
 	h.children[nnm] = ch
 	delete(h.children, nm)
-	return &OKMsg
+	return oka
 }
 
 func renameHandler(h *Head, m *Msg) (r *Msg) {
@@ -301,8 +296,8 @@ func renameHandler(h *Head, m *Msg) (r *Msg) {
 	h.path = strings.TrimSuffix(h.path, on) + nn
 	h.askChildren(MK_UpdatePath, m.User, h.path)
 	h.updateGUIs()
-	Tree.Sys.TreeUpdater.Notify(MK_TreeNodeRename, SystemUser, h.Tag, h.Name, h.Owner)
-	return &OKMsg
+	Tree.Sys.TreeUpdater.Notify(SystemUser, M_Update_Tree, M_Rename, h.Tag, h.Name, h.Owner)
+	return oka
 }
 
 func deleteChildHandler(h *Head, q *Msg) *Msg {
@@ -311,16 +306,16 @@ func deleteChildHandler(h *Head, q *Msg) *Msg {
 	if !ok {
 		return NewErrorMsg(fmt.Errorf("DELETE found no children named '%s'", nm))
 	}
-	a := ch.Ask(MK_Stop, q.User)
-	if a.Kind == MK_Error {
+	a := ch.Ask(q.User, M_Stop)
+	if a.Kind == M_Error {
 		slog.Error("HEAD couldn't delete child.", "node", h.path, "name", nm)
 		return &a
 	}
 
-	Tree.Sys.TreeUpdater.Notify(MK_TreeNodeDelete, SystemUser, ch, nm, h.Owner)
+	Tree.Sys.TreeUpdater.Notify(SystemUser, M_Update_Tree, M_Delete, ch, nm, h.Owner)
 
 	delete(h.children, nm)
-	return &OKMsg
+	return oka
 }
 
 func (h *Head) display() H {
@@ -340,6 +335,6 @@ func (h *Head) display() H {
 func (h *Head) updateGUIs() {
 	for gt := range h.guiSubs {
 		slog.Debug("sending updated msg to GUI", "gui_id", gt.ID)
-		gt.Notify(MK_NodeUpdate, SystemUser, h.Tag)
+		gt.Notify(SystemUser, M_Update_GUI, h.Tag)
 	}
 }

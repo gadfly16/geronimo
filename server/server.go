@@ -43,7 +43,16 @@ func Serve(sdb string) (err error) {
 		slog.Error("Tree loading failed. Quitting.", "error", err)
 		return
 	}
-	rp := tree.Tree.Sys.Root.Ask(tree.MK_GetParms, tree.SystemUser).Payload.(tree.RootParms)
+
+	rp, err := tree.GetServerParms()
+	if err != nil {
+		slog.Error("Server settings not received.", "error", err)
+		err = tree.Tree.Stop()
+		if err != nil {
+			slog.Error("Tree stop failed.", "error", err)
+		}
+		return
+	}
 	slog.Debug("Server settings received")
 
 	srv := &http.Server{Addr: rp.HTTPAddr, Handler: service()}
@@ -251,7 +260,7 @@ func apiMsgHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If the request is to get the tree, tree is served from the root node
-	if q.Kind == tree.MK_GetTree && cls.Admin {
+	if q.Kind == tree.M_Get_Tree && cls.Admin {
 		tid = 1
 	}
 
@@ -269,8 +278,8 @@ func apiMsgHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a := t.AskMsg(q)
-	if a.Kind == tree.MK_Error {
-		slog.Error("HTTP API message resulted in error.", "error", a.Payload.(string))
+	if a.Kind == tree.M_Error {
+		slog.Error("HTTP API message resulted in error.", "err", a.Payload.(error))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -280,62 +289,53 @@ func apiMsgHandler(w http.ResponseWriter, r *http.Request) {
 
 func signupHandler(w http.ResponseWriter, r *http.Request) {
 	slog.Info("HTTP received new SIGNUP attempt.")
-	un := &tree.UserNode{}
+	nud := []any{"", "", ""}
 	d := json.NewDecoder(r.Body)
-	if err := d.Decode(un); err != nil {
-		slog.Error("SIGNUP can't unmarshall new user node.", "error", err)
+	if err := d.Decode(nud); err != nil {
+		slog.Error("SIGNUP can't unmarshall new user data.", "err", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	a := tree.Tree.Sys.Users.Ask(tree.MK_CreateUser, tree.SystemUser, un)
-	if a.Kind == tree.MK_Error {
-		slog.Error("SIGNUP user creation failed.", "error", a.ErrorMsg())
+	err := tree.CreateUser(nud[0].(string), nud[1].(string), nud[2].(string))
+	if err != nil {
+		slog.Error("SIGNUP user creation failed.", "err", err)
 		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	nu := a.Payload.(*tree.Tag)
-	a = nu.Ask(tree.MK_CreateChild, nu, tree.NK_Group, "GUIs")
-	if a.Kind == tree.MK_Error {
-		slog.Error("SIGNUP user GUIs creation failed.", "error", a.ErrorMsg())
-		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	slog.Info("SIGNUP created a new user.", "name", un.Head.Name)
 }
 
-func loginHandler(w http.ResponseWriter, q *http.Request) {
+func loginHandler(w http.ResponseWriter, r *http.Request) {
 	slog.Info("LOGIN new attempt.")
-	ucn := tree.NewNodeKind(tree.NK_User).(*tree.UserNode)
-	d := json.NewDecoder(q.Body)
-	if err := d.Decode(ucn); err != nil {
-		slog.Error("Can't unmarshall login user node", "error", err)
+	aud := []any{"", ""}
+	d := json.NewDecoder(r.Body)
+	if err := d.Decode(aud); err != nil {
+		slog.Error("Can't unmarshall login user data", "err", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	slog.Debug("AUTH unmarshalled credentials user node", "Name", ucn.Head.Name)
-	// Magic number must be replaced with a stored pipe on Tree
-	r := tree.Tree.Sys.Users.Ask(tree.MK_AuthUser, tree.SystemUser, ucn)
-	if r.Kind == tree.MK_Error {
-		slog.Error("LOGIN user authentication failed.", "error", r.ErrorMsg())
+	slog.Debug("LOGIN unmarshalled auth user data.", "name", aud[0])
+
+	uid, uadm, err := tree.AuthUser(aud[0].(string), aud[1].(string))
+	if err != nil {
+		slog.Error("LOGIN user authentication failed.", "err", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	up := r.Payload.(tree.UserNode)
 	exp := time.Now().Add(expirationDuration)
 	claims := &claims{
-		Admin: up.Parms.Admin,
+		Admin: uadm,
 		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:   strconv.Itoa(int(up.ID)),
+			Subject:   strconv.Itoa(int(uid)),
 			ExpiresAt: jwt.NewNumericDate(exp),
 		},
 	}
 
 	st, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(tree.JwtKey)
 	if err != nil {
-		slog.Error("LOGIN user authentication failed.", "error", r.ErrorMsg())
+		slog.Error("LOGIN user authentication failed.", "err", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -350,5 +350,5 @@ func loginHandler(w http.ResponseWriter, q *http.Request) {
 		SameSite: http.SameSiteStrictMode,
 	})
 	w.WriteHeader(http.StatusOK)
-	slog.Info("LOGIN successful.", "name", ucn.Head.Name)
+	slog.Info("LOGIN successful.", "uid", uid)
 }
