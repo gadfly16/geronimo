@@ -18,7 +18,7 @@ func (h *Head) KindName() string {
 func NewNodeKind(k NK) Node {
 	switch k {
 	case NK_Root:
-		return &RootNode{Head: &Head{Tag: &Tag{Kind: NK_Root}, Name: "Root", Owner: SystemUser}}
+		return &RootNode{Head: &Head{Tag: &Tag{Kind: NK_Root, Owner: SystemUser}, Name: "Root"}}
 	case NK_Group:
 		return &GroupNode{Head: &Head{Tag: &Tag{Kind: NK_Group}}}
 	case NK_User:

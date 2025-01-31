@@ -8,17 +8,9 @@ import (
 )
 
 // System user is a special user that can do anything.
-var SystemUser = &Tag{0, NK_User, nil, true, nil}
+var SystemUser = &Tag{0, NK_User, nil, true, nil, nil}
 
 type NodeID int
-
-type Tag struct {
-	ID     NodeID `gorm:"primarykey"`
-	Kind   NK
-	In     Pipe `gorm:"-"`
-	Admin  bool `gorm:"-"`
-	Parent *Tag `gorm:"-"`
-}
 
 var Tree = nodeTree{
 	nodes: make(map[NodeID]*Tag),
@@ -66,12 +58,12 @@ func (t *nodeTree) LoadAndRun(sdb string) (err error) {
 
 	// Still not very nice..
 	var ok bool
-	Tree.Sys.Users, ok = Tree.GetNode(2)
+	Tree.Sys.Users, ok = getNode(2)
 	if !ok {
 		return errors.New("users node can not be found")
 	}
 
-	Tree.Sys.System, ok = Tree.GetNode(3)
+	Tree.Sys.System, ok = getNode(3)
 	if !ok {
 		return errors.New("users node can not be found")
 	}
@@ -100,10 +92,10 @@ func (t *nodeTree) Stop() (err error) {
 	return err
 }
 
-func (tr *nodeTree) GetNode(id NodeID) (*Tag, bool) {
-	tr.nodesLock.RLock()
-	nt, ok := tr.nodes[id]
-	tr.nodesLock.RUnlock()
+func getNode(id NodeID) (*Tag, bool) {
+	Tree.nodesLock.RLock()
+	nt, ok := Tree.nodes[id]
+	Tree.nodesLock.RUnlock()
 	return nt, ok
 }
 

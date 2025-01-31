@@ -1,14 +1,29 @@
 package tree
 
+import (
+	"fmt"
+)
+
 // import (
 // 	"fmt"
 // )
 
-// // Message handler function
-// type HF func(Node, *Msg) *Msg
+// Message handler function
+type HF func(Node, *Msg) *Msg
 
-// // Message map
-// type MM []MT
+// Payload prototypes
+var payloadProtos []any = []any{
+	M_Get_Tree:    nil,
+	M_Get_Display: nil,
+	M_Create:      []any{NK_Noop, "", H{}},
+	M_Rename:      []any{"", ""},
+	M_Delete:      []any{""},
+}
+
+var msgHandlers []HF = []HF{
+	M_Create: createHandler,
+	M_Stop:   stopHandler,
+}
 
 // type MT struct {
 // 	hf  HF
@@ -36,36 +51,16 @@ package tree
 // // 	},
 // // }
 
-// func (h *Head) handleMsg(n Node, q *Msg) (a *Msg) {
-// 	switch hl := msgHandlers[q.Kind].(type) {
-// 	case nil:
-// 		break
-// 	case MM:
-// 	out:
-// 		for _, pl := range q.Payload {
-// 			smk, ok := pl.(MK)
-// 			if !ok {
-// 				break
-// 			}
-// 			mme, ok := hl[smk]
-// 			if !ok {
-// 				break
-// 			}
-// 			switch mmet := mme.(type) {
-// 			case HF:
-// 				return mmet(n, q)
-// 			case MM:
-// 				hl = mmet
-// 				continue
-// 			default:
-// 				break out
-// 			}
-// 		}
-// 	case HF:
-// 		return hl(n, q)
-// 	}
-// 	return NewErrorMsg(fmt.Errorf("no handler for msg kind: %v", q.Kind))
-// }
+func (h *Head) handleMsg(n Node, q *Msg) (a *Msg) {
+	if q.User != h.Owner && !q.User.Admin {
+		return NewErrorMsg(fmt.Errorf("unathorized message"))
+	}
+	hf := msgHandlers[q.Kind]
+	if hf == nil {
+		return NewErrorMsg(fmt.Errorf("no handler for msg kind: %v", q.Kind))
+	}
+	return hf(n, q)
+}
 
 // func stopHandler(n Node, q *Msg) (a *Msg) {
 // 	n.head().askChildrenMsg(q)
@@ -84,3 +79,7 @@ package tree
 // func getAuthHandler(h *Head, q *Msg) (a *Msg) {
 // 	return oka
 // }
+
+func createHandler(h *Head, q *Msg) (a *Msg) {
+	return oka
+}

@@ -121,7 +121,7 @@ func service() http.Handler {
 
 	r.Route("/api", func(r chi.Router) {
 		r.Use(authFetch)
-		r.Post("/msg/{msg_kind}/{target_id}", apiMsgHandler)
+		r.Post("/msg/{msg_kind}/{tid}", apiMsgHandler)
 	})
 
 	return r
@@ -232,23 +232,16 @@ func apiMsgHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	tid, err := strconv.Atoi(chi.URLParam(r, "target_id"))
+	tid, err := strconv.Atoi(chi.URLParam(r, "tid"))
 	if err != nil {
 		slog.Error("invalid target node ID")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	k, err := strconv.Atoi(chi.URLParam(r, "msg_kind"))
-	if err != nil {
-		slog.Error("invalid message kind")
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
 
 	slog.Debug("HTTP API message call.",
-		"targetID", tid,
-		"msgKind", tree.MKNames[k],
 		"uid", uid,
+		"tid", tid,
 		"admin", cls.Admin,
 	)
 
@@ -266,7 +259,7 @@ func apiMsgHandler(w http.ResponseWriter, r *http.Request) {
 
 	t, ok := tree.Tree.GetNode(tree.NodeID(tid))
 	if !ok {
-		slog.Error("HTTP target node doesn't exists", "target_id", tid)
+		slog.Error("HTTP target node doesn't exists", "tid", tid)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}

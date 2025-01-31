@@ -61,7 +61,7 @@ out:
 			switch wm.Kind {
 			case SubscribeWsMsgKind:
 				if wm.NodeID != n.ID {
-					sn, ok := Tree.GetNode(wm.NodeID)
+					sn, ok := getNode(wm.NodeID)
 					if !ok {
 						slog.Error("subscribing to nonexisting node", "node_id", wm.NodeID)
 						break out
@@ -71,7 +71,7 @@ out:
 				n.subNodes[wm.NodeID] = E{}
 			case UnsubscribeWsMsgKind:
 				if wm.NodeID != n.ID {
-					sn, ok := Tree.GetNode(wm.NodeID)
+					sn, ok := getNode(wm.NodeID)
 					if !ok {
 						slog.Error("unsubscribing from nonexisting node", "node_id", wm.NodeID)
 						break out
@@ -101,7 +101,7 @@ out:
 				for nid := range n.subNodes {
 					if nid != n.Head.ID {
 						go func() {
-							sn, ok := Tree.GetNode(nid)
+							sn, ok := getNode(nid)
 							if !ok {
 								slog.Error("GUI unsubscribe from nonexisting node.", "node_id", nid)
 								return

@@ -10,18 +10,14 @@ import (
 	"gorm.io/gorm"
 )
 
-// var commonMsgHandlers = map[MK]func(*Head, *Msg) *Msg{
-// 	MK_CreateChild: createChildHandler,
-// 	MK_Stop:        stopHandler,
-// 	MK_GetTree:     getTreeHandler,
-// 	MK_Subscribe:   subscribeHandler,
-// 	MK_Unsubscribe: unsubscribeHandler,
-// 	MK_Rename:      renameHandler,
-// 	MK_UpdatePath:  updatePathHandler,
-// 	MK_RenameChild: renameChildHandler,
-// 	MK_GetChild:    getChildHandler,
-// 	MK_DeleteChild: deleteChildHandler,
-// }
+type Tag struct {
+	ID     NodeID `gorm:"primarykey"`
+	Kind   NK
+	In     Pipe `gorm:"-"`
+	Admin  bool `gorm:"-"`
+	Parent *Tag `gorm:"-"`
+	Owner  *Tag `gorm:"-"`
+}
 
 type Head struct {
 	*Tag
@@ -30,8 +26,7 @@ type Head struct {
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 
-	Name  string
-	Owner *Tag `gorm:"-"`
+	Name string
 
 	path     string
 	children map[string]*Tag
@@ -42,7 +37,7 @@ type Head struct {
 func (h *Head) load() (nt *Tag, err error) {
 	h.In = make(Pipe)
 	var ok bool
-	h.Parent, ok = Tree.GetNode(h.ParentID)
+	h.Parent, ok = getNode(h.ParentID)
 	if !ok && h.ParentID != 0 {
 		return nil, fmt.Errorf("parent (%d) not found for node (%d)", h.ParentID, h.ID)
 	}
@@ -81,46 +76,46 @@ func (h *Head) initNew() {
 	Tree.PutNode(h.ID, h.Tag)
 }
 
-func (h *Head) handleMsg(n Node, q *Msg) (a *Msg) {
-	if q.User != h.Owner && !q.User.Admin {
-		slog.Debug("MSG unauthorized.", "n", h.path, "no", h.Owner.ID, "qu", q.User.ID, "qua", q.User.Admin, "qk", q.KindName())
-		return NewErrorMsg(fmt.Errorf("unathorized request"))
-	}
-	slog.Debug("MSG received.", "node", n.getPath(), "kind", q.KindName())
+// func (h *Head) handleMsg(n Node, q *Msg) (a *Msg) {
+// 	if q.User != h.Owner && !q.User.Admin {
+// 		slog.Debug("MSG unauthorized.", "n", h.path, "no", h.Owner.ID, "qu", q.User.ID, "qua", q.User.Admin, "qk", q.KindName())
+// 		return NewErrorMsg(fmt.Errorf("unathorized request"))
+// 	}
+// 	slog.Debug("MSG received.", "node", n.getPath(), "kind", q.KindName())
 
-	nmh, ok := nodeMsgHandlers[h.Kind][q.Kind]
-	if ok {
-		a = nmh(n, q)
-		if a != nil {
-			q.AnswerMsg(a)
-			slog.Debug("MSG answered.", "node", n.getPath(), "qKind", q.KindName(), "aKind", a.KindName())
-		} else {
-			slog.Debug("MSG notification handled.", "node", n.getPath(), "qKind", q.KindName())
-		}
-		return
-	}
+// 	nmh, ok := nodeMsgHandlers[h.Kind][q.Kind]
+// 	if ok {
+// 		a = nmh(n, q)
+// 		if a != nil {
+// 			q.AnswerMsg(a)
+// 			slog.Debug("MSG answered.", "node", n.getPath(), "qKind", q.KindName(), "aKind", a.KindName())
+// 		} else {
+// 			slog.Debug("MSG notification handled.", "node", n.getPath(), "qKind", q.KindName())
+// 		}
+// 		return
+// 	}
 
-	cmh, ok := commonMsgHandlers[q.Kind]
-	if ok {
-		a = cmh(h, q)
-		if a != nil {
-			if a.Kind == M_Stop {
-				slog.Debug("MSG answer for stop message delayed.", "node", n.getPath())
-				return
-			}
-			q.AnswerMsg(a)
-			slog.Debug("MSG common answered.",
-				"node", n.getPath(), "qKind", q.KindName(), "aKind", a.KindName())
-		} else {
-			slog.Debug("MSG common notification handled.",
-				"node", n.getPath(), "qKind", q.KindName())
-		}
-		return
-	}
+// 	cmh, ok := commonMsgHandlers[q.Kind]
+// 	if ok {
+// 		a = cmh(h, q)
+// 		if a != nil {
+// 			if a.Kind == M_Stop {
+// 				slog.Debug("MSG answer for stop message delayed.", "node", n.getPath())
+// 				return
+// 			}
+// 			q.AnswerMsg(a)
+// 			slog.Debug("MSG common answered.",
+// 				"node", n.getPath(), "qKind", q.KindName(), "aKind", a.KindName())
+// 		} else {
+// 			slog.Debug("MSG common notification handled.",
+// 				"node", n.getPath(), "qKind", q.KindName())
+// 		}
+// 		return
+// 	}
 
-	slog.Error("MSG no appropriate handler found.", "node", h.path, "qKind", q.KindName())
-	return NewErrorMsg(fmt.Errorf("no appropriate handler found for %s on %s", q.KindName(), h.KindName()))
-}
+// 	slog.Error("MSG no appropriate handler found.", "node", h.path, "qKind", q.KindName())
+// 	return NewErrorMsg(fmt.Errorf("no appropriate handler found for %s on %s", q.KindName(), h.KindName()))
+// }
 
 func createChildHandler(h *Head, m *Msg) (r *Msg) {
 	pl := m.Payload.([]any)
@@ -140,25 +135,26 @@ func createChildHandler(h *Head, m *Msg) (r *Msg) {
 	if nn == nil {
 		return NewErrorMsg(fmt.Errorf("node kind '%s' not implemented yet", Names[nnk]))
 	}
-	nn.setKind(nnk)
-	nn.setName(nm)
-	nn.setParentID(h.Tag)
-	nn.setOwnerID(h.Owner)
+	nn.head().Kind = nnk
+	nn.head().Name = nm
+	nn.head().ParentID = h.Tag.ID
+	nn.head().Parent = h.Tag
+	nn.head().Owner = h.Owner
 
 	nnt, err := nn.create(pl[2:])
 	if err != nil {
 		return NewErrorMsg(err)
 	}
 	//Name might have been changed by create.
-	nm = nn.getName()
+	nm = nn.head().Name
 	h.children[nm] = nnt
-	nn.setPath(h.path + "/" + nm)
+	nn.head().path = h.path + "/" + nm
 
 	if Tree.Sys.TreeUpdater != nil {
 		Tree.Sys.TreeUpdater.Notify(SystemUser, M_Update_Tree, M_Create, nnt, nm, h.Owner)
 	}
 
-	slog.Debug("NODE created.", "node", nn.getPath(), "kind", nn.kindName())
+	slog.Debug("NODE created.", "node", nn.head().path, "kind", nn.kindName())
 	return &Msg{Kind: M_OK, Payload: nnt}
 }
 

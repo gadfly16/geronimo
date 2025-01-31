@@ -14,7 +14,7 @@ func (p Pipe) MarshalJSON() ([]byte, error) {
 type Msg struct {
 	Kind    MK
 	User    *Tag
-	Payload []any
+	Payload any
 
 	resp Pipe
 }

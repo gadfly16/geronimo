@@ -1,6 +1,25 @@
 package tree
 
-import "log/slog"
+import (
+	"fmt"
+	"io"
+	"log/slog"
+)
+
+func AskJSON(tid, uid NodeID, b io.ReadCloser) (err error) {
+	t, ok := getNode(tid)
+	if !ok {
+		return fmt.Errorf("target node can not be found")
+	}
+	u, ok := getNode(uid)
+	if !ok {
+		return fmt.Errorf("user node can not be found")
+	}
+	if t.Owner != u && !u.Admin {
+		return fmt.Errorf("unauthorized message")
+	}
+	return nil
+}
 
 func GetServerParms() (rp RootParms, err error) {
 	a := Tree.Sys.Root.Ask(SystemUser, M_Get_Parms)

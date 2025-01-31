@@ -1,19 +1,5 @@
 package tree
 
-var oka = &Msg{Kind: M_OK}
-
-// TODO: We need to rename this to NNames.
-var Names = map[NK]string{
-	NK_Root:        "Root",
-	NK_Group:       "Group",
-	NK_User:        "User",
-	NK_Account:     "Account",
-	NK_Trader:      "Broker",
-	NK_TreeUpdater: "TreeUpdater",
-	NK_Users:       "Users",
-	NK_GUI:         "GUI",
-}
-
 type E struct{}
 
 type DC chan E
@@ -31,9 +17,25 @@ const (
 	NK_TreeUpdater
 	NK_Users
 	NK_GUI
+
+	NK_Noop
 )
 
+// TODO: We need to rename this to NNames.
+var Names = map[NK]string{
+	NK_Root:        "Root",
+	NK_Group:       "Group",
+	NK_User:        "User",
+	NK_Account:     "Account",
+	NK_Trader:      "Broker",
+	NK_TreeUpdater: "TreeUpdater",
+	NK_Users:       "Users",
+	NK_GUI:         "GUI",
+}
+
 type MK = int
+
+var oka = &Msg{Kind: M_OK}
 
 const (
 	M_OK MK = iota
