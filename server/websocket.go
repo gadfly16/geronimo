@@ -27,23 +27,11 @@ func socketHandler(w http.ResponseWriter, q *http.Request) {
 	}
 	defer c.CloseNow()
 
-	un, ok := tree.Tree.GetNode(tree.NodeID(uid))
-	if !ok {
-		slog.Error("invalid user ID")
-		w.WriteHeader(http.StatusBadRequest)
+	err = tree.RunGUIClient(uid, c)
+	if err != nil {
+		slog.Error("GUI couldn't start client.", "err", err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	u, ok := tree.Tree.GetNode(tree.NodeID(uid))
-	if !ok {
-		slog.Error("Can't get User node.")
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	a := un.Ask(u, tree.M_Get_Child, "GUIs")
-
-	guis := a.Payload.(*tree.Tag)
-	done := make(tree.DC)
-	a = guis.Ask(u, tree.M_Create, tree.NK_GUI, "", c, done, cls.Admin)
-
-	<-done
+	w.WriteHeader(http.StatusOK)
 }

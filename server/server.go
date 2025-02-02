@@ -121,7 +121,7 @@ func service() http.Handler {
 
 	r.Route("/api", func(r chi.Router) {
 		r.Use(authFetch)
-		r.Post("/msg/{msg_kind}/{tid}", apiMsgHandler)
+		r.Post("/msg/{mk}/{tid}", apiMsgHandler)
 	})
 
 	return r
@@ -225,66 +225,40 @@ func authFetch(next http.Handler) http.Handler {
 }
 
 func apiMsgHandler(w http.ResponseWriter, r *http.Request) {
-	cls := r.Context().Value(ctxClaims).(*claims)
-	uid, err := strconv.Atoi(cls.Subject)
+	uid, err := strconv.Atoi(r.Context().Value(ctxClaims).(*claims).Subject)
 	if err != nil {
-		slog.Error("invalid user ID")
+		slog.Error("invalid user ID", "err", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	tid, err := strconv.Atoi(chi.URLParam(r, "tid"))
 	if err != nil {
-		slog.Error("invalid target node ID")
+		slog.Error("invalid target node ID", "err", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-
-	slog.Debug("HTTP API message call.",
-		"uid", uid,
-		"tid", tid,
-		"admin", cls.Admin,
-	)
-
-	q, err := tree.UnmarshalMsg(k, r.Body)
+	mk, err := strconv.Atoi(chi.URLParam(r, "mk"))
 	if err != nil {
-		slog.Error("can't unmarshal message payload", "error", err)
+		slog.Error("invalid message kind", "err", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	slog.Debug("HTTP API message call.", "uid", uid, "tid", tid, "mk", mk)
 
-	// If the request is to get the tree, tree is served from the root node
-	if q.Kind == tree.M_Get_Tree && cls.Admin {
-		tid = 1
-	}
-
-	t, ok := tree.Tree.GetNode(tree.NodeID(tid))
-	if !ok {
-		slog.Error("HTTP target node doesn't exists", "tid", tid)
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	q.User, ok = tree.Tree.GetNode(tree.NodeID(uid))
-	if !ok {
-		slog.Error("HTTP user node doesn't exists.", "user_id", uid)
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	a := t.AskMsg(q)
-	if a.Kind == tree.M_Error {
-		slog.Error("HTTP API message resulted in error.", "err", a.Payload.(error))
+	pl, err := tree.AskJSON(tid, uid, mk, r.Body)
+	if err != nil {
+		slog.Error("HTTP API message resulted in error.", "err", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
-	render.JSON(w, r, a.Payload)
+	render.JSON(w, r, pl)
 }
 
 func signupHandler(w http.ResponseWriter, r *http.Request) {
 	slog.Info("HTTP received new SIGNUP attempt.")
 	nud := []any{"", "", ""}
 	d := json.NewDecoder(r.Body)
-	if err := d.Decode(nud); err != nil {
+	if err := d.Decode(&nud); err != nil {
 		slog.Error("SIGNUP can't unmarshall new user data.", "err", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -303,7 +277,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	slog.Info("LOGIN new attempt.")
 	aud := []any{"", ""}
 	d := json.NewDecoder(r.Body)
-	if err := d.Decode(aud); err != nil {
+	if err := d.Decode(&aud); err != nil {
 		slog.Error("Can't unmarshall login user data", "err", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return

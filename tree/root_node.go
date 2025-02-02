@@ -36,7 +36,7 @@ func (n *RootNode) run() {
 
 	slog.Debug("ROOT node starting up.", "node", n.Head.path, "logLevel", n.Parms.LogLevel)
 	for q := range n.In {
-		a := n.Head.handleMsg(n, q)
+		a := handleMsg(n, q)
 		if a != nil && a.Kind == M_Stop {
 			// Drain unsubscribe messages
 			for range len(n.Head.guiSubs) {
@@ -47,8 +47,7 @@ func (n *RootNode) run() {
 			break
 		}
 	}
-
-	slog.Info("Stopped Root node.")
+	slog.Info("ROOT stopped.")
 }
 
 func (nt *RootNode) loadBody(h *Head) (n Node, err error) {
@@ -91,13 +90,13 @@ func (n *RootNode) create(_ []any) (_ *Tag, err error) {
 }
 
 func initRootNode(rp *RootParms) (err error) {
-	root := NewNodeKind(NK_Root).(*RootNode)
+	root := newNode(NK_Root).(*RootNode)
 	root.Parms = rp
 	_, err = root.create(nil)
 	return err
 }
 
-func rootGetParmsHandler(ni Node, m *Msg) (r *Msg) {
+func rootGetParmsHandler(ni Node, _ *Msg) (r *Msg) {
 	n := ni.(*RootNode)
 	return &Msg{
 		Kind:    M_OK,

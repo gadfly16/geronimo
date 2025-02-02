@@ -36,7 +36,7 @@ func (n *UsersNode) run() {
 
 	slog.Debug("USERS node starting up.", "node", n.Head.path)
 	for q := range n.Head.In {
-		a := n.Head.handleMsg(n, q)
+		a := handleMsg(n, q)
 		if a != nil && a.Kind == M_Stop {
 			// Drain unsubscribe messages
 			for range len(n.Head.guiSubs) {
@@ -47,7 +47,6 @@ func (n *UsersNode) run() {
 			break
 		}
 	}
-
 	slog.Info("Stopped Users node.", "node", n.path)
 }
 

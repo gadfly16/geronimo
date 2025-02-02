@@ -91,7 +91,7 @@ out:
 				break out
 			}
 		case q := <-n.In:
-			a := n.Head.handleMsg(n, q)
+			a := handleMsg(n, q)
 			if a != nil && a.Kind == M_Stop {
 				// Stop satelites
 				// stopGuiCtx()

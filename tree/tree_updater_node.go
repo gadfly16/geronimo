@@ -20,7 +20,7 @@ func (n *TreeUpdaterNode) run() {
 
 	slog.Debug("TU node starting up.", "node", n.Head.path)
 	for q := range n.Head.In {
-		a := n.Head.handleMsg(n, q)
+		a := handleMsg(n, q)
 		if a != nil && a.Kind == M_Stop {
 			// Sink unsubscribe messages
 			slog.Debug("TU number os subs on sinking.", "ngsubs", len(n.Head.guiSubs), "ntsguis", len(n.treeSubGuis))

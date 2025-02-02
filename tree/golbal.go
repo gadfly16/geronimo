@@ -22,7 +22,7 @@ const (
 )
 
 // TODO: We need to rename this to NNames.
-var Names = map[NK]string{
+var NKNames = map[NK]string{
 	NK_Root:        "Root",
 	NK_Group:       "Group",
 	NK_User:        "User",

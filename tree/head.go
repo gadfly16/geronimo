@@ -45,7 +45,7 @@ func (h *Head) load() (nt *Tag, err error) {
 	if h.Kind == NK_User {
 		h.Owner = h.Tag
 	}
-	n, err := KindTemplates[h.Kind].loadBody(h)
+	n, err := nkTemplates[h.Kind].loadBody(h)
 	if err != nil {
 		return
 	}
@@ -116,52 +116,6 @@ func (h *Head) initNew() {
 // 	slog.Error("MSG no appropriate handler found.", "node", h.path, "qKind", q.KindName())
 // 	return NewErrorMsg(fmt.Errorf("no appropriate handler found for %s on %s", q.KindName(), h.KindName()))
 // }
-
-func createChildHandler(h *Head, m *Msg) (r *Msg) {
-	pl := m.Payload.([]any)
-	nnk := pl[0].(NK)
-	nnm := pl[1].(string)
-	if nnk == NK_Root || nnk == NK_User {
-		return NewErrorMsg(fmt.Errorf("%s kind can not be created", Names[nnk]))
-	}
-	nm := nnm
-	if nm == "" {
-		nm = ("New" + Names[nnk])
-	}
-	if _, ok := h.children[nm]; ok {
-		return NewErrorMsg(fmt.Errorf("node '%s' already exists", nm))
-	}
-	nn := NewNodeKind(nnk)
-	if nn == nil {
-		return NewErrorMsg(fmt.Errorf("node kind '%s' not implemented yet", Names[nnk]))
-	}
-	nn.head().Kind = nnk
-	nn.head().Name = nm
-	nn.head().ParentID = h.Tag.ID
-	nn.head().Parent = h.Tag
-	nn.head().Owner = h.Owner
-
-	nnt, err := nn.create(pl[2:])
-	if err != nil {
-		return NewErrorMsg(err)
-	}
-	//Name might have been changed by create.
-	nm = nn.head().Name
-	h.children[nm] = nnt
-	nn.head().path = h.path + "/" + nm
-
-	if Tree.Sys.TreeUpdater != nil {
-		Tree.Sys.TreeUpdater.Notify(SystemUser, M_Update_Tree, M_Create, nnt, nm, h.Owner)
-	}
-
-	slog.Debug("NODE created.", "node", nn.head().path, "kind", nn.kindName())
-	return &Msg{Kind: M_OK, Payload: nnt}
-}
-
-func stopHandler(h *Head, m *Msg) (r *Msg) {
-	h.askChildrenMsg(m)
-	return &Msg{Kind: M_Stop, Payload: h.ID}
-}
 
 func (h *Head) askChildren(k MK, u *Tag, pl ...any) {
 	var epl any = pl

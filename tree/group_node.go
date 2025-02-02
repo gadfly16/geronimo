@@ -25,7 +25,7 @@ func (n *GroupNode) run() {
 
 	slog.Debug("GROUP node starting up.", "node", n.Head.path)
 	for q := range n.Head.In {
-		a := n.Head.handleMsg(n, q)
+		a := handleMsg(n, q)
 		if a != nil && a.Kind == M_Stop {
 			// Sink unsubscribe messages
 			for range len(n.Head.guiSubs) {

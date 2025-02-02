@@ -10,7 +10,7 @@ import (
 // System user is a special user that can do anything.
 var SystemUser = &Tag{0, NK_User, nil, true, nil, nil}
 
-type NodeID int
+type NodeID = int
 
 var Tree = nodeTree{
 	nodes: make(map[NodeID]*Tag),
