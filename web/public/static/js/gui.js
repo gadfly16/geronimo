@@ -141,7 +141,7 @@ class GUI {
         this.nodes.set(node.ID, node);
     }
     fetchTree(nodeID) {
-        ask(msgKinds.GetTree, nodeID, null, (treeData) => {
+        ask(msgKinds.Get_Tree, nodeID, null, (treeData) => {
             this.tree = new Node(treeData);
             this.htmlTreeView.appendChild(this.tree.renderTree());
             this.updateSelection();
@@ -280,7 +280,7 @@ class Node {
     }
     updateDisplay() {
         console.log(`Updating node ${this.ID}.`);
-        ask(msgKinds.GetDisplay, this.ID, null, (displayData) => {
+        ask(msgKinds.Get_Display, this.ID, null, (displayData) => {
             var _a;
             if (displayData.error)
                 throw new Error(displayData.error);
@@ -289,7 +289,7 @@ class Node {
     }
     select() {
         this.htmlTreeElem.classList.add("selected");
-        ask(msgKinds.GetDisplay, this.ID, null, (displayData) => {
+        ask(msgKinds.Get_Display, this.ID, null, (displayData) => {
             console.log(`Display data received:`, displayData);
             if (displayData.error)
                 throw new Error(displayData.error);
@@ -418,8 +418,8 @@ class NodeDisplay {
         na.style.display = "block";
         ra.style.display = "none";
         i.blur();
-        ask(msgKinds.RenameChild, gui.nodes.get(this.ID).ParentID, [this.name, i.value], (a) => {
-            console.log(a);
+        ask(msgKinds.Rename, gui.nodes.get(this.ID).ParentID, [this.name, i.value], (a) => {
+            console.log("Rename request answer: ", a);
         });
     }
     renderChildren() {
@@ -446,7 +446,7 @@ class NodeDisplay {
         const n = t.textContent;
         const nk = nodeKindIDs[n];
         console.log("clicked create child:", n, this.ID);
-        ask(msgKinds.CreateChild, this.ID, [nk, ""], (r) => {
+        ask(msgKinds.Create, this.ID, [nk, ""], (r) => {
             console.log(r);
         });
     }
@@ -557,7 +557,7 @@ class ParameterForm {
             }
         }
         console.log("newParms:", newParms);
-        ask(msgKinds.Update, this.nodeDisplay.ID, newParms, (response) => {
+        ask(msgKinds.Update_Parms, this.nodeDisplay.ID, newParms, (response) => {
             var _a;
             const diffs = this.htmlParmForm.querySelectorAll(".changed");
             for (const delem of diffs) {

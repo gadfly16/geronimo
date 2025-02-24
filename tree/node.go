@@ -4,6 +4,32 @@ import (
 	"time"
 )
 
+type NK int
+
+const (
+	NK_Root NK = iota
+	NK_Group
+	NK_User
+	NK_Account
+	NK_Trader
+	NK_TreeUpdater
+	NK_Users
+	NK_GUI
+
+	NK_Noop
+)
+
+// TODO: We need to rename this to NNames.
+var NKNames = map[NK]string{
+	NK_Root:        "Root",
+	NK_Group:       "Group",
+	NK_User:        "User",
+	NK_Account:     "Account",
+	NK_Trader:      "Broker",
+	NK_TreeUpdater: "TreeUpdater",
+	NK_Users:       "Users",
+	NK_GUI:         "GUI",
+}
 var nkTemplates = map[NK]Node{
 	NK_Root:        &RootNode{},
 	NK_Group:       &GroupNode{},
@@ -49,13 +75,38 @@ type Node interface {
 	kindName() string
 }
 
+type parmer interface {
+	Node
+	getParms() any
+	updateParms(H) error
+}
+
+type creator interface {
+	Node
+	allowedChildren(NK) bool
+}
+
+type displayer interface {
+	Node
+	getDisplay(H) H
+}
+
+type provider interface {
+	Node
+	subscribe(pl []any)
+	unsubscribe(pl []any)
+}
+
+type treeRefresher interface {
+	Node
+	refreshTree(q *Msg)
+}
+
 type ParmModel struct {
 	ID        int `gorm:"primarykey"`
 	CreatedAt time.Time
 	HeadID    NodeID
 }
-
-type H map[string]interface{}
 
 func (h *Head) head() *Head {
 	return h

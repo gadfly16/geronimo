@@ -27,5 +27,10 @@ func InitTree(sdb string, rp RootParms) (err error) {
 	if r.Kind == M_Error {
 		return errors.New("init: system group creation failed")
 	}
+
+	if err = CloseDB(); err != nil {
+		slog.Error("DB failed to close.", "err", err)
+		return
+	}
 	return nil
 }

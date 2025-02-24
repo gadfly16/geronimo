@@ -57,15 +57,6 @@ func (n *GroupNode) create(_ []any) (_ *Tag, err error) {
 	return n.Head.Tag, nil
 }
 
-func groupGetDisplayHandler(ni Node, _ *Msg) *Msg {
-	n := ni.(*GroupNode)
-	d := n.Head.display()
-	// d["Parms"] = display{
-	// 	"Display Name": n.Parms.DisplayName,
-	// }
-	r := &Msg{
-		Kind:    M_OK,
-		Payload: d,
-	}
-	return r
+func (n *GroupNode) allowedChildren(nk NK) bool {
+	return nk != NK_Root && nk != NK_User
 }

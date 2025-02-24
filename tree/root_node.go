@@ -96,38 +96,13 @@ func initRootNode(rp *RootParms) (err error) {
 	return err
 }
 
-func rootGetParmsHandler(ni Node, _ *Msg) (r *Msg) {
-	n := ni.(*RootNode)
-	return &Msg{
-		Kind:    M_OK,
-		Payload: *n.Parms,
-	}
+func (n *RootNode) allowedChildren(nk NK) bool {
+	return nk == NK_Group || nk == NK_Users
 }
 
-func rootGetDisplayHandler(ni Node, _ *Msg) *Msg {
-	n := ni.(*RootNode)
-	d := n.Head.display()
-	// d["Parms"] = display{
-	// 	"Display Name": n.Parms.DisplayName,
-	// }
-	r := &Msg{
-		Kind:    M_OK,
-		Payload: d,
-	}
-	return r
+func (n *RootNode) getParms() any {
+	return *n.Parms
 }
-
-// func rootUpdateHandler(ni Node, m *Msg) (r *Msg) {
-// if v, ok := m.Payload["parms"]; ok {
-// 	if n.Parms, ok = v.(*RootParms); !ok {
-// 		return fmt.Errorf("update failed: wrong parms type %T", n.Parms)
-// 	}
-// }
-// Db.Transaction(func(tx *gorm.DB) error {
-// 	return nil
-// })
-// 	return
-// }
 
 func (n *RootNode) getDisplay() (d H) {
 	d = H{
@@ -138,4 +113,19 @@ func (n *RootNode) getDisplay() (d H) {
 
 func (n *RootNode) setLogLevel() {
 	LogLevel.Set(slog.Level(n.Parms.LogLevel))
+}
+
+func (n *RootNode) updateParms(pl H) (err error) {
+	n.Parms.LogLevel = pl["LogLevel"].(int)
+	err = Db.Transaction(func(tx *gorm.DB) (err error) {
+		if err = tx.Create(n.Parms).Error; err != nil {
+			return err
+		}
+		return
+	})
+	if err != nil {
+		return
+	}
+	n.updateGUIs()
+	return
 }

@@ -2,6 +2,7 @@ package tree
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -11,21 +12,25 @@ import (
 
 // Payload prototypes
 var payloadProtos []any = []any{
-	M_Get_Tree:    nil,
-	M_Get_Display: nil,
-	M_Create:      []any{NK_Noop, "", H{}},
-	M_Rename:      []any{"", ""},
-	M_Delete:      []any{""},
+	M_Get_Tree:     nil,
+	M_Get_Display:  nil,
+	M_Create:       []any{0, "", H{}},
+	M_Rename:       []any{"", ""},
+	M_Delete:       []any{""},
+	M_Update_Parms: H{},
 }
 
 func AskJSON(tid, uid NodeID, mk MK, plr io.ReadCloser) (pl any, err error) {
-	t, ok := getNode(tid)
-	if !ok {
-		return nil, fmt.Errorf("target node can not be found")
-	}
 	u, ok := getNode(uid)
 	if !ok {
 		return nil, fmt.Errorf("user node can not be found")
+	}
+	if mk == M_Get_Tree && u.Admin {
+		tid = 1
+	}
+	t, ok := getNode(tid)
+	if !ok {
+		return nil, fmt.Errorf("target node can not be found")
 	}
 	if t.Owner != u && !u.Admin {
 		return nil, fmt.Errorf("unauthorized message")
@@ -33,16 +38,13 @@ func AskJSON(tid, uid NodeID, mk MK, plr io.ReadCloser) (pl any, err error) {
 	q := &Msg{
 		Kind:    mk,
 		Payload: payloadProtos[mk],
+		User:    u,
 	}
 	if q.Payload != nil {
-		err = json.NewDecoder(plr).Decode(q.Payload)
+		err = json.NewDecoder(plr).Decode(&q.Payload)
 		if err != nil {
 			return nil, err
 		}
-	}
-	// If the request is to get the tree, tree is served from the root node
-	if q.Kind == M_Get_Tree && u.Admin {
-		tid = 1
 	}
 	a := t.AskMsg(q)
 	return a.Payload, nil
@@ -62,7 +64,7 @@ func CreateUser(nm, email, pwd string) error {
 	if a.Kind == M_Error {
 		return a.Payload.(error)
 	}
-	nu := a.Payload.(*Tag)
+	nu, _ := getNode(a.Payload.(NodeID))
 	a = nu.Ask(nu, M_Create, NK_Group, "GUI")
 	if a.Kind == M_Error {
 		return a.Payload.(error)
@@ -93,4 +95,57 @@ func RunGUIClient(uid NodeID, c *websocket.Conn) (err error) {
 	}
 	<-done
 	return
+}
+
+func (t *nodeTree) LoadAndRun(sdb string) (err error) {
+	if ok := FileExists(sdb); !ok {
+		return fmt.Errorf("database '%s' doesn't exist", sdb)
+	}
+	if err = connectDB(sdb); err != nil {
+		return
+	}
+
+	rh := &Head{}
+	if err = Db.First(rh, 1).Error; err != nil {
+		return
+	}
+	rh.path = "/Root"
+	rh.Owner = SystemUser
+	Tree.Sys.Root, err = rh.load()
+	if err != nil {
+		return
+	}
+	slog.Info("Created Root node.", "path", rh.path)
+
+	// Still not very nice..
+	var ok bool
+	Tree.Sys.Users, ok = getNode(2)
+	if !ok {
+		return errors.New("users node can not be found")
+	}
+	Tree.Sys.System, ok = getNode(3)
+	if !ok {
+		return errors.New("users node can not be found")
+	}
+
+	a := Tree.Sys.System.Ask(SystemUser, M_Create, NK_TreeUpdater, "TreeUpdater")
+	if a.Kind == M_Error {
+		return fmt.Errorf("tree updater creation failed: %w", a.Payload.(error))
+	}
+	tu, _ := getNode(a.Payload.(NodeID))
+	Tree.Sys.TreeUpdater = tu
+
+	slog.Info("Node tree initialized.", "nnodes", Tree.LenNodes())
+	return
+}
+
+func Stop() (err error) {
+	a := Tree.Sys.Root.Ask(SystemUser, M_Stop)
+	if a.Kind == M_Error {
+		return errors.New(a.Payload.(string))
+	}
+	if err = CloseDB(); err != nil {
+		slog.Error("couldn't close database.", "err", err)
+	}
+	return err
 }

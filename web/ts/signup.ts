@@ -6,8 +6,8 @@ window.onload = function () {
 }
 
 function signup(e: SubmitEvent) {
-  const data = new FormData(e.target as HTMLFormElement)
-  let nud = [data.get("Name"), data.get("Email"), btoa(data.get("Password") as string)]
+  const fd = new FormData(e.target as HTMLFormElement)
+  let nud = [fd.get("Name"), fd.get("Email"), fd.get("Password")]
 
   fetch("/signup", {
     method: "post",

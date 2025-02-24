@@ -3,8 +3,8 @@ window.onload = function () {
     document.getElementById("signup-form").onsubmit = signup;
 };
 function signup(e) {
-    const data = new FormData(e.target);
-    let nud = [data.get("Name"), data.get("Email"), btoa(data.get("Password"))];
+    const fd = new FormData(e.target);
+    let nud = [fd.get("Name"), fd.get("Email"), fd.get("Password")];
     fetch("/signup", {
         method: "post",
         body: JSON.stringify(nud),

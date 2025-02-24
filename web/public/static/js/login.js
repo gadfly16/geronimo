@@ -4,7 +4,7 @@ window.onload = function () {
 };
 function login(e) {
     const fd = new FormData(e.target);
-    let aud = [fd.get("Name"), btoa(fd.get("Password"))];
+    let aud = [fd.get("Name"), fd.get("Password")];
     fetch("/login", {
         method: "post",
         body: JSON.stringify(aud),

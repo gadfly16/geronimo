@@ -2,10 +2,66 @@ package tree
 
 import (
 	"encoding/json"
-	"fmt"
-	"io"
-	"log/slog"
 )
+
+type MK = int
+
+var oka = &Msg{Kind: M_OK}
+
+const (
+	M_OK MK = iota
+	M_Error
+
+	M_Create
+	M_Rename
+	M_Delete
+
+	M_Get_Parms
+	M_Get_Auth
+	M_Get_Tree
+	M_Get_Display
+	M_Get_Child
+
+	M_Update_Parms
+
+	M_Refresh_Node
+	M_Refresh_Tree
+
+	M_Subscribe
+	M_Unsubscribe
+
+	M_Stop
+
+	M_UpdatePath
+)
+
+// MNames is exported for logging purposes.
+var MKNames = map[MK]string{
+	M_OK:    "OK",
+	M_Error: "Error",
+
+	M_Create: "Create",
+	M_Rename: "Rename",
+	M_Delete: "Delete",
+
+	M_Get_Parms:   "Get_Parms",
+	M_Get_Auth:    "Get_Auth",
+	M_Get_Tree:    "Get_Tree",
+	M_Get_Display: "Get_Display",
+	M_Get_Child:   "Get_Child",
+
+	M_Update_Parms: "Update_Parms",
+
+	M_Refresh_Node: "Refresh_Node",
+	M_Refresh_Tree: "Refresh_Tree",
+
+	M_Subscribe:   "Subscribe",
+	M_Unsubscribe: "Unsubscribe",
+
+	M_Stop: "Stop",
+
+	M_UpdatePath: "UpdatePath",
+}
 
 func (p Pipe) MarshalJSON() ([]byte, error) {
 	return json.Marshal("Pipe")
@@ -19,7 +75,7 @@ type Msg struct {
 	resp Pipe
 }
 
-func (t *Tag) Ask(u *Tag, mk MK, pl ...any) Msg {
+func (t *Tag) Ask(u *Tag, mk MK, pl ...any) *Msg {
 	// For sake of comfort, if there's only one payload, we'll use it directly.
 	var epl any = pl
 	if len(pl) == 1 {
@@ -32,7 +88,7 @@ func (t *Tag) Ask(u *Tag, mk MK, pl ...any) Msg {
 		resp:    make(Pipe),
 	}
 	t.In <- m
-	return *<-m.resp
+	return <-m.resp
 }
 
 func (t *Tag) AskMsg(m *Msg) Msg {
@@ -88,32 +144,4 @@ func NewErrorMsg(err error) *Msg {
 
 func (m *Msg) KindName() string {
 	return MKNames[m.Kind]
-}
-
-func UnmarshalMsg(k MK, b io.ReadCloser) (m *Msg, err error) {
-	m = &Msg{}
-	switch k {
-	case M_Update_Parms:
-		m.Payload = H{}
-	case M_Rename, M_Create:
-		m.Payload = []any{}
-	default:
-		m.Payload = nil
-	}
-	if m.Payload != nil {
-		d := json.NewDecoder(b)
-		err = d.Decode(&m.Payload)
-	}
-	if err != nil {
-		return nil, err
-	}
-	m.Kind = k
-	if k == M_Create {
-		// Now this is ugly...
-		pl := m.Payload.([]any)
-		plc := []any{MK(pl[0].(float64)), pl[1]}
-		m.Payload = plc
-		slog.Debug("JSON message unparshaled.", "m", m, "pl0type", fmt.Sprintf("%T", m.Payload.([]any)[0]))
-	}
-	return
 }

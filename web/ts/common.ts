@@ -6,33 +6,28 @@ export interface msg {
 export enum msgKinds {
   OK = 0,
   Error,
-  Stop,
-  Stopped,
-  Update,
-  Parms,
-  GetParms,
-  CreateChild, // nk.NK, nm
-  AuthUser,
-  GetTree,
-  Tree,
-  GetCopy,
-  GetDisplay,
-  Display,
+
+  Create, // nk.NK, nm
+  Rename,
+  Delete,
+
+  Get_Parms,
+  Get_Auth,
+  Get_Tree,
+  Get_Display,
+  Get_Child,
+
+  Update_Parms,
+  Update_GUI,
+  Update_Tree,
+
   Subscribe,
   Unsubscribe,
-  NodeUpdate,
-  Rename,
-  TreeNodeRename,
+
+  Stop,
+
   UpdatePath,
-  RenameChild,
-  CreateUser,
-  SubscribeTree,
-  UnsubscribeTree,
-  TreeNodeCreate,
-  GetChild,
   InitGUI,
-  DeleteChild,
-  TreeNodeDelete,
 }
 
 export enum WSMsg {

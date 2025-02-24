@@ -47,7 +47,7 @@ func Serve(sdb string) (err error) {
 	rp, err := tree.GetServerParms()
 	if err != nil {
 		slog.Error("Server settings not received.", "error", err)
-		err = tree.Tree.Stop()
+		err = tree.Stop()
 		if err != nil {
 			slog.Error("Tree stop failed.", "error", err)
 		}
@@ -95,7 +95,7 @@ func Serve(sdb string) (err error) {
 
 	// Wait for server context to be stopped
 	<-srvCtx.Done()
-	tree.Tree.Stop()
+	tree.Stop()
 
 	slog.Info("PROC exiting server.")
 	// time.Sleep(time.Second)
@@ -243,7 +243,7 @@ func apiMsgHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	slog.Debug("HTTP API message call.", "uid", uid, "tid", tid, "mk", mk)
+	slog.Debug("HTTP API message call.", "uid", uid, "tid", tid, "mk", tree.MKNames[mk])
 
 	pl, err := tree.AskJSON(tid, uid, mk, r.Body)
 	if err != nil {

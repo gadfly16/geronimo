@@ -30,26 +30,6 @@ func (t *UsersNode) loadBody(h *Head) (n Node, err error) {
 	return gn, nil
 }
 
-func (n *UsersNode) run() {
-	defer close(n.Head.In)
-	defer Tree.RemoveNode(n.Head.ID)
-
-	slog.Debug("USERS node starting up.", "node", n.Head.path)
-	for q := range n.Head.In {
-		a := handleMsg(n, q)
-		if a != nil && a.Kind == M_Stop {
-			// Drain unsubscribe messages
-			for range len(n.Head.guiSubs) {
-				q := <-n.Head.In
-				q.AnswerOK()
-			}
-			q.AnswerMsg(a)
-			break
-		}
-	}
-	slog.Info("Stopped Users node.", "node", n.path)
-}
-
 func (n *UsersNode) create(_ []any) (_ *Tag, err error) {
 	err = Db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&n.Head).Error; err != nil {
@@ -69,64 +49,50 @@ func (n *UsersNode) create(_ []any) (_ *Tag, err error) {
 	return n.Head.Tag, nil
 }
 
-func createUserHandler(ni Node, m *Msg) (r *Msg) {
-	n := ni.(*UsersNode)
-	nu := m.Payload.(*UserNode)
-	if nu.Kind != NK_User {
-		return NewErrorMsg(fmt.Errorf("user node kind isn't userKind"))
-	}
-	if nu.Name == "" {
-		return NewErrorMsg(fmt.Errorf("new user node must have a name"))
-	}
-	if _, ok := n.children[nu.Name]; ok {
-		return NewErrorMsg(fmt.Errorf("user node '%s' already exists", nu.Name))
-	}
-	nu.Parent = n.Tag
-	nu.ParentID = n.ID
-	nu.path = n.path + "/" + nu.Name
-	if len(n.children) == 0 {
-		nu.Parms.Admin = true
-	}
+func (n *UsersNode) run() {
+	defer close(n.Head.In)
+	defer Tree.RemoveNode(n.Head.ID)
 
-	nut, err := nu.create(nil)
-	if err != nil {
-		return NewErrorMsg(err)
+	slog.Debug("USERS node starting up.", "node", n.Head.path)
+	for q := range n.Head.In {
+		a := handleMsg(n, q)
+		if a != nil && a.Kind == M_Stop {
+			// Drain unsubscribe messages
+			for range len(n.Head.guiSubs) {
+				q := <-n.Head.In
+				q.AnswerOK()
+			}
+			q.AnswerMsg(a)
+			break
+		}
 	}
-	nu.Admin = nu.Parms.Admin
-	nu.Owner = nut
-	n.children[nu.Name] = nut
-
-	Tree.Sys.TreeUpdater.Notify(nut, M_Update_Tree, M_Create, nu.Name, nut)
-
-	return &Msg{Kind: M_OK, Payload: nut}
+	slog.Info("USERS stopped.", "node", n.path)
 }
 
-func authUserHandler(ni Node, q *Msg) (a *Msg) {
-	n := ni.(*UsersNode)
-	uc := q.Payload.(*UserNode)
-	slog.Debug("AUTH getting User from children", "name", uc.Head.Name)
-	u, ok := n.children[uc.Head.Name]
+func (n *UsersNode) authUser(pl any) (*Tag, error) {
+	pls := pl.([]any)
+	nm := pls[0].(string)
+	pwd := pls[1].(string)
+	u, ok := n.children[nm]
 	if !ok {
-		return NewErrorMsg(fmt.Errorf("user not found"))
+		return nil, fmt.Errorf("user not found")
 	}
-	up := u.Ask(SystemUser, M_Get_Copy).Payload.(UserNode)
-
-	err := bcrypt.CompareHashAndPassword(up.Parms.Password, uc.Parms.Password)
+	up := u.Ask(SystemUser, M_Get_Parms).Payload.(UserParms)
+	slog.Debug("auth:", "pwd", pwd, "spwd", up.Password)
+	err := bcrypt.CompareHashAndPassword(up.Password, []byte(pwd))
 	if err != nil {
-		return NewErrorMsg(err)
+		return nil, err
 	}
-	return &Msg{Kind: M_OK, Payload: up}
+	return u, nil
 }
 
-func usersGetDisplayHandler(ni Node, _ *Msg) *Msg {
-	n := ni.(*UsersNode)
-	d := n.Head.display()
+func (n *UsersNode) getDisplay(d H) H {
 	d["Parms"] = H{
 		"Invitation Only": n.Parms.InvitationOnly,
 	}
-	r := &Msg{
-		Kind:    M_OK,
-		Payload: d,
-	}
-	return r
+	return d
+}
+
+func (n *UsersNode) allowedChildren(nnk NK) bool {
+	return nnk == NK_User
 }

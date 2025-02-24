@@ -7,7 +7,7 @@ window.onload = function () {
 
 function login(e: SubmitEvent) {
   const fd = new FormData(e.target as HTMLFormElement)
-  let aud = [fd.get("Name"), btoa(fd.get("Password") as string)]
+  let aud = [fd.get("Name"), fd.get("Password")]
 
   fetch("/login", {
     method: "post",
