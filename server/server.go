@@ -112,7 +112,7 @@ func service() http.Handler {
 	})
 
 	r.With(authPage).Get("/gui", guiHandler())
-	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("web/public/static"))))
+	r.Handle("/web/*", http.StripPrefix("/web/", http.FileServer(http.Dir("gui/"))))
 
 	r.Post("/signup", signupHandler)
 	r.Post("/login", loginHandler)
@@ -128,7 +128,7 @@ func service() http.Handler {
 }
 
 func guiHandler() http.HandlerFunc {
-	tmplGUI, err := template.ParseFiles("./web/public/tmpl/gui.html")
+	tmplGUI, err := template.ParseFiles("./gui/tmpl/gui.html")
 	if err != nil {
 		panic("couldn't load gui template")
 	}
@@ -169,7 +169,7 @@ func authPage(next http.Handler) http.Handler {
 		et, err := r.Cookie(authCookie)
 		if err != nil {
 			slog.Error("HTTP page auth request without cookie.", "URL", r.URL)
-			http.Redirect(w, r, "/static/login.html", http.StatusTemporaryRedirect)
+			http.Redirect(w, r, "/web/old/login.html", http.StatusTemporaryRedirect)
 			return
 		}
 
@@ -178,7 +178,7 @@ func authPage(next http.Handler) http.Handler {
 		})
 		if err != nil {
 			slog.Error("HTTP unable to parse cookie.", "URL", r.URL)
-			http.Redirect(w, r, "/static/login.html", http.StatusTemporaryRedirect)
+			http.Redirect(w, r, "/web/old/login.html", http.StatusTemporaryRedirect)
 			return
 		}
 
@@ -189,7 +189,7 @@ func authPage(next http.Handler) http.Handler {
 			return
 		}
 		slog.Error("HTTP rejected page authorization.", "URL", r.URL)
-		http.Redirect(w, r, "/static/login.html", http.StatusTemporaryRedirect)
+		http.Redirect(w, r, "/web/old/login.html", http.StatusTemporaryRedirect)
 	})
 }
 

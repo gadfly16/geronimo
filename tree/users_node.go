@@ -78,7 +78,6 @@ func (n *UsersNode) authUser(pl any) (*Tag, error) {
 		return nil, fmt.Errorf("user not found")
 	}
 	up := u.Ask(SystemUser, M_Get_Parms).Payload.(UserParms)
-	slog.Debug("auth:", "pwd", pwd, "spwd", up.Password)
 	err := bcrypt.CompareHashAndPassword(up.Password, []byte(pwd))
 	if err != nil {
 		return nil, err

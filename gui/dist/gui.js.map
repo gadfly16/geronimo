@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../src/main.ts"],
+  "sourcesContent": ["console.log(\"up and running for user\", window.UserID)\n"],
+  "mappings": ";;;AAAA,UAAQ,IAAI,2BAA2B,OAAO,MAAM;",
+  "names": []
+}

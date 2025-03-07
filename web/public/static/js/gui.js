@@ -30,10 +30,10 @@ function removeChangeAlert(e) {
     const t = e.target;
     t.classList.remove("changeAlert");
 }
-// UI Globals
+// Globals
 let gui;
 // This is not jQuery, but a helper function to turn a html string into a HTMLElement
-let _dollarRegexp = /^\s+|\s+$|(?<=\>)\s+(?=\<)/gm;
+const _dollarRegexp = /^\s+|\s+$|(?<=\>)\s+(?=\<)/gm;
 function $(html) {
     const template = document.createElement("template");
     template.innerHTML = html.replace(_dollarRegexp, "");
@@ -436,9 +436,7 @@ class NodeDisplay {
         </div>
       </div>
     `);
-        const mis = elem
-            .querySelector(".newChildrenMenu")
-            .addEventListener("click", this.createChild.bind(this));
+        const mis = elem.querySelector(".newChildrenMenu").addEventListener("click", this.createChild.bind(this));
         return elem;
     }
     createChild(ev) {
