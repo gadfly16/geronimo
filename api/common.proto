@@ -1,0 +1,11 @@
+   syntax = "proto3";
+
+   package geronimo.api;
+   option go_package = "github.com/yourusername/geronimo/api";
+
+   message APIMsg {
+     int32 kind = 1;
+     int64 user = 2;
+     int64 target = 3;
+     int64 timestamp = 4;
+   }

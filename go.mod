@@ -4,6 +4,7 @@ go 1.22.3
 
 require (
 	github.com/go-chi/chi/v5 v5.0.14
+	google.golang.org/protobuf v1.36.5
 	gorm.io/gorm v1.25.10
 )
 

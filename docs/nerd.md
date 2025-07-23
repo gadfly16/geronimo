@@ -1,7 +1,7 @@
 # The Nerd Architecture
 
 ## Introduction
-Nerd impements a performant, reliable and persistent *tree* of concurrently running *nodes*, that communicate with eachother through message passing.
+Nerd impements a performant, reliable and persistent *tree* of concurrently running *nodes*, that communicate with each other through message passing.
 
 ### Performance
 Nerd is fast enough to build useful applications on a RPI3B+.
