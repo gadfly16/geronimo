@@ -1,6 +1,6 @@
-# Introduction
+# Geronimo - An Introduction
 
-Geronimo is a personal asset rebalancer application that can connect to your cryptocurrency exchange accounts and autonomously trade on markets on your behalf. While most crypto trading tools are about gaining an edge over the market, Geronimo looks at trading as a community effort where individual traders are providing liquidity concurrently to the ecosystem while earning a consistent return in exchange. Geronimo only implements one strategy called Stochastic Proportional Rebalancer (SPR) that is carefully designed for this exact use case. Geronimo is the end result of more than ten years of thinking about cryptocurrencies and experimenting with mining, staking and trading them, so understanding why it is the way it is might need some effort and patience.
+Geronimo is a personal asset rebalancer application that can connect to your cryptocurrency exchange accounts and autonomously trade on markets on your behalf. While most crypto trading tools are about gaining an edge over the market, Geronimo looks at trading as a community effort where individual traders are providing liquidity concurrently to the ecosystem while earning a consistent return in exchange. Geronimo only implements one strategy called Stochastic Proportional Rebalancer (SPR) that is carefully designed for this exact use case. Geronimo is the end result of more than ten years of thinking about cryptocurrencies and experimenting with mining, staking and trading them. Understanding why Geronimo is the way it is might need some effort and patience on the user's side, so please read this document carefully to decide if Geronimo is right choice for you.
 
 ## Rebalancing
 
